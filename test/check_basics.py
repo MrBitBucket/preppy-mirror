@@ -4,9 +4,9 @@
 # Basic test suite for Preppy.py
 # See check_load.py for load testing
 
-# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_basics.py,v 1.10 2000/11/20 14:39:42 john Exp $
-# $Author: john $ (John Precedo - johnp@reportlab.com)
-# $Date: 2000/11/20 14:39:42 $
+# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_basics.py,v 1.11 2002/04/13 16:02:33 robin Exp $
+# $Author: robin $ (John Precedo - johnp@reportlab.com)
+# $Date: 2002/04/13 16:02:33 $
 
 
 import os, glob, string, random
@@ -115,8 +115,8 @@ class SimpleTestCase(unittest.TestCase):
         tempDict={'temp':'temporary variable'}
 
         # this way it goes to the string
-        #import cStringIO
-        #f = cStringIO.StringIO()
+        #from reportlab.lib.utils import getStringIO
+        #f = getStringIO()
         #mod.run(tempDict, outputfile=f)
         #f.seek(0)
         #output = f.read()
