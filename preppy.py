@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.23 2002/04/18 14:54:49 aaron Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.24 2002/04/19 11:16:24 john Exp $
 """preppy - a Python preprocessor.
 
 This is the Python equivalent of ASP or JSP - a preprocessor which lets you
@@ -740,7 +740,7 @@ def getModule(name,
             module = __import__(name)
             checksum = module.__checksum__
             if verbose: print "found...",
-        except # ImportError:  #catch ALL Errors importing the module (eg name="")
+        except: # ImportError:  #catch ALL Errors importing the module (eg name="")
             module = checksum = None
             if verbose: print " py/pyc not found...",
             # check against source file
