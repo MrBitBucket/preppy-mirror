@@ -1,12 +1,11 @@
-# copyright ReportLab Inc. 2000
+# Copyright ReportLab Europe Ltd. 2000-2004
 # see license.txt for license details
 
 # Load testing/ Stress testing suite for Preppy.py
 # See check_basics.py for basic testing
 
-# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_load.py,v 1.2 2000/11/20 14:39:42 john Exp $
-# $Author: john $ (John Precedo - johnp@reportlab.com)
-# $Date: 2000/11/20 14:39:42 $
+# $Author$ (John Precedo - johnp@reportlab.com)
+# $Date$
 
 
 import os, glob, string, random

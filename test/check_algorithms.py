@@ -1,11 +1,10 @@
-# copyright ReportLab Inc. 2000-2002
+# Copyright ReportLab Europe Ltd. 2000-2004
 # see license.txt for license details
 
 # Tests of various functions and algorithms in preppy.
 # no side-effects on file system, run anywhere.
-# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_algorithms.py,v 1.2 2003/11/05 12:43:20 mike Exp $
-# $Author: mike $ 
-# $Date: 2003/11/05 12:43:20 $
+# $Author$ 
+# $Date$
 
 
 import os, glob, string, random

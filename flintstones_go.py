@@ -1,7 +1,6 @@
-#copyright ReportLab Inc. 2000
+#Copyright ReportLab Europe Ltd. 2000-2004
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/flintstones_go.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/flintstones_go.py,v 1.7 2002/04/10 00:31:36 andy Exp $
 
 ## exerciser test module for preppy.
 def run():

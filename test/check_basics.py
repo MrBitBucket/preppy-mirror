@@ -1,12 +1,11 @@
-# copyright ReportLab Inc. 2000
+# Copyright ReportLab Europe Ltd. 2000-2004
 # see license.txt for license details
 
 # Basic test suite for Preppy.py
 # See check_load.py for load testing
 
-# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_basics.py,v 1.11 2002/04/13 16:02:33 robin Exp $
-# $Author: robin $ (John Precedo - johnp@reportlab.com)
-# $Date: 2002/04/13 16:02:33 $
+# $Author$ (John Precedo - johnp@reportlab.com)
+# $Date$
 
 
 import os, glob, string, random

@@ -1,7 +1,6 @@
-#copyright ReportLab Inc. 2000-2002
+#Copyright ReportLab Europe Ltd. 2000-2004
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.36 2004/05/23 09:54:45 robin Exp $
 
 
 
