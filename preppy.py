@@ -898,7 +898,7 @@ def getModule(name,
             return GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename]
 
         try:
-            module = rl_get_module(name,directory)
+            module = rl_get_module(name,dir)
             checksum = module.__checksum__
             if verbose: print "found...",
         except: # ImportError:  #catch ALL Errors importing the module (eg name="")
