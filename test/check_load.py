@@ -155,12 +155,10 @@ class LoadTestCase(unittest.TestCase):
         output.close()
         print "closed file OK"
         print "... about to do 'processTest'..."
-        processTest('loadsample005')
+        processTest('loadsample05')
         print "processTest finished!"
         print "DONE!"
            
-suite = unittest.makeSuite(LoadTestCase,'check')
-
 def processTest(filename, dictionary={}):
     #print 'processTest:',dictionary
     root, ext = os.path.splitext(filename)
@@ -210,6 +208,15 @@ def makeBigFile(howBig, fileName):
         printLine = "1Mb test file created OK"
     print printLine 
 
+def makeBigDictionary(howBig):
+    # This function creates a dictionary of howBig * random numbers  
+    dictionary = {}
+    for loopCounter in range(0,howBig):
+        randNumber = random.randint(1,1000)
+        key = "key"+string.zfill(loopCounter, 4)
+        dictionary[key]=randNumber
+    return dictionary
+
 def oneK(tempString, verbose, howBig, fileName, testmode):
     for outerCounter in range(1,howBig+1):
         for innerCounter in range(0,1024):
@@ -228,17 +235,15 @@ def oneK(tempString, verbose, howBig, fileName, testmode):
 
 if __name__=='__main__':
     import sys
-    if len(sys.argv) == 2:
+    if len(sys.argv)==2:
         arg = sys.argv[1]
         if arg == 'clean':
             clean()
             sys.exit()
-
         else:
             print 'argument not recognised!'
     else:
         runner = unittest.TextTestRunner()
+        suite = unittest.makeSuite(LoadTestCase,'load')
         runner.run(suite)
         print '\nplease read all sample*.html files'
-        
-    

@@ -8,7 +8,7 @@
 # $Date$
 
 
-import os, glob, string, random
+import os, glob, string
 from rlextra.preppy import preppy
 from reportlab.test import unittest
 
@@ -231,55 +231,6 @@ def clean(dirname='.'):
         os.remove('sample014.prep')
     except:
         pass
-
-def makeBigDictionary(howBig):
-    # This function creates a dictionary of howBig * random numbers  
-    dictionary = {}
-    for loopCounter in range(0,howBig):
-        randNumber = random.randint(1,1000)
-        key = "key"+string.zfill(loopCounter, 4)
-        dictionary[key]=randNumber
-    return dictionary
-
-def oneK(tempString, verbose, howBig, fileName, testmode):
-    for outerCounter in range(1,howBig+1):
-        for innerCounter in range(0,1024):
-            tempString = tempString + " "
-        if testmode:
-            lengthString = `outerCounter`+"K"+"\n"
-            tempString = tempString[:(len(tempString)-(len(lengthString)+1))]
-            tempString = tempString+lengthString
-        if verbose:
-            print outerCounter,"K,", 
-        outFile = open(fileName, 'a')
-        outFile.write(tempString)
-        outFile.close()
-        tempString = ""
-    return tempString
-            
-def makeBigFile(howBig, fileName):
-    outFile = open(fileName, 'w')
-    outFile.write('Start')
-    outFile.close()
-   # Make sure we start with a zero length file...
-    tempString = ""
-    # verbose = prints a length count to screen
-    #verbose=1
-    verbose=0
-    # testmode = prints a length count in the output file
-    #testmode=1
-    testmode=0
-    printLine = "..creating "+`howBig`+"K test file... "
-    print printLine,
-    oneK(tempString, verbose, howBig, fileName, testmode)
-    outFile = open(fileName, 'a')
-    outFile.write('...End')
-    outFile.close()
-    printLine = `howBig`+"K test file created OK\n."
-    if howBig == 1024:
-        printLine = "1Mb test file created OK\n."
-    print printLine,
-        
 
 if __name__=='__main__':
     import sys
