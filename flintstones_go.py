@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/flintstones_go.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/flintstones_go.py,v 1.5 2000/11/12 14:51:48 aaron Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/flintstones_go.py,v 1.6 2000/11/13 16:22:05 aaron Exp $
 
 ## exerciser test module for preppy.
 from os import unlink
@@ -16,6 +16,8 @@ from preppy import getModule
 result = getModule(name, verbose=1, savefile=1)
 print "="*77
 D =  {'sex': 'm', 'name': 'george', "invalid variable name": 45}
+# tricky security holes like this are sealed...
+D["""__d__[__import__("sys").stdout.write("ThisAintAllowed")]"""] = 90
 import sys
 # don't do this
 #result.run(D, __write__=sys.stdout.write, outputfile=open("flintstone.html", "w"))
