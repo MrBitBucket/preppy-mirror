@@ -1,12 +1,26 @@
 """Python preprocessor"""
 
-STARTTAG = "${"
-ENDTAG = "$}"
+STARTDELIMITER = "{{"
+ENDDELIMITER = "}}"
+QSTARTDELIMITER = "{${"
+QENDDELIMITER = "}$}"
+QUOTE = "$"
+QUOTEQUOTE = "$$"
+# SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
+UNESCAPES = ( (QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE) )
+
+import string
+
+def unescape(s, unescapes=UNESCAPES, r=string.replace):
+    r = string.replace
+    for (old, new) in unescapes:
+        s = r(s, old, new)
+    return s
 
 VERSION = 0.2
 
 """
-${if x:$} this text $(endif$} that
+{{if x:}} this text $(endif}} that
 
 becomes
 
@@ -17,8 +31,6 @@ print (that\n")
 note that extra spaces may be introduced compliments of print.
 could change this to a file.write for more exact control...
 """
-
-import string
 
 KEYWORDS = string.split("""
     if else elif for while script eval
@@ -65,15 +77,15 @@ def countnewlines(s):
     return 0
 
 def quotestring(s, cursor=0, lineno=None):
-    """return a string where ${x$} becomes %(x)s and % becomes %(__percent__)s
+    """return a string where {{x}} becomes %(x)s and % becomes %(__percent__)s
        and also return a substitution dictionary for it containing
           __dict__ = {}
           __dict__["__percent__"] = "%"
           ...
           __dict__["x"] = x
           ...
-       return the cursor where the process breaks (end or at ${if x:...}
-       ${x$} x must not contain whitespace (except surrounding) but it can be (eg)
+       return the cursor where the process breaks (end or at {{if x:...}
+       {{x}} x must not contain whitespace (except surrounding) but it can be (eg)
        math.sin(34.1) or dictionary.get("user","anonymous")
     """
     #print "quotestring at", cursor, repr(s[cursor:cursor+10])
@@ -89,19 +101,20 @@ def quotestring(s, cursor=0, lineno=None):
     quotedparts = []
     #addpart = quotedparts.append
     def addpart(s, append=quotedparts.append, lineno=lineno):
+        s = unescape(s) # unescape all text in output string
         append(s)
         if "\n" in s:
             lineno[0] = lineno[0] + countnewlines(s)
     dictlines = ["__dict__ = {}"]
     adddict = dictlines.append
     done = None
-    starttaglen = len(STARTTAG)
-    endtaglen = len(ENDTAG)
+    starttaglen = len(STARTDELIMITER)
+    endtaglen = len(ENDDELIMITER)
     dictassntemplate = "__dict__[%s] = %s # %s"
     while done is None:
         findpercent = find(s, "%", cursor)
         if findpercent<0: findpercent = slen
-        findstarttag = find(s, STARTTAG, cursor)
+        findstarttag = find(s, STARTDELIMITER, cursor)
         if findstarttag<0: findstarttag = slen
         findmin = min(findpercent, findstarttag)
         sclean = s[cursor:findmin]
@@ -116,7 +129,7 @@ def quotestring(s, cursor=0, lineno=None):
             addpart("%(#percent#)s")
         else:
             # must be at start tag
-            findendtag = find(s, ENDTAG, cursor)
+            findendtag = find(s, ENDDELIMITER, cursor)
             savecursor = cursor
             cursor = cursor+starttaglen
             if findendtag<0:
@@ -137,7 +150,9 @@ def quotestring(s, cursor=0, lineno=None):
             else:
                 cursor = findendtag+endtaglen
                 sblock = block
-                # quote for substitution format
+                # unescape the block
+                block = unescape(block)
+                # quote sblock for substitution format
                 for (c, rc) in (("%", "#P#"), ("(", "#[#"), (")", "#]#")):
                     if c in sblock:
                         sblock = replace(sblock, c, rc)
@@ -145,7 +160,7 @@ def quotestring(s, cursor=0, lineno=None):
                 try:
                     test = compile(block, "<string>", "eval")
                 except:
-                    raise ValueError, "bad expression: " + repr(block)
+                    raise ValueError, "bad expression (after unescape): " + repr(block)
                 substitutionline = dictassntemplate % (repr(sblock), block, repr(s[savecursor:cursor+10]))
                 adddict(substitutionline)
                 stringsub = "%s(%s)s" % ("%", sblock)
@@ -162,7 +177,7 @@ def quotestring(s, cursor=0, lineno=None):
 
 teststring = """
 this test script should produce a runnable program
-${script$}
+{{script}}
   class X:
       pass
   x = X()
@@ -171,36 +186,36 @@ ${script$}
   import math
   a = dictionary = {"key": "value", "key2": "value2", "10%": "TEN PERCENT"}
   loop = "LOOP"
-${endscript$}
+{{endscript}}
 this line has a percent in it 10%
-here is the a value in x: ${x.a$}
-just a norml value here: ${yislonger$} string ${a["10%"]$}
- the sine of 12.3 is ${math.sin(12.3)$}
- ${script$} a=0 ${endscript$}
+here is the a value in x: {{x.a}}
+just a norml value here: {{yislonger}} string {{a["10%"]}}
+ the sine of 12.3 is {{math.sin(12.3)}}
+ {{script}} a=0 {{endscript}}
  these parens should be empty
- (${if a:$}
-conditional text${endif$})
- ${script$} a=1
- ${endscript$}
+ ({{if a:}}
+conditional text{{endif}})
+ {{script}} a=1
+ {{endscript}}
  these parens should be full
- (${if a:$}
-conditional text${endif$})
+ ({{if a:}}
+conditional text{{endif}})
 stuff between endif and while
 
-${while a==1:$} infinite ${loop$} forever!
-${script$} a=0 ${endscript$}
-${for (a,b) in dictionary.items():$}
-the key in the dictionary is ${a$} and the value is ${b$}.  And below is a script
-${script$}
+{{while a==1:}} infinite {{loop}} forever!
+{{script}} a=0 {{endscript}}
+{{for (a,b) in dictionary.items():}}
+the key in the dictionary is {{a}} and the value is {{b}}.  And below is a script
+{{script}}
         # THIS IS A SCRIPT
         x = 2
         y = 3
         # END OF THE SCRIPT
-${endscript$}
+{{endscript}}
 stuff after the script
-${endfor$}
+{{endfor}}
 stuff after the for stmt
-${endwhile$}
+{{endwhile}}
 stuff after the while stmt
 """
 
@@ -223,8 +238,8 @@ except NameError:
     __write__ = sys.stdout.write"""
 
 class PreProcessor:
-    #STARTTAG = STARTTAG # NOT USED, USE MODULE GLOBAL
-    #ENDTAG = ENDTAG
+    #STARTDELIMITER = STARTDELIMITER # NOT USED, USE MODULE GLOBAL
+    #ENDDELIMITER = ENDDELIMITER
     indentstring = "\t"
     def indent(self, s):
         indentstring = self.indentstring
@@ -263,6 +278,7 @@ class PreProcessor:
                 a(dictstring)
                 prints = printstmt(quoted) + " % __dict__ )" # note comma!
             else:
+                segment = unescape(segment)
                 prints = printstmt(segment)
                 if prints:
                     # close it
@@ -295,7 +311,7 @@ class PreProcessor:
                     inif = 1
                     while inif:
                         # now we should be at an else elif or endif
-                        if find(inputtext, STARTTAG, cursor)!=cursor:
+                        if find(inputtext, STARTDELIMITER, cursor)!=cursor:
                             raise ValueError, "not at starttag"
                         (startblock, block, sblock, cursor) = self.getDirectiveBlock(cursor, inputtext, lineno)
                         if find(sblock, "else")==0:
@@ -366,12 +382,13 @@ class PreProcessor:
                         compilemode = "exec"
                     # look for endscript
                     #print "modes", mode, compilemode
-                    endtag = "%send%s%s" % (STARTTAG, mode, ENDTAG)
+                    endtag = "%send%s%s" % (STARTDELIMITER, mode, ENDDELIMITER)
                     endlocation = find(inputtext, endtag, cursor)
                     if endlocation<cursor:
                         raise ValueError, "can't find %s after script start" % repr(endtag)
                     ddblock = inputtext[cursor:endlocation]
                     ddblock = dedent(ddblock)
+                    ddblock = unescape(ddblock)
                     import sys
                     try:
                         test = compile(ddblock, "<string>", compilemode)
@@ -405,15 +422,15 @@ class PreProcessor:
         #print repr((inputtext[cursor], inputtext[cursor:cursor+20]))
         if lineno is None: lineno = [0]
         from string import find, strip
-        starttaglen = len(STARTTAG)
-        endtaglen = len(ENDTAG)
+        starttaglen = len(STARTDELIMITER)
+        endtaglen = len(ENDDELIMITER)
         # should be at a starttag
         newcursor = cursor+starttaglen
-        if inputtext[cursor:newcursor]!=STARTTAG:
+        if inputtext[cursor:newcursor]!=STARTDELIMITER:
                     raise ValueError, "no start tag found at %s.%s" % (
                         repr(inputtext[cursor-10:cursor]), repr(inputtext[cursor:cursor+10]))
         cursor = newcursor
-        findendtag = find(inputtext, ENDTAG, cursor)
+        findendtag = find(inputtext, ENDDELIMITER, cursor)
         if findendtag<cursor:
                     raise ValueError, "no end tag found after %s.%s" % (
                         repr(inputtext[cursor-10:cursor]), repr(inputtext[cursor:cursor+10]))
@@ -423,7 +440,7 @@ class PreProcessor:
         if "\n" in block:
             lineno[0] = lineno[0] + countnewlines(block)
         cursor = endblock+endtaglen
-        sblock = strip(block)
+        sblock = unescape(strip(block))
         return (startblock, block, sblock, cursor)
 
     def module_source(self, string):
@@ -605,6 +622,8 @@ __checksum__ = %s
     exec out in result.__dict__
     GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = result
     return result
+
+getModule = getPreppyModule
 
 if __name__=="__main__":
     parsetest()
