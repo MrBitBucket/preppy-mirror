@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.32 2003/10/18 06:51:46 andy Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.33 2003/11/05 12:26:59 robin Exp $
 
 
 
@@ -451,9 +451,12 @@ class PreProcessor:
                         raise ValueError, "bad expression (after unescape): " + repr(block)
                     # optimization: don't recompute substitutions already seen
                     if not key_seen.has_key(sblock):
-                        substitutionline = dictassntemplate % (repr(sblock), block, repr(s[savecursor:cursor+10]))
-                        adddict(substitutionline)
-                        key_seen[sblock] = block
+                        key_seen[sblock] = ''
+                    else:
+                        key_seen[sblock] += ' '
+                    sblock += key_seen[sblock]
+                    substitutionline = dictassntemplate % (repr(sblock), block, repr(s[savecursor:cursor+10]))
+                    adddict(substitutionline)
                     stringsub = "%s(%s)s" % ("%", sblock)
                     addpart(stringsub)
         percentline = dictassntemplate % (repr("#percent#"), repr("%"), "required percent sub")
