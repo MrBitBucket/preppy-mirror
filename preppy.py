@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.31 2003/07/01 18:33:16 robin Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.32 2003/10/18 06:51:46 andy Exp $
 
 
 
@@ -833,7 +833,8 @@ def getModule(name,
               sourcetext=None,
               savePy=0,
               force=0,
-              savePyc=1):
+              savePyc=1,
+              importModule=1):
     """Returns a python module implementing the template, compiling if needed.
 
     savePy: tells it to save the intermediate python module (useful
@@ -971,13 +972,16 @@ __checksum__ = %s
     if not savePy:
         os.remove(srcFileName)
 
-    # now make a module
-    from imp import new_module
-    result = new_module(name)
-    exec out in result.__dict__
-    GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = result
-    return result
-
+    if importModule:
+        # now make a module
+        from imp import new_module
+        result = new_module(name)
+        exec out in result.__dict__
+        GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = result
+        return result
+    else:
+        return None
+    
 def cleantext(text):
     ### THIS GETS RID OF EXTRA WHITESPACE AT THE END OF LINES (EG CR'S)
     textlines = string.split(text, "\n")
@@ -998,11 +1002,51 @@ getPreppyModule = getModule
     #
     ####################################################################
 
-def compileModule(fn, savePy=0, force=0, verbose=1):
+
+def installImporter():
+    "This lets us import prep files directly"
+    # the python import mechanics are only invoked if you call this,
+    # since preppy has very few dependencies and I don't want to
+    #add to them.
+    import ihooks
+    class PreppyLoader(ihooks.ModuleLoader):
+        "This allows prep files to be imported."
+        
+        def find_module_in_dir(self, name, dir, allow_packages=1):
+            stuff = ihooks.ModuleLoader.find_module_in_dir(self, name, dir, allow_packages)
+            if stuff:
+                #print 'standard module loader worked'
+                return stuff
+            else:
+                if dir:
+                    prepFileName = dir + os.sep + name + '.prep'
+                else:
+                    prepFileName = name + '.prep'
+                    
+                if os.path.isfile(prepFileName):
+                    #compile WITHOUT IMPORTING to avoid triggering recursion
+                    mod = compileModule(prepFileName, verbose=0, importModule=0)
+                    #now use the default...
+                    return ihooks.ModuleLoader.find_module_in_dir(self, name, dir, allow_packages)
+                else:
+                    return None
+
+    loader = PreppyLoader()
+    importer = ihooks.ModuleImporter(loader=loader)
+    ihooks.install(importer)
+
+def uninstallImporter():
+    import ihooks
+    ihooks.uninstall()
+    
+
+def compileModule(fn, savePy=0, force=0, verbose=1, importModule=1):
     "Compile a prep file to a pyc file.  Optionally, keep the python source too."
     name, ext = os.path.splitext(fn)
     d = os.path.dirname(fn)
-    return getModule(os.path.basename(name), directory=d, source_extension=ext, savePyc=1, savePy=savePy, force=force, verbose=verbose)
+    return getModule(os.path.basename(name), directory=d, source_extension=ext,
+                     savePyc=1, savePy=savePy, force=force,
+                     verbose=verbose, importModule=importModule)
 
 def compileModules(pattern, savePy=0, force=0, verbose=1):
     "Compile all prep files matching the pattern."
