@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.34 2003/11/14 15:23:51 robin Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.35 2004/05/23 09:26:50 robin Exp $
 
 
 
@@ -827,7 +827,6 @@ def testgetmodule(name="testoutput"):
 
 # cache found modules by source file name
 GLOBAL_LOADED_MODULE_DICTIONARY = {}
-
 def getModule(name,
               directory=".",
               source_extension=".prep",
@@ -846,8 +845,6 @@ def getModule(name,
 
 
     """
-
-
     # it's possible that someone could ask for
     #  name "subdir/spam.prep" in directory "/mydir", instead of
     #  "spam.prep" in directory "/mydir/subdir".  Failing to get
@@ -856,19 +853,18 @@ def getModule(name,
     extraDir, name = os.path.split(name)
     if extraDir:
         directory = directory + os.sep + extraDir
-    directory = os.path.abspath(os.path.normpath(directory))
+    dir = os.path.abspath(os.path.normpath(directory))
 
     # they may ask for 'spam.prep' instead of just 'spam'.  Trim off
     # any extension
     name = os.path.splitext(name)[0]
     if verbose:
-        print 'checking %s...' % os.path.join(directory, name),
+        print 'checking %s...' % os.path.join(dir, name),
     # savefile is deprecated but kept for safety.  savePy and savePyc are more
     # explicit and are the preferred.  By default it generates a pyc and no .py
     # file to reduce clutter.
     if savefile and savePyc == 0:
         savePyc = 1
-
 
     if sourcetext is not None:
         # they fed us the source explicitly
@@ -879,22 +875,11 @@ def getModule(name,
         savePyc = 0
     else:
         # see if the module exists as a python file
-        sourcefilename = os.path.join(directory, name+source_extension)
+        sourcefilename = os.path.join(dir, name+source_extension)
         if GLOBAL_LOADED_MODULE_DICTIONARY.has_key(sourcefilename):
             return GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename]
         try:
-            f, p, desc= imp.find_module(name,[directory])
-            if sys.modules.has_key(name):
-                om = sys.modules[name]
-                del sys.modules[name]
-            else:
-                om = None
-            try:
-                module = imp.load_module(name,f,p,desc)
-            finally:
-                if om: sys.modules[name] = om
-                del om
-                if f: f.close()
+            module = rl_get_module(name,directory)
             checksum = module.__checksum__
             if verbose: print "found...",
         except: # ImportError:  #catch ALL Errors importing the module (eg name="")
@@ -957,7 +942,7 @@ __checksum__ = %s
 
     # default is not to save source.
     if savePy:
-        srcFileName = os.path.join(directory, pythonFileName)
+        srcFileName = os.path.join(dir, pythonFileName)
     else:
         import tempfile
         srcFileName = tempfile.mktemp()
@@ -968,7 +953,7 @@ __checksum__ = %s
         import py_compile
 
         py_compile.compile(srcFileName,
-                           cfile=directory + os.sep + name + '.pyc',
+                           cfile=dir + os.sep + name + '.pyc',
                            dfile=name + '.py')
 
 
