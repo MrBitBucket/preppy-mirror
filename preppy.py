@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.15 2000/11/12 14:51:48 aaron Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.16 2000/11/13 16:10:17 aaron Exp $
 """Python preprocessor"""
 
 STARTDELIMITER = "{{"
@@ -81,7 +81,7 @@ def countnewlines(s):
 
 Substringquotes =[("%", "#P#"), ("(", "#[#"), (")", "#]#")]
 for wc in string.whitespace:
-    Substringquotes.append( (wc, "\\"+repr(ord(wc))) )
+    Substringquotes.append( (wc, "w."+repr(ord(wc))) )
                   
 
 def quotestring(s, cursor=0, lineno=None):
@@ -159,8 +159,8 @@ def quotestring(s, cursor=0, lineno=None):
             else:
                 cursor = findendtag+endtaglen
                 sblock = block
-                # unescape the block
-                block = unescape(block)
+                # unescape the block, and the sblock...
+                sblock = block = unescape(block)
                 # quote sblock for substitution format
                 for (c, rc) in Substringquotes:
                     if c in sblock:

@@ -1,7 +1,12 @@
 
 	<html><head><title>{{name}}</title></head><body>
-	hello my name is {{name}} and I am
+	hello my name is {{ ( name ) }} and I am
 	{{if sex=="f":}} a gal
 	{{elif sex=="m":}} a guy
 	{{else:}} neuter {{endif}}
 	</body></html>
+
+In a test program:
+This should contain the digit '1':  {{len({ 'a':  {'b':'c'}$})   }}
+
+
