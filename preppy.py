@@ -244,7 +244,7 @@ except:
 else:
     for __n__ in __d__.keys():
         __v__ = dictionary[__n__]
-        exec("%s=%s") % (__n__, repr(__v__))
+        exec("%s=__d__[%s]") % (__n__, repr(__n__))
 """
 
 class PreProcessor:
