@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.20 2002/04/10 00:31:36 andy Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.21 2002/04/10 11:44:28 robin Exp $
 """preppy - a Python preprocessor.
 
 This is the Python equivalent of ASP or JSP - a preprocessor which lets you
@@ -50,14 +50,14 @@ The command line interface lets you test, compile and clean up:
 
     preppy.py compile module1[.prep] module2[.prep] module3 ...
        - compiles explicit modules
-       
+
     preppy.py compile dirname1  dirname2 ...
        - compiles all prep files in directory recursively
 
     preppy.py clean dirname1 dirname2 ...19
        - removes any py or pyc files created from past compilations
 
-         
+
 """
 
 STARTDELIMITER = "{{"
@@ -99,7 +99,7 @@ KEYWORDS = string.split("""
 """)
 
 def printstmt(txt, newline=1, linemax=40):
-    """UNCLOSED call to __write__ 
+    """UNCLOSED call to __write__
        if everything is properly quoted you can append a % (x1, x2, x3)) onto the end of this"""
     # if all white return empty
     if not string.strip(txt):
@@ -140,7 +140,7 @@ def countnewlines(s):
 Substringquotes =[("%", "#P#"), ("(", "#[#"), (")", "#]#")]
 for wc in string.whitespace:
     Substringquotes.append( (wc, "w."+repr(ord(wc))) )
-                  
+
 
 def quotestring(s, cursor=0, lineno=None):
     """return a string where {{x}} becomes %(x)s and % becomes %(__percent__)s
@@ -236,7 +236,7 @@ def quotestring(s, cursor=0, lineno=None):
                 stringsub = "%s(%s)s" % ("%", sblock)
                 addpart(stringsub)
     percentline = dictassntemplate % (repr("#percent#"), repr("%"), "required percent sub")
-    adddict(percentline)            
+    adddict(percentline)
     quotestring = join(quotedparts, "")
     dictstring = join(dictlines, "\n")
     #print "==== dictstring"
@@ -323,7 +323,7 @@ try:
     stdout = sys.stdout = outputfile
 except NameError:
     stdout = sys.stdout
-    outputfile = None 
+    outputfile = None
 # make sure __write__ is defined
 try:
     if __write__ is None:
@@ -332,7 +332,7 @@ try:
         raise ValueError, "do not define both outputfile (%s) and __write__ (%s)." %(outputfile, __write__)
 except NameError:
     __write__ = stdout.write
-# now exec the assignments in the dictionary 
+# now exec the assignments in the dictionary
 try:
     __d__ = dictionary
 except:
@@ -359,7 +359,7 @@ class PreProcessor:
         if indentstring is None:
             indentstring = self.indentstring
         return indentstring + string.replace(s, "\n", "\n"+indentstring)
-    
+
     def __call__(self, inputtext, cursor=0, toplevel=1, lineno=None):
         # go to end of string (if toplevel) or dedent token (if not toplevel)
         #print "call at", cursor, repr(inputtext[cursor:cursor+10])
@@ -535,7 +535,7 @@ class PreProcessor:
             output = self.indent(output)
             output = TOPLEVELWRAPPER % output
         return (output, cursor)
-    
+
     def getDirectiveBlock(self, cursor, inputtext, lineno=None):
         #print repr((inputtext[cursor], inputtext[cursor:cursor+20]))
         if lineno is None: lineno = [0]
@@ -634,7 +634,7 @@ if __name__=="__main__":
     run({})
 """
 
-def parsetest():        
+def parsetest():
     fn = "./testoutput.py"
     P = PreProcessor()
     (out, c) = P(teststring)
@@ -647,7 +647,7 @@ def parsetest():
     print out
     sys.stdout = stdout
     print "wrote", fn
-    
+
 def testgetmodule(name="testpreppy"):
     name = "testpreppy"
     print "trying to load", name
@@ -678,9 +678,9 @@ def getModule(name,
     # every time.  This is common during batch compilation of directories.
     extraDir, name = os.path.split(name)
     if extraDir:
-        directory = directory + os.sep + extraDir 
+        directory = directory + os.sep + extraDir
     directory = os.path.normpath(directory)
-    
+
     # they may ask for 'spam.prep' instead of just 'spam'.  Trim off
     # any extension
     name = os.path.splitext(name)[0]
@@ -692,7 +692,7 @@ def getModule(name,
     if savefile and savePyc == 0:
         savePyc = 1
 
-        
+
     if sourcetext is not None:
         # they fed us the source explicitly
         if verbose: print "sourcetext provided"
@@ -787,7 +787,7 @@ __checksum__ = %s
     # default is compile to bytecode and save that.
     if savePyc:
         import py_compile
-        
+
         py_compile.compile(srcFileName,
                            cfile=directory + os.sep + name + '.pyc',
                            dfile=name + '.py')
@@ -795,7 +795,7 @@ __checksum__ = %s
 
     if not savePy:
         os.remove(srcFileName)
-    
+
     # now make a module
     from imp import new_module
     result = new_module(name)
@@ -828,7 +828,7 @@ def compileModule(prepFileName, savePy=0, verbose=1):
     "Compile a prep file to a pyc file.  Optionally, keep the python source too."
     name, ext = os.path.splitext(prepFileName)
     m = getModule(name, source_extension=ext, savePyc=1, savePy=savePy, verbose=verbose)
-    
+
 def compileModules(pattern, savePy=0, verbose=1):
     "Compile all prep files matching the pattern.  Helps win32 which has to do its own globbing"
     import glob
@@ -836,50 +836,49 @@ def compileModules(pattern, savePy=0, verbose=1):
     for filename in filenames:
         compileModule(filename, savePy, verbose)
 
-def compileDir(dirName, pattern="*.prep", recursive=1, savePy=0, verbose=1, maxDepth=10):
+from fnmatch import fnmatch
+def compileDir(dirName, pattern="*.prep", recursive=1, savePy=0, verbose=1):
     "Compile all prep files in directory, recursively if asked"
-    if verbose:
-        print 'compiling directory %s' % dirName
-    compileModules(os.path.join(dirName, pattern), savePy, verbose)
-    # now for subdirectories:
-    if recursive==1:
-        if maxDepth >= 1:
-            for name in os.listdir(dirName):
-                if os.path.isdir(os.path.join(dirName, name)):
-                    compileDir(os.path.join(dirName, name), pattern, recursive, savePy, verbose, maxDepth=maxDepth-1)
+    if verbose: print 'compiling directory %s' % dirName
+    if recursive:
+        def _visit(A,D,N,pattern=pattern,savePy=savePy, verbose=verbose):
+            for filename in filter(lambda fn,pattern=pattern: fnmatch(fn,pattern),
+                    filter(os.path.isfile,map(lambda n, D=D: os.path.join(D,n),N))):
+                compileModule(filename, savePy, verbose)
+        os.path.walk(dirName,_visit,None)
+    else:
+        compileModules(os.path.join(dirName, pattern), savePy, verbose)
 
-def cleanDir(dirName, pattern="*.prep", recursive=1, verbose=1, maxDepth=10):
-    "Removes all py and pyc files matching any prep files found"
-    if verbose:
-        print 'cleaning directory %s' % dirName
-        import glob
-        filenames = glob.glob(os.path.join(dirName, pattern))
-        for filename in filenames:
+def _cleanFiles(filenames,verbose):
+    for filename in filenames:
+        if verbose:
+            print '  found ' + filename + '; ',
+        root, ext = os.path.splitext(os.path.abspath(filename))
+        done = 0
+        if os.path.isfile(root + '.py'):
+            os.remove(root + '.py')
+            done = done + 1
+            if verbose: print ' removed .py ',
+        if os.path.isfile(root + '.pyc'):
+            os.remove(root + '.pyc')
+            done = done + 1
+            if verbose: print ' removed .pyc ',
+        if done == 0:
             if verbose:
-                print '  found ' + filename + '; ',
-            root, ext = os.path.splitext(os.path.abspath(filename))
-            done = 0
-            if os.path.isfile(root + '.py'):
-                os.remove(root + '.py')
-                done = done + 1
-                if verbose: print ' removed .py ',
-            if os.path.isfile(root + '.pyc'):
-                os.remove(root + '.pyc')
-                done = done + 1
-                if verbose: print ' removed .pyc ',
-            if done == 0:
-                if verbose:
-                    print 'nothing to remove',
-            print
-    if recursive==1:
-        if maxDepth >= 1:
-            for name in os.listdir(dirName):
-                if os.path.isdir(os.path.join(dirName, name)):
-                    cleanDir(os.path.join(dirName, name), pattern, recursive,verbose, maxDepth=maxDepth-1)
+                print 'nothing to remove',
+        print
 
-                
-                
-                
+def cleanDir(dirName, pattern="*.prep", recursive=1, verbose=1):
+    "Removes all py and pyc files matching any prep files found"
+    if verbose: print 'cleaning directory %s' % dirName
+    if recursive:
+        def _visit(A,D,N,pattern=pattern,verbose=verbose):
+            _cleanFiles(filter(lambda fn,pattern=pattern: fnmatch(fn,pattern),
+                    filter(os.path.isfile,map(lambda n, D=D: os.path.join(D,n),N))),verbose)
+        os.path.walk(dirName,_visit,None)
+    else:
+        import glob
+        _cleanFiles(filter(os.path.isfile,glob.glob(os.path.join(dirName, pattern))),verbose)
 
 def compileStuff(stuff):
     "Figures out what needs compiling"
