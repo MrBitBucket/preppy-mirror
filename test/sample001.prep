@@ -1,0 +1,21 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+<html>
+<head>
+	<title>ReportLab Perppy Test Suite 001</title>
+</head>
+
+<body>
+<h1>Preppy Test 001 - "Script" Tag</h1>
+This tests the script tag with a minimal snippet of Python code.
+
+<h2>Expected Output</h2>
+It adds 2 and 2.  you should see "4" below between the two lines.
+<hr>
+{{script}}
+print 2+2
+{{endscript}}
+<hr>
+
+</body>
+</html>
