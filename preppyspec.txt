@@ -1,5 +1,5 @@
 Title: preppy spec
-Version: $Revision: 1.5 $
+Version: $Revision: 1.6 $
 Author: Aaron Watters <aaron@reportlab.com>
 Status: Preliminary, edit out editorial asides before release
 Type: Design Specification
@@ -84,7 +84,7 @@ Operations
 	Load a preppy module (possibly from source text) using
 
 	m = getModule(name, directory=".", source_extension=".prep", 
-		verbose=0, savefile=1)
+		verbose=0, savefile=1, sourcetext=None)
 
 	This function will look for the python module named "name" and if
 	if exists check to see that it matches the preppy source module
@@ -107,6 +107,16 @@ Operations
 	built by preppy and will not reexecute the test/generation code when
 	a module of the same name is requested twice -- instead it will provide
 	the previously built module.
+
+	It is also possible to use preppy to make a module without any
+	use of the filesystem.  In this case provide source text as a string
+	with a module name (of no significance) to getModule
+
+		m = getModule("dummymodule", sourcetext=my_string)
+
+	In this case (when sourcetext is provided) no file will be read and
+	no file will be generated.  The module m will be constructed in memory
+	for use by the current process only.
 
 	The entry point for a Preppy module is the function
 
