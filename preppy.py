@@ -1,8 +1,64 @@
-#copyright ReportLab Inc. 2000
+#copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.19 2001/11/26 14:28:59 robin Exp $
-"""Python preprocessor"""
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.20 2002/04/10 00:31:36 andy Exp $
+"""preppy - a Python preprocessor.
+
+This is the Python equivalent of ASP or JSP - a preprocessor which lets you
+embed python expressions, loops and conditionals, and 'scriptlets' in any
+kind of text file.  It provides a very natural solution for generating
+dynamic HTML pages, which is not connected to any particular web server
+architecture.
+
+You create a template file (conventionally ending in .prep) containing
+python expressions, loops and conditionals, and scripts.  These occur
+between double curly braces:
+   Dear {{surname}},
+   You owe us {{amount}} {{if amount>1000}}which is pretty serious{{endif}}
+
+On first use or any any change in the template, this is normally converted to a
+python source module 'in memory', then to a compiled pyc file which is saved to
+disk alongside the original.  Options control this; you can operate entirely
+in memory, or look at the generated python code if you wish.
+
+On subsequent use, the generated module is imported and loaded directly.
+ he module contains a run(...) function; you can pass in a dictionary of
+parameters (such as the surname and amount parameters above), and optionally
+an output stream or output-collection function if you don't want it to go to
+standard output.
+
+The command line options let you run modules with hand-input parameters -
+useful for basic testing - and also to batch-compile or clean directories.
+As with python scripts, it is a good idea to compile prep files on installation,
+since unix applications may run as a different user and not have the needed
+permission to store compiled modules.
+
+"""
+
+VERSION = 0.5
+
+
+USAGE = """
+The command line interface lets you test, compile and clean up:
+
+    preppy modulename [arg1=value1, arg2=value2.....]
+       - shorthand for 'preppy run ...', see below.
+
+    preppy run modulename [arg1=value1, arg2=value2.....]
+       - runs the module, optionally with arguments.  e.g.
+         preppy.py flintstone.prep name=fred sex=m
+
+    preppy.py compile module1[.prep] module2[.prep] module3 ...
+       - compiles explicit modules
+       
+    preppy.py compile dirname1  dirname2 ...
+       - compiles all prep files in directory recursively
+
+    preppy.py clean dirname1 dirname2 ...19
+       - removes any py or pyc files created from past compilations
+
+         
+"""
 
 STARTDELIMITER = "{{"
 ENDDELIMITER = "}}"
@@ -14,13 +70,15 @@ QUOTEQUOTE = "$$"
 UNESCAPES = ( (QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE) )
 
 import string
+import os
+import md5
+
 
 def unescape(s, unescapes=UNESCAPES, r=string.replace):
     for (old, new) in unescapes:
         s = r(s, old, new)
     return s
 
-VERSION = 0.4
 
 """
 {{if x:}} this text $(endif}} that
@@ -601,16 +659,50 @@ def testgetmodule(name="testpreppy"):
 # cache found modules by source file name
 GLOBAL_LOADED_MODULE_DICTIONARY = {}
 
-def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0, savefile=1,
-                    sourcetext=None):
+def getModule(name,
+              directory=".",
+              source_extension=".prep",
+              verbose=0,
+              savefile=None,
+              sourcetext=None,
+              savePy=0,
+              savePyc=1):
+    """Returns a python module implementing the template.  This will be
+    recompiled from source if needed."""
+
+
+    # it's possible that someone could ask for
+    #  name "subdir/spam.prep" in directory "/mydir", instead of
+    #  "spam.prep" in directory "/mydir/subdir".  Failing to get
+    # this right means getModule can fail to find it and recompile
+    # every time.  This is common during batch compilation of directories.
+    extraDir, name = os.path.split(name)
+    if extraDir:
+        directory = directory + os.sep + extraDir 
+    directory = os.path.normpath(directory)
+    
+    # they may ask for 'spam.prep' instead of just 'spam'.  Trim off
+    # any extension
+    name = os.path.splitext(name)[0]
+    if verbose:
+        print 'searching for module "%s" in directory "%s"' % (name, directory)
+    # savefile is deprecated but kept for safety.  savePy and savePyc are more
+    # explicit and are the preferred.  By default it generates a pyc and no .py
+    # file to reduce clutter.
+    if savefile and savePyc == 0:
+        savePyc = 1
+
+        
     if sourcetext is not None:
+        # they fed us the source explicitly
         if verbose: print "sourcetext provided"
         sourcefilename = "<input text %s>" % name
-        savefile = 0 # cannot savefile if source file provided
+        sourcechecksum = md5.new(sourcetext + repr(VERSION)).digest()
+        savePy = 0 # cannot savefile if source file provided
+        savePyc = 0
     else:
         # see if the module exists as a python file
         from sys import path
-        import os
         sourcefilename = os.path.join(directory, name+source_extension)
         if GLOBAL_LOADED_MODULE_DICTIONARY.has_key(sourcefilename):
             return GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename]
@@ -635,7 +727,6 @@ def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0, sa
             return module
         else:
             sourcetext = sourcefile.read()
-            import md5
             # NOTE: force recompile on each new version of this module.
             sourcechecksum = md5.new(sourcetext + repr(VERSION)).digest()
             if sourcechecksum==checksum:
@@ -671,21 +762,40 @@ def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0, sa
             print "no further diagnostic available"
         print "ERROR PROCESSING PREPPY FILE"
         sys.exit(1)
-    if savefile:
-        savefilename = name+".py"
-        if verbose: print "saving", savefilename
-        outfilename = os.path.join(directory, savefilename)
-        outfile = open(outfilename, "w")
-        outfile.write("""
+
+    # generate the python source in memory as if it was a py file.
+    # then save to py and pyc as specified.
+    pythonFileName = name + '.py'
+    pythonSource = """
 '''
 PREPPY MODULE %s
 Automatically generated file from preprocessor source %s
 DO NOT EDIT!
 '''
 __checksum__ = %s
-""" % (name, sourcefilename, repr(sourcechecksum)))
-        outfile.write(out)
-        outfile.close()
+%s
+""" % (name, pythonFileName, repr(sourcechecksum), out)
+
+    # default is not to save source.
+    if savePy:
+        srcFileName = os.path.join(directory, pythonFileName)
+    else:
+        import tempfile
+        srcFileName = tempfile.mktemp()
+    open(srcFileName, 'w').write(pythonSource)
+
+    # default is compile to bytecode and save that.
+    if savePyc:
+        import py_compile
+        
+        py_compile.compile(srcFileName,
+                           cfile=directory + os.sep + name + '.pyc',
+                           dfile=name + '.py')
+
+
+    if not savePy:
+        os.remove(srcFileName)
+    
     # now make a module
     from imp import new_module
     result = new_module(name)
@@ -704,13 +814,113 @@ def cleantext(text):
         textlines[i] = l3
     return string.join(textlines, "\n")
 
-getModule = getPreppyModule
+# support the old form here
+getPreppyModule = getModule
+
+
+    ####################################################################
+    #
+    #   utilities for setup scripts, housekeeping etc.
+    #
+    ####################################################################
+
+def compileModule(prepFileName, savePy=0, verbose=1):
+    "Compile a prep file to a pyc file.  Optionally, keep the python source too."
+    name, ext = os.path.splitext(prepFileName)
+    m = getModule(name, source_extension=ext, savePyc=1, savePy=savePy, verbose=verbose)
+    
+def compileModules(pattern, savePy=0, verbose=1):
+    "Compile all prep files matching the pattern.  Helps win32 which has to do its own globbing"
+    import glob
+    filenames = glob.glob(pattern)
+    for filename in filenames:
+        compileModule(filename, savePy, verbose)
+
+def compileDir(dirName, pattern="*.prep", recursive=1, savePy=0, verbose=1, maxDepth=10):
+    "Compile all prep files in directory, recursively if asked"
+    if verbose:
+        print 'compiling directory %s' % dirName
+    compileModules(os.path.join(dirName, pattern), savePy, verbose)
+    # now for subdirectories:
+    if recursive==1:
+        if maxDepth >= 1:
+            for name in os.listdir(dirName):
+                if os.path.isdir(os.path.join(dirName, name)):
+                    compileDir(os.path.join(dirName, name), pattern, recursive, savePy, verbose, maxDepth=maxDepth-1)
+
+def cleanDir(dirName, pattern="*.prep", recursive=1, verbose=1, maxDepth=10):
+    "Removes all py and pyc files matching any prep files found"
+    if verbose:
+        print 'cleaning directory %s' % dirName
+        import glob
+        filenames = glob.glob(os.path.join(dirName, pattern))
+        for filename in filenames:
+            if verbose:
+                print '  found ' + filename + '; ',
+            root, ext = os.path.splitext(os.path.abspath(filename))
+            done = 0
+            if os.path.isfile(root + '.py'):
+                os.remove(root + '.py')
+                done = done + 1
+                if verbose: print ' removed .py ',
+            if os.path.isfile(root + '.pyc'):
+                os.remove(root + '.pyc')
+                done = done + 1
+                if verbose: print ' removed .pyc ',
+            if done == 0:
+                if verbose:
+                    print 'nothing to remove',
+            print
+    if recursive==1:
+        if maxDepth >= 1:
+            for name in os.listdir(dirName):
+                if os.path.isdir(os.path.join(dirName, name)):
+                    cleanDir(os.path.join(dirName, name), pattern, recursive,verbose, maxDepth=maxDepth-1)
+
+                
+                
+                
+
+def compileStuff(stuff):
+    "Figures out what needs compiling"
+    if os.path.isfile(stuff):
+        compileModule(stuff)
+    elif os.path.isdir(stuff):
+        compileDir(stuff)
+    else:
+        compileModules(stuff)
+
+def extractKeywords(arglist):
+    "extracts a dictionary of keywords"
+    d = {}
+    for arg in arglist:
+        chunks = string.split(arg, '=')
+        if len(chunks)==2:
+            key, value = chunks
+            d[key] = value
+    return d
 
 def main():
     import sys
     if len(sys.argv)>1:
         name = sys.argv[1]
-        result = getPreppyModule(name, verbose=1)
+        if name == 'compile':
+            for arg in sys.argv[2:]:
+                compileStuff(arg)
+        elif name == 'clean':
+            for arg in sys.argv[2:]:
+                cleanDir(arg, verbose=1)
+        elif name == 'run':
+            moduleName = sys.argv[2]
+            params = extractKeywords(sys.argv)
+            module = getPreppyModule(moduleName, verbose=0)
+            module.run(params)
+        else:
+            #default is run
+            moduleName = sys.argv[1]
+            params = extractKeywords(sys.argv)
+            module = getPreppyModule(moduleName, verbose=0)
+            module.run(params)
     else:
         print "no argument: running tests"
         parsetest()
@@ -719,4 +929,4 @@ def main():
         testgetmodule()
 
 if __name__=="__main__":
-	main()
+    main()
