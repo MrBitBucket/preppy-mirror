@@ -1,3 +1,5 @@
+
+## exerciser test module for preppy.
 from os import unlink
 name = "flintstone"
 for fn in (name+".py", name+".pyc"):
@@ -7,7 +9,7 @@ for fn in (name+".py", name+".pyc"):
     except:
             print "no", fn, "to delete"
 from preppy import getModule
-result = getModule(name, verbose=1)
+result = getModule(name, verbose=1, savefile=1)
 print "="*77
 D =  {'sex': 'm', 'name': 'george'}
 import sys
@@ -27,3 +29,12 @@ result.run(D, __write__=sys.stdout.write)
 
 # or this (default to __write__ = sys.stdout.write)
 #result.run(D)
+
+print "*"*66
+
+print "now testing memory to memory option"
+
+text = open("flintstone.prep", "r").read()
+result = getModule("flintstone2", sourcetext=text, verbose=1)
+print "="*55
+result.run(D)

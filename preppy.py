@@ -584,44 +584,50 @@ def testgetmodule(name="testpreppy"):
 # cache found modules by source file name
 GLOBAL_LOADED_MODULE_DICTIONARY = {}
 
-def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0, savefile=1):
-    # see if the module exists as a python file
-    from sys import path
-    import os
-    sourcefilename = os.path.join(directory, name+source_extension)
-    if GLOBAL_LOADED_MODULE_DICTIONARY.has_key(sourcefilename):
-        return GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename]
-    if directory not in path:
-        path.insert(0, directory)
-    try:
-        module = __import__(name)
-        checksum = module.__checksum__
-        if verbose: print "module", name, "found with checksum", repr(checksum)
-    except: # ImportError:  catch ALL Errors imorting the module
-        module = checksum = None
-        if verbose: print "no module", name, "found (or error)"
-    # check against source file
-    try:
-        sourcefile = open(sourcefilename, "r")
-    except:
-        if verbose: print "no source file", sourcefilename, "found attempting to use existing module"
-        if module is None:
-            raise ValueError, "couldn't find source %s or module %s" % (sourcefilename, name)
-        # use the existing module??? (NO SOURCE PRESENT)
-        GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = module
-        return module
+def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0, savefile=1,
+                    sourcetext=None):
+    if sourcetext is not None:
+        if verbose: print "sourcetext provided"
+        sourcefilename = "<input text %s>" % name
+        savefile = 0 # cannot savefile if source file provided
     else:
-        sourcetext = sourcefile.read()
-        import md5
-        # NOTE: force recompile on each new version of this module.
-        sourcechecksum = md5.new(sourcetext + repr(VERSION)).digest()
-        if sourcechecksum==checksum:
-            # use the existing module. it matches
-            if verbose: print "checksums match, not regenerating python source"
+        # see if the module exists as a python file
+        from sys import path
+        import os
+        sourcefilename = os.path.join(directory, name+source_extension)
+        if GLOBAL_LOADED_MODULE_DICTIONARY.has_key(sourcefilename):
+            return GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename]
+        if directory not in path:
+            path.insert(0, directory)
+        try:
+            module = __import__(name)
+            checksum = module.__checksum__
+            if verbose: print "module", name, "found with checksum", repr(checksum)
+        except: # ImportError:  catch ALL Errors importing the module (eg name="")
+            module = checksum = None
+            if verbose: print "no module", name, "found (or error)"
+            # check against source file
+        try:
+            sourcefile = open(sourcefilename, "r")
+        except:
+            if verbose: print "no source file", sourcefilename, "found attempting to use existing module"
+            if module is None:
+                raise ValueError, "couldn't find source %s or module %s" % (sourcefilename, name)
+            # use the existing module??? (NO SOURCE PRESENT)
             GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = module
             return module
-        elif verbose:
-            print "CHECKSUMS DON'T MATCH"
+        else:
+            sourcetext = sourcefile.read()
+            import md5
+            # NOTE: force recompile on each new version of this module.
+            sourcechecksum = md5.new(sourcetext + repr(VERSION)).digest()
+            if sourcechecksum==checksum:
+                # use the existing module. it matches
+                if verbose: print "checksums match, not regenerating python source"
+                GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = module
+                return module
+            elif verbose:
+                print "CHECKSUMS DON'T MATCH"
     # if we got here we need to rebuild the module from source
     if verbose:
         print "regenerating python source from", sourcefilename
@@ -648,7 +654,9 @@ def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0, sa
         print "ERROR PROCESSING PREPPY FILE"
         sys.exit(1)
     if savefile:
-        outfilename = os.path.join(directory, name+".py")
+        savefilename = name+".py"
+        if verbose: print "saving", savefilename
+        outfilename = os.path.join(directory, savefilename)
         outfile = open(outfilename, "w")
         outfile.write("""
 '''
