@@ -1,12 +1,12 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.27 2002/11/18 11:12:21 andy Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.28 2002/12/28 22:03:00 andy Exp $
 
 
 
 """
-#AR - refactoring plans:
+#AR - refactoring plans Dec 2002:
 
 1. made the preprocessor object track the output collection
 2. prove this gives same output across test suite by leaving old one
@@ -38,7 +38,7 @@ disk alongside the original.  Options control this; you can operate entirely
 in memory, or look at the generated python code if you wish.
 
 On subsequent use, the generated module is imported and loaded directly.
- he module contains a run(...) function; you can pass in a dictionary of
+The module contains a run(...) function; you can pass in a dictionary of
 parameters (such as the surname and amount parameters above), and optionally
 an output stream or output-collection function if you don't want it to go to
 standard output.
@@ -781,6 +781,13 @@ def dedent(text):
 module_source_template = """
 def run(dictionary, __write__=None, outputfile=None):
 %s
+
+def getOutput(dictionary):
+    "Return module output as a single string"
+    import string
+    buf = []
+    run(dictionary, __write__=buf.append)
+    return string.join(buf, '')
 
 if __name__=="__main__":
     run({})
