@@ -2,7 +2,7 @@
 
 <html>
 <head>
-<title>ReportLab Preppy Test Suite 001</title>
+<title>ReportLab Preppy Test Suite 004</title>
 </head>
 
 <body>
@@ -14,7 +14,7 @@
         <TD>
 <FONT COLOR=#ffffff>
 <CENTER>
-<H1>Preppy Test 001 - "Script" Tag</h1>
+<H1>Preppy Test 004 - Passing A Dictionary to Preppy</h1>
 </font>
 </CENTER>
 </TD>
@@ -22,18 +22,22 @@
 </TABLE>
 
 <BR>
-This tests the script tag with a minimal snippet of Python code.
-
+This test passes a dictionary to Preppy, and displays the output.
 <H2>Expected Output</H2>
-
-It adds 2 and 2.  you should see "4" below between the two lines.
+You should see a short list of song titles and who they are by.
 <BR><BR>
 <HR>
-<BR><CENTER>
-{{script}}
-print 2+2
-{{endscript}}
-</CENTER><BR>
+<BR></P>
+
+<CENTER>
+<TABLE>
+<P>{{song1}}</P>
+<P>{{song2}}</P>
+</TABLE>
+</CENTER>
+
+
+<BR>
 <HR>
 
 </body>

@@ -7,19 +7,27 @@ from reportlab.test import unittest
 
 
 class SimpleTestCase(unittest.TestCase):
-    def checkScriptTag1(self):
+    def check1ScriptTag(self):
         processTest('sample001')
+    def check2ForAndWhileLoops(self):
+        processTest('sample002')
+    def check3IfTags(self):
+        processTest('sample003')
+    def check4PassingDictionaries(self):
+        dictionary = {"song1": {"songtitle": "The Lumberjack Song", "by": "Monthy Python"},
+                      "song2": {"songtitle": "My Way", "by": "Frank Sinatra"}}
+        processTest('sample004', dictionary)
+    def check5Escape(self):
+        processTest('sample005')
 
 suite = unittest.makeSuite(SimpleTestCase,'check')
-    
 
-
-def processTest(filename, dict={}):
+def processTest(filename, dictionary={}):
     root, ext = os.path.splitext(filename)
     outFileName = root + '.html'
     mod = preppy.getModule(root)
     outFile = open(outFileName, 'w')
-    mod.run({}, outputfile = outFile)
+    mod.run(dictionary, outputfile = outFile)
     outFile.close()
     print 'wrote',outFileName
 
@@ -44,11 +52,18 @@ if __name__=='__main__':
             sys.exit()
         elif arg == 'old':
             clean()
+            dictionary = {}
             processTest('sample001')
+            processTest('sample002')
+            processTest('sample003')
+            dictionary = {"song1": {"songtitle": "The Lumberjack Song", "by": "Monthy Python"},
+                          "song2": {"songtitle": "My Way", "by": "Frank Sinatra"}}
+            processTest('sample004', dictionary)
+            processTest('sample005')
             print 'please read all sample*.html files'
             sys.exit()
         else:
-            print '????'
+            print 'argument not recognised!'
     else:
         runner = unittest.TextTestRunner()
         runner.run(suite)
