@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.12 2000/10/26 03:33:03 robin Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.13 2000/10/31 10:53:17 aaron Exp $
 """Python preprocessor"""
 
 STARTDELIMITER = "{{"
@@ -639,6 +639,7 @@ def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0, sa
     global DIAGNOSTIC_FUNCTION
     DIAGNOSTIC_FUNCTION = None
     import sys
+    sourcetext = cleantext(sourcetext) # get rid of gunk in newlines, just in case
     try:
         out = P.module_source(sourcetext)
     except:
@@ -678,6 +679,17 @@ __checksum__ = %s
     exec out in result.__dict__
     GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = result
     return result
+
+def cleantext(text):
+    ### THIS GETS RID OF EXTRA WHITESPACE AT THE END OF LINES (EG CR'S)
+    textlines = string.split(text, "\n")
+    for i in range(len(textlines)):
+        l = textlines[i]
+        l1 = "."+l
+        l2 = string.strip(l1)
+        l3 = l2[1:]
+        textlines[i] = l3
+    return string.join(textlines, "\n")
 
 getModule = getPreppyModule
 

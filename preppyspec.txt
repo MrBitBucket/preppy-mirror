@@ -1,7 +1,7 @@
 Title: preppy spec
-Version: $Revision: 1.6 $
+Version: $Revision: 1.7 $
 Author: Aaron Watters <aaron@reportlab.com>
-Status: Preliminary, edit out editorial asides before release
+Status: Final
 Type: Design Specification
 Created: 5-Oct-2000
 
@@ -396,7 +396,10 @@ ADDITIONAL NOTES:
 	be executed at least once before the exported functions or classes are used
 	(NOT RECOMMENDED!).
 
-
+	WARNING: extra whitespace at the end of a line is discarded in the source.
+	(rationale: had problems with extra carriage returns at ends of some lines
+	and this was an easy fix, but AFAIK it may need to be undone at some
+	later time if trailing whitespace is needed sometime...).
 
 
 # end of preppy spec
