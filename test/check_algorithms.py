@@ -3,9 +3,9 @@
 
 # Tests of various functions and algorithms in preppy.
 # no side-effects on file system, run anywhere.
-# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_algorithms.py,v 1.1 2002/12/28 22:03:00 andy Exp $
-# $Author: andy $ 
-# $Date: 2002/12/28 22:03:00 $
+# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_algorithms.py,v 1.2 2003/11/05 12:43:20 mike Exp $
+# $Author: mike $ 
+# $Date: 2003/11/05 12:43:20 $
 
 
 import os, glob, string, random
@@ -78,6 +78,15 @@ class GeneratedCodeTestCase(unittest.TestCase):
         out = self.getRunTimeOutput(prepCode, name='fred',sex='m')
         self.assertEquals(out, "Hello, my name is fred and I am a guy.")
 
+    def checkFuncWithSideEffects(self):
+        prepLines = []
+        prepLines.append('{{script}}l = [1, 2]{{endscript}}')
+        prepLines.append('{{l.pop()}},')
+        prepLines.append('{{l.pop()}},')
+        prepLines.append('{{len(l)}}')
+        prepCode = ''.join(prepLines)
+        out = self.getRunTimeOutput(prepCode)
+        self.assertEquals(out, "2,1,0")
 
 class OutputModeTestCase(unittest.TestCase):
     """Checks all ways of generating output return identical
