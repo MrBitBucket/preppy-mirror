@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.35 2004/05/23 09:26:50 robin Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.36 2004/05/23 09:54:45 robin Exp $
 
 
 
@@ -824,6 +824,25 @@ def testgetmodule(name="testoutput"):
     print "load successful! running result"
     print "=" * 100
     result.run({})
+try:
+    from reportlab.lib.utils import rl_get_module
+except:
+    def rl_get_module(name,dir):
+        f, p, desc= imp.find_module(name,[dir])
+        if sys.modules.has_key(name):
+            om = sys.modules[name]
+            del sys.modules[name]
+        else:
+            om = None
+        try:
+            try:
+                return imp.load_module(name,f,p,desc)
+            except:
+                raise ImportError('%s[%s]' % (name,dir))
+        finally:
+            if om: sys.modules[name] = om
+            del om
+            if f: f.close()
 
 # cache found modules by source file name
 GLOBAL_LOADED_MODULE_DICTIONARY = {}
@@ -878,6 +897,7 @@ def getModule(name,
         sourcefilename = os.path.join(dir, name+source_extension)
         if GLOBAL_LOADED_MODULE_DICTIONARY.has_key(sourcefilename):
             return GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename]
+
         try:
             module = rl_get_module(name,directory)
             checksum = module.__checksum__
