@@ -1,22 +1,22 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 
-<html>
-<head>
-<title>ReportLab Preppy Test Suite 006</title>
-</head>
+<HTML>
+<HEAD>
+<TITLE>ReportLab Preppy Test Suite 006</TITLE>
+</HEAD>
 
-<body>
+<BODY>
 
 <FONT COLOR=#000000>
 
-<TABLE bgColor=#0000cc border=0 cellPadding=0 cellSpacing=0 width=100% ><TBODY>
-        <TR>
-        <TD>
-<FONT COLOR=#ffffff>
+<TABLE BGCOLOR=#0000CC BORDER=0 CELLPADDING=0 CELLSPACING=0 WIDTH=100% >
+<TR>
+<TD>
+<FONT COLOR=#FFFFFF>
 <CENTER>
-<H1>Preppy Test 006 - Writing HTML files without writing .py files</h1>
-</font>
+<H1>Preppy Test 006 - Writing HTML files without writing .py files</H1>
 </CENTER>
+</FONT>
 </TD>
 </TR>
 </TABLE>
@@ -29,6 +29,7 @@ You are reading this HTML file, so this test worked.
 
 <HR>
 Below is a listing of the files in the same directory as this HTML file. 'sample006.py' should <I>not</I> there.
+<BR><BR>
 <CENTER>
 <TABLE>
 {{script}}
@@ -44,10 +45,10 @@ for item in range(1,len(fileList)-1,2):
 		rightColumn.append(fileList[item])
 
 for loopCounter in range(0, len(leftColumn)):
-	print "<TR>\n<TD WIDTH=50%>"
+	print "<TR>\n<TD WIDTH=30%>"
 	print leftColumn[loopCounter]
 	print "</TD>\n"
-	print "<TD WIDTH=50%>"
+	print "<TD WIDTH=30%>"
 	try:
 		print rightColumn[loopCounter]
 		print "</TD></TR>"
@@ -64,5 +65,6 @@ for loopCounter in range(0, len(leftColumn)):
 
 <BR>
 
-</body>
-</html>
+</FONT>
+</BODY>
+</HTML>

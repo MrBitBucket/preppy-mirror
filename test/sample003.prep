@@ -1,22 +1,22 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 
-<html>
-<head>
-<title>ReportLab Preppy Test Suite 003</title>
-</head>
+<HTML>
+<HEAD>
+<TITLE>ReportLab Preppy Test Suite 003</TITLE>
+</HEAD>
 
-<body>
+<BODY>
 
 <FONT COLOR=#000000>
 
-<TABLE bgColor=#0000cc border=0 cellPadding=0 cellSpacing=0 width=100% ><TBODY>
+<TABLE BGCOLOR=#0000CC BORDER=0 CELLPADDING=0 CELLSPACING=0 WIDTH=100% >
         <TR>
         <TD>
-<FONT COLOR=#ffffff>
+<FONT COLOR=#FFFFFF>
 <CENTER>
-<H1>Preppy Test 003 - The "If" Tag</h1>
-</font>
+<H1>Preppy Test 003 - The "If" Tag</H1>
 </CENTER>
+</FONT>
 </TD>
 </TR>
 </TABLE>
@@ -52,7 +52,7 @@ print printstring
 {{endscript}}
 
 {{if testVar == 10}}
-<B>You should see this if the test variable is equal to '10' - but it shouldn't be.<B>
+<B>You should see this if the test variable is equal to '10' - but it shouldn't be.</B>
 {{else}}
 <I>You should see this line if the test variable is <B>not</B> equal  to '10'</I>
 {{endif}}
@@ -73,5 +73,6 @@ The test variable is '{{testVar}}'<BR>
 <BR>
 <HR>
 
-</body>
-</html>
+</FONT>
+</BODY>
+</HTML>

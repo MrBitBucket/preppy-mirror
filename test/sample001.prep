@@ -1,22 +1,22 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 
-<html>
-<head>
-<title>ReportLab Preppy Test Suite 001</title>
-</head>
+<HTML>
+<HEAD>
+<TITLE>ReportLab Preppy Test Suite 001</TITLE>
+</HEAD>
 
-<body>
+<BODY>
 
 <FONT COLOR=#000000>
 
-<TABLE bgColor=#0000cc border=0 cellPadding=0 cellSpacing=0 width=100% ><TBODY>
+<TABLE BGCOLOR=#0000CC BORDER=0 CELLPADDING=0 CELLSPACING=0 WIDTH=100% >
         <TR>
         <TD>
-<FONT COLOR=#ffffff>
+<FONT COLOR=#FFFFFF>
 <CENTER>
-<H1>Preppy Test 001 - "Script" Tag</h1>
-</font>
+<H1>Preppy Test 001 - "Script" Tag</H1>
 </CENTER>
+</FONT>
 </TD>
 </TR>
 </TABLE>
@@ -36,5 +36,6 @@ print 2+2
 </CENTER><BR>
 <HR>
 
-</body>
-</html>
+</FONT>
+</BODY>
+</HTML>

@@ -1,22 +1,22 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 
-<html>
-<head>
-<title>ReportLab Preppy Test Suite 005</title>
-</head>
+<HTML>
+<HEAD>
+<TITLE>ReportLab Preppy Test Suite 005</TITLE>
+</HEAD>
 
-<body>
+<BODY>
 
 <FONT COLOR=#000000>
 
-<TABLE bgColor=#0000cc border=0 cellPadding=0 cellSpacing=0 width=100% ><TBODY>
+<TABLE BGCOLOR=#0000CC BORDER=0 CELLPADDING=0 CELLSPACING=0 WIDTH=100% >
         <TR>
         <TD>
-<FONT COLOR=#ffffff>
+<FONT COLOR=#FFFFFF>
 <CENTER>
-<H1>Preppy Test 005 - Escaping</h1>
-</font>
+<H1>Preppy Test 005 - Escaping</H1>
 </CENTER>
+</FONT>
 </TD>
 </TR>
 </TABLE>
@@ -51,8 +51,8 @@ This should have a dollar sign between two closing braces:  }$$}<BR>
 </P>
 
 <P>
-This should just show two open braces: {${
-This should just show two close braces: }$}
+This should just show two open braces: {${<BR>
+This should just show two close braces: }$}<BR>
 </P>
 
 <P>
@@ -66,5 +66,6 @@ This should just show two close braces: }$}
 
 <BR>
 
-</body>
-</html>
+</FONT>
+</BODY>
+</HTML>
