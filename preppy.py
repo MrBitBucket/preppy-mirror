@@ -17,7 +17,7 @@ def unescape(s, unescapes=UNESCAPES, r=string.replace):
         s = r(s, old, new)
     return s
 
-VERSION = 0.3
+VERSION = 0.4
 
 """
 {{if x:}} this text $(endif}} that
@@ -232,14 +232,40 @@ print "---------dict string"
 print ds
 """
 
+
+#### standard code templates
+
+TOPLEVELWRAPPER = """\
+### begin standard prologue
+import sys
+__save_sys_stdout__ = sys.stdout
+try: # compiled logic below
+%s
+finally: #### end of compiled logic, standard cleanup
+    import sys # for safety
+    #print "resetting stdout", sys.stdout, "to", __save_sys_stdout__
+    sys.stdout = __save_sys_stdout__
+"""
+
 TOPLEVELPROLOG = """\
+### top level prologue
+# redirect stdout, maybe
+try:
+    # if outputfile is defined, blindly assume it supports file protocol, reset sys.stdout
+    if outputfile is None:
+        raise NameError
+    stdout = sys.stdout = outputfile
+except NameError:
+    stdout = sys.stdout
 # make sure __write__ is defined
 try:
     if __write__ is None:
         raise NameError
+    if outputfile and __write__:
+        raise ValueError, "do not define both outputfile (%s) and __write__ (%s)." %(outputfile, __write__)
 except NameError:
     import sys
-    __write__ = sys.stdout.write
+    __write__ = stdout.write
 # now exec the assignments in the dictionary 
 try:
     __d__ = dictionary
@@ -248,14 +274,16 @@ except:
 else:
     for __n__ in __d__.keys():
         exec("%s=__d__[%s]") % (__n__, repr(__n__))
+### end of standard prologues
 """
 
 class PreProcessor:
     #STARTDELIMITER = STARTDELIMITER # NOT USED, USE MODULE GLOBAL
     #ENDDELIMITER = ENDDELIMITER
     indentstring = "\t"
-    def indent(self, s):
-        indentstring = self.indentstring
+    def indent(self, s, indentstring=None):
+        if indentstring is None:
+            indentstring = self.indentstring
         return indentstring + string.replace(s, "\n", "\n"+indentstring)
     
     def __call__(self, inputtext, cursor=0, toplevel=1, lineno=None):
@@ -429,6 +457,9 @@ class PreProcessor:
                     raise ValueError, "at toplevel don't understand directive %s.%s" % (
                         repr(inputtext[startblock-10:startblock]), repr(inputtext[startblock:startblock+10]))
         output = join(outputlist, "\n")
+        if toplevel:
+            output = self.indent(output)
+            output = TOPLEVELWRAPPER % output
         return (output, cursor)
     
     def getDirectiveBlock(self, cursor, inputtext, lineno=None):
@@ -522,7 +553,7 @@ def dedent(text):
     return join(linesout, "\n")
 
 module_source_template = """
-def run(dictionary, __write__=None):
+def run(dictionary, __write__=None, outputfile=None):
 %s
 
 if __name__=="__main__":
@@ -554,7 +585,7 @@ def testgetmodule(name="testpreppy"):
 # cache found modules by source file name
 GLOBAL_LOADED_MODULE_DICTIONARY = {}
 
-def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0):
+def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0, savefile=1):
     # see if the module exists as a python file
     from sys import path
     import os
@@ -617,9 +648,10 @@ def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0):
             print "no further diagnostic available"
         print "ERROR PROCESSING PREPPY FILE"
         sys.exit(1)
-    outfilename = os.path.join(directory, name+".py")
-    outfile = open(outfilename, "w")
-    outfile.write("""
+        if savefile:
+            outfilename = os.path.join(directory, name+".py")
+            outfile = open(outfilename, "w")
+            outfile.write("""
 '''
 PREPPY MODULE %s
 Automatically generated file from preprocessor source %s
@@ -627,8 +659,8 @@ DO NOT EDIT!
 '''
 __checksum__ = %s
 """ % (name, sourcefilename, repr(sourcechecksum)))
-    outfile.write(out)
-    outfile.close()
+            outfile.write(out)
+            outfile.close()
     # now make a module
     from imp import new_module
     result = new_module(name)

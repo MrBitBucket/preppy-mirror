@@ -1,5 +1,5 @@
 Title: preppy spec
-Version: $Revision: 1.4 $
+Version: $Revision: 1.5 $
 Author: Aaron Watters <aaron@reportlab.com>
 Status: Preliminary, edit out editorial asides before release
 Type: Design Specification
@@ -83,7 +83,8 @@ Operations
 
 	Load a preppy module (possibly from source text) using
 
-	m = getModule(name, directory=".", source_extension=".prep", verbose=0)
+	m = getModule(name, directory=".", source_extension=".prep", 
+		verbose=0, savefile=1)
 
 	This function will look for the python module named "name" and if
 	if exists check to see that it matches the preppy source module
@@ -91,7 +92,11 @@ Operations
 	module does not exist or does not match a new python module
 	will be built from the source file, stored as a python module
 	name+".py" in the directory (which must be writable if the modules
-	don't match.
+	don't match.)  
+
+	If you do not want to save the regenerated module
+	text then use savefile=0 and no file will be written during the
+	load (but a matching existing python module will still be preferred).
 
 	If the source module is not present, but the python module is present
 	the python module will be assumed correct and used.  When the source
@@ -105,7 +110,7 @@ Operations
 
 	The entry point for a Preppy module is the function
 
-		m.run(dictionary)
+		m.run(dictionary, __write__=None, outputfile=None)
 
 	Where dictionary provides external information to the run function.
 	An example usage might be
@@ -117,14 +122,26 @@ Operations
 	to be redefined.  For example to append the output text segments to
 	a list instead of writing to a file use:
 
-	L = []
-	app = L.append
-	m.run(dictionary, app)
+		L = []
+		app = L.append
+		m.run(dictionary, __write__=app)
 
 	NOTE: This will work only if the any script directive code segments
 	either do not directly produce text output themselves (recommended) or
 	use the __write__ function instead of printing directly to standard
 	output.
+
+	Run has a third optional argument which allows the program to specify
+	a file to use as the standard output for the function.  In this case
+	print statements will work (since sys.stdout will be set to the file
+	while run() executes and set back to whatever it was previously
+	afterwards.  Thus you can call
+
+		f = open("flintstone.html", "w")
+		m.run(dictionary, outputfile=f)
+
+	WARNING: the preppy module will signal an error if both __write__ and
+	outputfile are defined -- use one or the other or neither, not both.
 
 Recursive Imports of preppy modules:
 
@@ -164,9 +181,10 @@ token:	{{token}}
 	is the value of token evaluated as a python expression in the context
 	of the m.run() function.  An example might be
 
-		{{dictionary["name"]}}
+		{{dictionary["name"]+2}}
 
 	The result of the evaluation is introduced into the output stream
+	(using standard python string conversion, if needed).
 
 eval:	{{eval}}python_expression{{endeval}}
 
@@ -183,7 +201,7 @@ eval:	{{eval}}python_expression{{endeval}}
 	WARNING: for token, eval, and script any newlines in the code text
 	will be automatically indented to the proper indentation level for
 	the run() module at that insertion point.  This is only a concern
-	for triple quoted strings.  If this may be an issue dont use triple
+	for triple quoted strings.  If this may be an issue don't use triple
 	quoted strings in preppy source. Instead of
 
 	x = """
@@ -245,7 +263,9 @@ script:	{{script}}python_code_line{{endscript}}
 
 	SCRIPT RECOMMENDATION 3: If you ignore the first 2 recommendations then
 	never use the second argument of the run() function to redirect the
-	output -- reset sys.stdout instead.
+	output -- reset sys.stdout instead using the outputfile=file third argument.
+	In this case the generated function cannot send output to any structure
+	which doesn't support the Python file protocol.
 
 if)	{{if condition}} block {{endif}}
 	{{if condition}} block1 {{else}} block2 {{endif}}
@@ -337,13 +357,25 @@ SYNTAX CHECKING:
 
 		{{if x==40: y=9}} (not a valid if directive)
 
+	However NameErrors or other run time errors which are not detected
+	by the Python compiler will not be detected at generation time.  For
+	example the compiler will not understand that this is an invalid
+	function call (it is syntactically acceptible to the grammar)
+
+		{{ "this"("doesn't work") }}
+
+	This error will be detected during execution of the run() function
+	if and when the code segment containing it is executed.
+
+		...TypeError: call of non-function (type string)
+
 ADDITIONAL NOTES:
 
 	You may define classes and functions in scripts but remember that they
 	are defined in the local context of the run() function and do not have access
 	to local variables in the run() function.  Any variable you wish to
-	use in a class or function (except for __write__ and dictionary, the
-	run function arguments) can be declared global in the script
+	use in a class or function (except for __write__ and dictionary and
+	outputfile, the run function arguments) can be declared global in the script
 
 		global variable
 
@@ -357,4 +389,5 @@ ADDITIONAL NOTES:
 
 
 
+# end of preppy spec
 
