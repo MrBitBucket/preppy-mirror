@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.21 2002/04/10 11:44:28 robin Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.22 2002/04/17 21:18:35 andy Exp $
 """preppy - a Python preprocessor.
 
 This is the Python equivalent of ASP or JSP - a preprocessor which lets you
@@ -35,7 +35,7 @@ permission to store compiled modules.
 
 """
 
-VERSION = 0.5
+VERSION = 0.6
 
 
 USAGE = """
@@ -685,7 +685,7 @@ def getModule(name,
     # any extension
     name = os.path.splitext(name)[0]
     if verbose:
-        print 'searching for module "%s" in directory "%s"' % (name, directory)
+        print ('checking %s/%s...' % (directory, name)),
     # savefile is deprecated but kept for safety.  savePy and savePyc are more
     # explicit and are the preferred.  By default it generates a pyc and no .py
     # file to reduce clutter.
@@ -695,7 +695,7 @@ def getModule(name,
 
     if sourcetext is not None:
         # they fed us the source explicitly
-        if verbose: print "sourcetext provided"
+        if verbose: print "sourcetext provided...",
         sourcefilename = "<input text %s>" % name
         sourcechecksum = md5.new(sourcetext + repr(VERSION)).digest()
         savePy = 0 # cannot savefile if source file provided
@@ -711,15 +711,15 @@ def getModule(name,
         try:
             module = __import__(name)
             checksum = module.__checksum__
-            if verbose: print "module", name, "found with checksum", repr(checksum)
+            if verbose: print "found...",
         except: # ImportError:  catch ALL Errors importing the module (eg name="")
             module = checksum = None
-            if verbose: print "no module", name, "found (or error)"
+            if verbose: print " py/pyc not found...",
             # check against source file
         try:
             sourcefile = open(sourcefilename, "r")
         except:
-            if verbose: print "no source file", sourcefilename, "found attempting to use existing module"
+            if verbose: print "no source file, reuse...",
             if module is None:
                 raise ValueError, "couldn't find source %s or module %s" % (sourcefilename, name)
             # use the existing module??? (NO SOURCE PRESENT)
@@ -731,14 +731,14 @@ def getModule(name,
             sourcechecksum = md5.new(sourcetext + repr(VERSION)).digest()
             if sourcechecksum==checksum:
                 # use the existing module. it matches
-                if verbose: print "checksums match, not regenerating python source"
+                if verbose: print "up to date."
                 GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = module
                 return module
             elif verbose:
-                print "CHECKSUMS DON'T MATCH"
+                print "changed,",
     # if we got here we need to rebuild the module from source
     if verbose:
-        print "regenerating python source from", sourcefilename
+        print "recompiling"
     P = PreProcessor()
     global DIAGNOSTIC_FUNCTION
     DIAGNOSTIC_FUNCTION = None
