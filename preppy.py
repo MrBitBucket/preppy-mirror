@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.13 2000/10/31 10:53:17 aaron Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.14 2000/11/09 15:15:42 aaron Exp $
 """Python preprocessor"""
 
 STARTDELIMITER = "{{"
@@ -78,6 +78,11 @@ def countnewlines(s):
     x = len(string.split(s, "\n"))
     if x: return x-1
     return 0
+
+Substringquotes =[("%", "#P#"), ("(", "#[#"), (")", "#]#")]
+for wc in string.whitespace:
+    Substringquotes.append( (wc, repr(wc)) )
+                  
 
 def quotestring(s, cursor=0, lineno=None):
     """return a string where {{x}} becomes %(x)s and % becomes %(__percent__)s
@@ -157,7 +162,7 @@ def quotestring(s, cursor=0, lineno=None):
                 # unescape the block
                 block = unescape(block)
                 # quote sblock for substitution format
-                for (c, rc) in (("%", "#P#"), ("(", "#[#"), (")", "#]#")):
+                for (c, rc) in Substringquotes:
                     if c in sblock:
                         sblock = replace(sblock, c, rc)
                 # test the syntax of the block
