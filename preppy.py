@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.17 2000/11/13 16:22:05 aaron Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.18 2001/08/11 08:08:29 robin Exp $
 """Python preprocessor"""
 
 STARTDELIMITER = "{{"
@@ -287,7 +287,7 @@ else:
                 __forbidden__ = 1
         if not __forbidden__:
             try:
-                exec("%s=__d__[%s]") % (__n__, repr(__n__))
+                exec("%s=__d__[%s]") % (__n__, repr(__n__)) in locals()
             except:
                 pass # ignore dict entries that aren't valid variable names
 ### end of standard prologues
