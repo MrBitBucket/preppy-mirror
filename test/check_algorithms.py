@@ -103,6 +103,9 @@ class GeneratedCodeTestCase(unittest.TestCase):
     def checkLoopVars(self):
         self.assertEquals(self.getRunTimeOutput('{{i}}{{"".join([str(i) for i in (1,2,3)])}}',i='A'), "A123")
 
+    def checkClosingBraces(self):
+        self.assertEquals(self.getRunTimeOutput('i}}'), "i}}")
+
 class OutputModeTestCase(unittest.TestCase):
     """Checks all ways of generating output return identical
     results - grab string, file"""
