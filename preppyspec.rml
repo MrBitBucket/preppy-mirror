@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="iso-8859-1" standalone="no" ?> 
 <!DOCTYPE document SYSTEM "rml_1_0.dtd"> 
 <document filename="preppyspec.pdf"> 
-<!-- Last Modified:             $Date: 2003/04/22 14:29:47 $ -->
+<!-- Last Modified:             $Date$ -->
 <!-- Document Version Number:   $Revision: 1.2 $            -->
 
 <template pageSize="(595, 842)" 
