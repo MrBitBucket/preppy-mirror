@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.24 2002/04/19 11:16:24 john Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.25 2002/06/19 17:24:20 robin Exp $
 """preppy - a Python preprocessor.
 
 This is the Python equivalent of ASP or JSP - a preprocessor which lets you
@@ -776,20 +776,10 @@ def getModule(name,
         out = P.module_source(sourcetext)
     except:
         t,v,tb = sys.exc_type, sys.exc_value, sys.exc_traceback
-        import traceback
-        tb = traceback.format_tb(tb)
-        tb = string.join(tb, "\n")
-        print "ERROR PROCESSING PREPPY FILE TRACEBACK"
-        print tb
-        print "Type", t
-        print "Value", v
-        if DIAGNOSTIC_FUNCTION:
-            print "LAST DIAGNOSTIC:"
-            print DIAGNOSTIC_FUNCTION()
-        else:
-            print "no further diagnostic available"
-        print "ERROR PROCESSING PREPPY FILE"
-        sys.exit(1)
+        v = "ERROR PROCESSING PREPPY FILE type=%s Value=%s" % (str(t), str(v))
+        if DIAGNOSTIC_FUNCTION: v = '%s\n%s' % (v, DIAGNOSTIC_FUNCTION())
+        raise t, v, tb
+
 
     # generate the python source in memory as if it was a py file.
     # then save to py and pyc as specified.
