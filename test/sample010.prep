@@ -2,7 +2,7 @@
 
 <HTML>
 <HEAD>
-<TITLE>ReportLab Preppy Test Suite 008</TITLE>
+<TITLE>ReportLab Preppy Test Suite 009</TITLE>
 </HEAD>
 
 <BODY>
@@ -14,7 +14,7 @@
 <TD>
 <FONT COLOR=#FFFFFF>
 <CENTER>
-<H1>Preppy Test 008 - Testing Preppy With A 500 Item Dictionary</H1>
+<H1>Preppy Test 010 - Testing Preppy With A 10,000 Item Dictionary</H1>
 </CENTER>
 </FONT>
 </TD>
@@ -22,9 +22,9 @@
 </TABLE>
 
 <BR>
-This test creates a dictionary filled with <I>500</I> random numbers , and tests to see that Preppy can handle it.
+This test creates a dictionary filled with <I>10,000</I> random numbers, and tests to see that Preppy can handle it.
 <H2>Expected Output</H2>
-You should see 500 local variables listed below under the dictionary '__d__', all of which will be called key[number], where number is a 4 digit number between 0000 and 0499.
+You should see 10,000 local variables listed below under the dictionary '__d__', all of which will be called key[number], where number is a 4 digit number between 0000 and 9999.
 <BR><BR>
 
 <HR>
@@ -46,6 +46,7 @@ pprint.pprint(locals())
 
 <BR><BR>
 <HR>
+
 
 </FONT>
 </BODY>
