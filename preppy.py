@@ -1,7 +1,23 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.26 2002/10/25 11:31:57 robin Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.27 2002/11/18 11:12:21 andy Exp $
+
+
+
+"""
+#AR - refactoring plans:
+
+1. made the preprocessor object track the output collection
+2. prove this gives same output across test suite by leaving old one
+   in and asserting.  Full recompile of major apps.
+3. use self.prepLineNo instead of lineNo
+
+
+
+
+"""
+
 """preppy - a Python preprocessor.
 
 This is the Python equivalent of ASP or JSP - a preprocessor which lets you
@@ -48,10 +64,10 @@ The command line interface lets you test, compile and clean up:
        - runs the module, optionally with arguments.  e.g.
          preppy.py flintstone.prep name=fred sex=m
 
-    preppy.py compile module1[.prep] module2[.prep] module3 ...
+    preppy.py compile [-f] [-v] [-p] module1[.prep] module2[.prep] module3 ...
        - compiles explicit modules
 
-    preppy.py compile dirname1  dirname2 ...
+    preppy.py compile [-f] [-v] [-p] dirname1  dirname2 ...
        - compiles all prep files in directory recursively
 
     preppy.py clean dirname1 dirname2 ...19
@@ -69,7 +85,7 @@ QUOTEQUOTE = "$$"
 # SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
 UNESCAPES = ( (QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE) )
 
-import string, os, md5, sys, imp
+import string, os, md5, sys, imp, pprint
 
 
 def unescape(s, unescapes=UNESCAPES, r=string.replace):
@@ -139,109 +155,6 @@ Substringquotes =[("%", "#P#"), ("(", "#[#"), (")", "#]#")]
 for wc in string.whitespace:
     Substringquotes.append( (wc, "w."+repr(ord(wc))) )
 
-
-def quotestring(s, cursor=0, lineno=None):
-    """return a string where {{x}} becomes %(x)s and % becomes %(__percent__)s
-       and also return a substitution dictionary for it containing
-          __dict__ = {}
-          __dict__["__percent__"] = "%"
-          ...
-          __dict__["x"] = x
-          ...
-       return the cursor where the process breaks (end or at {{if x:...}
-       {{x}} x must not contain whitespace (except surrounding) but it can be (eg)
-       math.sin(34.1) or dictionary.get("user","anonymous")
-    """
-    #print "quotestring at", cursor, repr(s[cursor:cursor+10])
-    if lineno is None:
-        #raise "oops"
-        lineno = [0, "<top level>"]
-    def diag(lineno=lineno):
-        return "qs: near line %s at or after %s" % (lineno[0], repr(lineno[1]))
-    global DIAGNOSTIC_FUNCTION
-    DIAGNOSTIC_FUNCTION = diag
-    from string import join, split, strip, find, replace
-    slen = len(s)
-    quotedparts = []
-    #addpart = quotedparts.append
-    def addpart(s, append=quotedparts.append, lineno=lineno):
-        s = unescape(s) # unescape all text in output string
-        append(s)
-        if "\n" in s:
-            lineno[0] = lineno[0] + countnewlines(s)
-    dictlines = ["__dict__ = {}"]
-    adddict = dictlines.append
-    done = None
-    starttaglen = len(STARTDELIMITER)
-    endtaglen = len(ENDDELIMITER)
-    dictassntemplate = "__dict__[%s] = %s # %s"
-    key_seen = {}
-    while done is None:
-        findpercent = find(s, "%", cursor)
-        if findpercent<0: findpercent = slen
-        findstarttag = find(s, STARTDELIMITER, cursor)
-        if findstarttag<0: findstarttag = slen
-        findmin = min(findpercent, findstarttag)
-        sclean = s[cursor:findmin]
-        lineno[1] = s[findmin: findmin+10]
-        addpart(sclean)
-        #print "clean", repr(sclean)
-        cursor = findmin
-        if cursor==slen:
-            done = 1
-        elif s[cursor]=="%":
-            cursor = cursor+1
-            addpart("%(#percent#)s")
-        else:
-            # must be at start tag
-            findendtag = find(s, ENDDELIMITER, cursor)
-            savecursor = cursor
-            cursor = cursor+starttaglen
-            if findendtag<0:
-                raise ValueError, "no end tag found after %s (%s)" % (repr(s[cursor-10:cursor+20]), diag())
-            lineno[1] = s[savecursor: findendtag+10]
-            block = s[cursor: findendtag]
-            block = strip(block)
-            if block[-1]==":":
-                blockx = block[:-1]
-            else:
-                blockx = block
-            blockx = split(blockx)[0]
-            #if complexdirective(block) or # disabled to allow complex expressions
-            #print "blockx", blockx
-            if blockx in KEYWORDS:
-                cursor = savecursor
-                done = 1 # can't handle more complex things here
-            else:
-                cursor = findendtag+endtaglen
-                sblock = block
-                # unescape the block, and the sblock...
-                sblock = block = unescape(block)
-                # quote sblock for substitution format
-                for (c, rc) in Substringquotes:
-                    if c in sblock:
-                        sblock = replace(sblock, c, rc)
-                # test the syntax of the block
-                try:
-                    test = compile(block, "<string>", "eval")
-                except:
-                    raise ValueError, "bad expression (after unescape): " + repr(block)
-                # optimization: don't recompute substitutions already seen
-                if not key_seen.has_key(sblock):
-                    substitutionline = dictassntemplate % (repr(sblock), block, repr(s[savecursor:cursor+10]))
-                    adddict(substitutionline)
-                    key_seen[sblock] = block
-                stringsub = "%s(%s)s" % ("%", sblock)
-                addpart(stringsub)
-    percentline = dictassntemplate % (repr("#percent#"), repr("%"), "required percent sub")
-    adddict(percentline)
-    quotestring = join(quotedparts, "")
-    dictstring = join(dictlines, "\n")
-    #print "==== dictstring"
-    #print dictstring
-    #print "==== quotestring"
-    #print quotestring
-    return (quotestring, dictstring, cursor)
 
 teststring = """
 this test script should produce a runnable program
@@ -314,7 +227,7 @@ stop here
 
 """
 # test code for quotestring
-(qs, ds, c) = quotestring(teststring, cursor=0)
+(qs, ds, c) = PreProcessor().quoteString(teststring, cursor=0)
 print "---------quoted to ", c, `teststring[c:c+20]`
 print qs
 print "---------dict string"
@@ -374,18 +287,192 @@ else:
 ### end of standard prologues
 """
 
+
+        
+        
 class PreProcessor:
+    """This class generates the Python source from the Preppy source"""
     #STARTDELIMITER = STARTDELIMITER # NOT USED, USE MODULE GLOBAL
     #ENDDELIMITER = ENDDELIMITER
     indentstring = "\t"
-    def indent(self, s, indentstring=None):
+    def __init__(self):
+        # keep some stuff for tracking the mapping
+        self.output = [TOPLEVELPROLOG]
+        self.pyLineNo = 50  # must be derivable somehow...
+        self.prepLineNo = 0
+        self.inputText = ''
+        self.lineNoMap = []  #pairs of prep -> py mappings plus diagnostic text.
+        self.indentLevel = 0
+
+    def append(self, stuff, prepCursor):
+        """Put stuff on the end of the new text buffer, updating mappings."""
+        firstLine = string.split(stuff, '\n')[0]
+##        print 'about to append after prep=%d,py=%d:   %s' % (self.prepLineNo, self.pyLineNo, firstLine)
+##        print self.indentText(stuff)
+
+        self.output.append(self.indentText(stuff, self.indentstring * self.indentLevel))
+
+        # line number tracking
+        prepLine = self.prepLineNo
+        pyLine = self.pyLineNo
+
+        # At the end of the block we should be able to get exactly 'in synch'
+        linesAdded = string.split(stuff, '\n')
+        lineCount = len(linesAdded)
+        self.setCursor(prepCursor)
+        self.pyLineNo = self.pyLineNo + lineCount
+
+        # but in the middle, the best we cxan do is guess a 1-for-1
+        # correspondence, ensuring prepLineNo does not get too high.
+        
+        
+        for lin in range(lineCount):
+            if prepLine < self.prepLineNo:
+                prepLine = prepLine + 1
+            pyLine = pyLine + 1
+            self.lineNoMap.append((prepLine, pyLine, linesAdded[lin][0:20]))
+        
+        #self.lineNoMap.append((self.prepLineNo, self.pyLineNo))
+
+    def setCursor(self, pos):
+        "Track the byte position into the input text, and thus the line number"
+        self.prepCursor = pos
+        self.prepLineNo = self.countLines(self.inputText[0:pos])
+
+    def countLines(self, textBlock):
+        "How many lines long is it?"
+        return len(string.split(textBlock, '\n'))
+        
+    def ind(self):
+        self.indentLevel = self.indentLevel + 1
+
+    def ded(self):
+        self.indentLevel = self.indentLevel - 1
+        
+    def indentText(self, s, indentstring=None):
+        #renamed it to avoid confusion with new methods
         if indentstring is None:
             indentstring = self.indentstring
         return indentstring + string.replace(s, "\n", "\n"+indentstring)
 
-    def __call__(self, inputtext, cursor=0, toplevel=1, lineno=None):
+    def quoteString(self, s, cursor=0, lineno=None):
+        """return a string where {{x}} becomes %(x)s and % becomes %(__percent__)s
+           and also return a substitution dictionary for it containing
+              __dict__ = {}
+              __dict__["__percent__"] = "%"
+              ...
+              __dict__["x"] = x
+              ...
+           return the cursor where the process breaks (end or at {{if x:...}
+           {{x}} x must not contain whitespace (except surrounding) but it can be (eg)
+           math.sin(34.1) or dictionary.get("user","anonymous")
+        """
+        #print "quotestring at", cursor, repr(s[cursor:cursor+10])
+        if lineno is None:
+            #raise "oops"
+            lineno = [0, "<top level>"]
+            self.setCursor(1)
+            
+        def diag(lineno=lineno):
+            return "qs: near line %s at or after %s" % (lineno[0], repr(lineno[1]))
+        global DIAGNOSTIC_FUNCTION
+        DIAGNOSTIC_FUNCTION = diag
+        from string import join, split, strip, find, replace
+        slen = len(s)
+        quotedparts = []
+
+        #addpart = quotedparts.append
+        def addpart(s, append=quotedparts.append, lineno=lineno, self=self):
+            s = unescape(s) # unescape all text in output string
+            append(s)
+            if "\n" in s:
+                lineno[0] = lineno[0] + countnewlines(s)
+                
+        dictlines = ["__dict__ = {}"]
+        adddict = dictlines.append
+        done = None
+        starttaglen = len(STARTDELIMITER)
+        endtaglen = len(ENDDELIMITER)
+        dictassntemplate = "__dict__[%s] = %s # %s"
+        key_seen = {}
+        while done is None:
+            findpercent = find(s, "%", cursor)
+            if findpercent<0: findpercent = slen
+            findstarttag = find(s, STARTDELIMITER, cursor)
+            if findstarttag<0: findstarttag = slen
+            findmin = min(findpercent, findstarttag)
+            sclean = s[cursor:findmin]
+            lineno[1] = s[findmin: findmin+10]
+            addpart(sclean)
+            #print "clean", repr(sclean)
+            cursor = findmin
+            if cursor==slen:
+                done = 1
+            elif s[cursor]=="%":
+                cursor = cursor+1
+                addpart("%(#percent#)s")
+            else:
+                # must be at start tag
+                findendtag = find(s, ENDDELIMITER, cursor)
+                savecursor = cursor
+                cursor = cursor+starttaglen
+                if findendtag<0:
+                    raise ValueError, "no end tag found after %s (%s)" % (repr(s[cursor-10:cursor+20]), diag())
+                lineno[1] = s[savecursor: findendtag+10]
+                block = s[cursor: findendtag]
+                block = strip(block)
+                if block[-1]==":":
+                    blockx = block[:-1]
+                else:
+                    blockx = block
+                blockx = split(blockx)[0]
+                #if complexdirective(block) or # disabled to allow complex expressions
+                #print "blockx", blockx
+                if blockx in KEYWORDS:
+                    cursor = savecursor
+                    done = 1 # can't handle more complex things here
+                else:
+                    cursor = findendtag+endtaglen
+                    sblock = block
+                    # unescape the block, and the sblock...
+                    sblock = block = unescape(block)
+                    # quote sblock for substitution format
+                    for (c, rc) in Substringquotes:
+                        if c in sblock:
+                            sblock = replace(sblock, c, rc)
+                    # test the syntax of the block
+                    try:
+                        test = compile(block, "<string>", "eval")
+                    except:
+                        raise ValueError, "bad expression (after unescape): " + repr(block)
+                    # optimization: don't recompute substitutions already seen
+                    if not key_seen.has_key(sblock):
+                        substitutionline = dictassntemplate % (repr(sblock), block, repr(s[savecursor:cursor+10]))
+                        adddict(substitutionline)
+                        key_seen[sblock] = block
+                    stringsub = "%s(%s)s" % ("%", sblock)
+                    addpart(stringsub)
+        percentline = dictassntemplate % (repr("#percent#"), repr("%"), "required percent sub")
+        adddict(percentline)
+        quotestring = join(quotedparts, "")
+        dictstring = join(dictlines, "\n")
+        #print "==== dictstring"
+        #print dictstring
+        #print "==== quotestring"
+        #print quotestring
+        return (quotestring, dictstring, cursor)
+
+
+    def process(self, inputtext, cursor=0, toplevel=1, lineno=None):
+        """Preprocesses the prep file into a chunk of text with __write__
+        statements and logic.  This EXCLUDES the standard module template
+        code before and after; the return value of __call__ is the output
+        python source, and an updated cursor.  Called recursively as
+        the parser identifies significant chunks of stuff."""
+        
         # go to end of string (if toplevel) or dedent token (if not toplevel)
-        #print "call at", cursor, repr(inputtext[cursor:cursor+10])
+        # print "call at", cursor, repr(inputtext[cursor:cursor+10])
+
         if lineno is None:
             if not toplevel:
                 raise "internal error", "lineno should be initialized!"
@@ -398,22 +485,19 @@ class PreProcessor:
             outputlist = [TOPLEVELPROLOG]
         else:
             outputlist = []
+
         a = outputlist.append
-        #def a(s, outputlist=outputlist):
-        #    "debug version"
-        #    print "    ===== adding"
-        #    print s
-        #    outputlist.append(s)
         from string import strip, join, find
         done = None
         inputlen = len(inputtext)
         while done is None:
             # do a print statement for stuff before a complex directive
             #print "iterating at", cursor, repr(inputtext[cursor:cursor+10])
-            (quoted, dictstring, newcursor) = quotestring(inputtext, cursor, lineno)
+            (quoted, dictstring, newcursor) = self.quoteString(inputtext, cursor, lineno)
             segment = inputtext[cursor: newcursor]
             if "%" in quoted:
                 a(dictstring)
+                self.append(dictstring, newcursor)
                 prints = printstmt(quoted) + " % __dict__ )" # note comma!
             else:
                 segment = unescape(segment)
@@ -424,6 +508,8 @@ class PreProcessor:
                 else:
                     prints = "pass"
             a(prints)
+
+            self.append(prints, newcursor)
             cursor = newcursor
             if cursor>=inputlen:
                 done = 1
@@ -442,9 +528,17 @@ class PreProcessor:
                     check_condition("if", sblock)
                     sblock = proctologist(sblock)
                     a(sblock)
+
+                    # AR
+                    self.append(sblock, cursor)
+
+                    
                     # then get the conditional block
-                    (conditional, cursor) = self(inputtext, cursor, toplevel=0, lineno=lineno)
-                    iconditional = self.indent(conditional)
+                    self.ind()
+                    (conditional, cursor) = self.process(inputtext, cursor, toplevel=0, lineno=lineno)
+                    
+                    self.ded()
+                    iconditional = self.indentText(conditional)
                     a(iconditional)
                     inif = 1
                     while inif:
@@ -458,8 +552,14 @@ class PreProcessor:
                             #check_condition("else", sblock)
                             sblock = proctologist(sblock)
                             a(sblock)
-                            (conditional, cursor) = self(inputtext, cursor, toplevel=0, lineno=lineno)
-                            iconditional = self.indent(conditional)
+
+                            # dedent, write the 'else ...' and indent
+                            self.append(sblock, cursor)
+
+                            self.ind()
+                            (conditional, cursor) = self.process(inputtext, cursor, toplevel=0, lineno=lineno)
+                            self.ded()
+                            iconditional = self.indentText(conditional)
                             a(iconditional)
                             # MUST be at endif
                             inif = 0
@@ -473,12 +573,18 @@ class PreProcessor:
                             check_condition("elif", sblock)
                             sblock = proctologist(sblock)
                             a(sblock)
-                            (conditional, cursor) = self(inputtext, cursor, toplevel=0, lineno=lineno)
-                            iconditional = self.indent(conditional)
+
+                            self.append(sblock, cursor)
+
+                            self.ind()
+                            (conditional, cursor) = self.process(inputtext, cursor, toplevel=0, lineno=lineno)
+                            self.ded()
+                            iconditional = self.indentText(conditional)
                             a(iconditional)
                         elif find(sblock, "endif")==0:
                             #print "saw endif"
                             inif = 0
+
                 elif find(sblock, "while") == 0 or find(sblock, "for")==0:
                     if find(sblock, "while") == 0:
                         directive="while"
@@ -489,9 +595,12 @@ class PreProcessor:
                     #print "in", directive
                     # while statement
                     a(sblock)
+                    self.append(sblock, cursor)
                     # then get the conditional block
-                    (conditional, cursor) = self(inputtext, cursor, toplevel=0, lineno=lineno)
-                    iconditional = self.indent(conditional)
+                    self.ind()
+                    (conditional, cursor) = self.process(inputtext, cursor, toplevel=0, lineno=lineno)
+                    self.ded()
+                    iconditional = self.indentText(conditional)
                     a(iconditional)
                     (startblock, block, sblock, cursor) = self.getDirectiveBlock(cursor, inputtext, lineno)
                     if find(sblock, "end"+directive)!=0:
@@ -540,9 +649,11 @@ class PreProcessor:
                             compilemode, ddblock, t, v, tb)
                     if mode=="script":
                         a(ddblock)
+                        self.append(ddblock, cursor)
                     elif mode=="eval":
                         code = "__write__(str(%s))" % ddblock
                         a(code)
+                        self.append(code, cursor)
                     cursor = endlocation + len(endtag)
                 elif not toplevel:
                     # assume the calling routine understands the directive
@@ -555,7 +666,7 @@ class PreProcessor:
                         repr(inputtext[startblock-10:startblock]), repr(inputtext[startblock:startblock+10]))
         output = join(outputlist, "\n")
         if toplevel:
-            output = self.indent(output)
+            output = self.indentText(output)
             output = TOPLEVELWRAPPER % output
         return (output, cursor)
 
@@ -584,19 +695,37 @@ class PreProcessor:
         sblock = unescape(strip(block))
         return (startblock, block, sblock, cursor)
 
-    def module_source(self, string):
+    def getPythonSource(self, inputString):
         """make a module with a function run(dictionary) which executes the interpreted string"""
-        (out, c) = self(string)
-        iout = self.indent(out)
+        # print 'getPythonSource called'
+        self.inputText = inputString
+        (out, c) = self.process(inputString)
+        iout = self.indentText(out)
+##        print '======================'
+##        print iout
+##        print '======================'
         result = module_source_template % iout
+
+        #AR - check the new collector works same way...
+        out2 = self.indentText(TOPLEVELWRAPPER % self.indentText(string.join(self.output, '\n')))
+##        print '======================'
+##        print out2
+##        print '======================'
+        assert iout == out2, 'generated source differs!'
+##        print 'lineNoMap:'
+##        import pprint
+##        pprint.pprint(self.lineNoMap)
+        result = module_source_template % out2
         return result
+
+            
 
 def proctologist(s):
     """now bend over turn your head and cough"""
     # check the colon
     s = string.strip(s)
     if s[-1]!=":":
-        # the following dommented to allow x[5:8] in for statements for example.
+        # the following commented to allow x[5:8] in for statements for example.
         #if ":" in s:
         #    raise ValueError, repr(s)+" contains bogus colon"
         s = s+":"
@@ -661,7 +790,7 @@ def parsetest(name="testoutput"):
     fn = "./%s.py" % name
     P = PreProcessor()
     #(out, c) = P(teststring)
-    out = P.module_source(teststring)
+    out = P.getPythonSource(teststring)
     #print "test string is\n", teststring
     print "generated", len(out), "bytes from", len(teststring), "input"
     print "generating file", fn
@@ -692,9 +821,16 @@ def getModule(name,
               savefile=None,
               sourcetext=None,
               savePy=0,
+              force=0,
               savePyc=1):
-    """Returns a python module implementing the template.  This will be
-    recompiled from source if needed."""
+    """Returns a python module implementing the template, compiling if needed.
+
+    savePy: tells it to save the intermediate python module (useful
+            for learning what preppy does or advanced debugging)
+    force: ignore up-to-date checks and always recompile.
+
+
+    """
 
 
     # it's possible that someone could ask for
@@ -764,10 +900,15 @@ def getModule(name,
             # NOTE: force recompile on each new version of this module.
             sourcechecksum = md5.new(sourcetext + repr(VERSION)).digest()
             if sourcechecksum==checksum:
-                # use the existing module. it matches
-                if verbose: print "up to date."
-                GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = module
-                return module
+                if force==0:
+                    # use the existing module. it matches
+                    if verbose:
+                        print "up to date."
+                    GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = module
+                    return module
+                else:
+                    # always recompile
+                    if verbose: print 'forced recompile,',
             elif verbose:
                 print "changed,",
     # if we got here we need to rebuild the module from source
@@ -778,7 +919,7 @@ def getModule(name,
     DIAGNOSTIC_FUNCTION = None
     sourcetext = cleantext(sourcetext) # get rid of gunk in newlines, just in case
     try:
-        out = P.module_source(sourcetext)
+        out = P.getPythonSource(sourcetext)
     except:
         t,v,tb = sys.exc_type, sys.exc_value, sys.exc_traceback
         v = "ERROR PROCESSING PREPPY FILE type=%s Value=%s" % (str(t), str(v))
@@ -843,34 +984,34 @@ getPreppyModule = getModule
 
     ####################################################################
     #
-    #   utilities for setup scripts, housekeeping etc.
+    #   utilities for compilation, setup scripts, housekeeping etc.
     #
     ####################################################################
 
-def compileModule(prepFileName, savePy=0, verbose=1):
+def compileModule(prepFileName, savePy=0, force=0, verbose=1):
     "Compile a prep file to a pyc file.  Optionally, keep the python source too."
     name, ext = os.path.splitext(prepFileName)
-    m = getModule(name, source_extension=ext, savePyc=1, savePy=savePy, verbose=verbose)
+    m = getModule(name, source_extension=ext, savePyc=1, savePy=savePy, force=force, verbose=verbose)
 
-def compileModules(pattern, savePy=0, verbose=1):
-    "Compile all prep files matching the pattern.  Helps win32 which has to do its own globbing"
+def compileModules(pattern, savePy=0, force=0, verbose=1):
+    "Compile all prep files matching the pattern."
     import glob
     filenames = glob.glob(pattern)
     for filename in filenames:
-        compileModule(filename, savePy, verbose)
+        compileModule(filename, savePy, force, verbose)
 
 from fnmatch import fnmatch
-def compileDir(dirName, pattern="*.prep", recursive=1, savePy=0, verbose=1):
+def compileDir(dirName, pattern="*.prep", recursive=1, savePy=0, force=0, verbose=1):
     "Compile all prep files in directory, recursively if asked"
     if verbose: print 'compiling directory %s' % dirName
     if recursive:
         def _visit(A,D,N,pattern=pattern,savePy=savePy, verbose=verbose):
             for filename in filter(lambda fn,pattern=pattern: fnmatch(fn,pattern),
                     filter(os.path.isfile,map(lambda n, D=D: os.path.join(D,n),N))):
-                compileModule(filename, savePy, verbose)
+                compileModule(filename, savePy, force, verbose)
         os.path.walk(dirName,_visit,None)
     else:
-        compileModules(os.path.join(dirName, pattern), savePy, verbose)
+        compileModules(os.path.join(dirName, pattern), savePy, force, verbose)
 
 def _cleanFiles(filenames,verbose):
     for filename in filenames:
@@ -903,14 +1044,15 @@ def cleanDir(dirName, pattern="*.prep", recursive=1, verbose=1):
         import glob
         _cleanFiles(filter(os.path.isfile,glob.glob(os.path.join(dirName, pattern))),verbose)
 
-def compileStuff(stuff):
+def compileStuff(stuff, savePy=0, force=0, verbose=0):
     "Figures out what needs compiling"
+    #print 'compileStuff...savePy=%d, force=%d, verbose=%d' % (savePy, force, verbose)
     if os.path.isfile(stuff):
-        compileModule(stuff)
+        compileModule(stuff, savePy=savePy, force=force, verbose=verbose)
     elif os.path.isdir(stuff):
-        compileDir(stuff)
+        compileDir(stuff, savePy=savePy, force=force, verbose=verbose)
     else:
-        compileModules(stuff)
+        compileModules(stuff, savePy=savePy, force=force, verbose=verbose)
 
 def extractKeywords(arglist):
     "extracts a dictionary of keywords"
@@ -925,17 +1067,53 @@ def extractKeywords(arglist):
 def main():
     if len(sys.argv)>1:
         name = sys.argv[1]
+
         if name == 'compile':
-            for arg in sys.argv[2:]:
-                compileStuff(arg)
+            names = sys.argv[2:]
+
+            # save the intermediate python file
+            if '--savepy' in names:
+                names.remove('--savepy')
+                savePy = 1
+            elif '-p' in names:
+                names.remove('-p')
+                savePy = 1
+            else:
+                savePy = 0
+
+            # force recompile every time
+            if '--force' in names:
+                names.remove('--force')
+                force = 1
+            elif '-f' in names:
+                names.remove('-f')
+                force = 1
+            else:
+                force = 0
+
+            # extra output
+            if '--verbose' in names:
+                names.remove('--verbose')
+                verbose = 1
+            elif '-v' in names:
+                names.remove('-v')
+                verbose = 1
+            else:
+                verbose = 0
+                
+            for arg in names:
+                compileStuff(arg, savePy=savePy, force=force, verbose=verbose)
+
         elif name == 'clean':
             for arg in sys.argv[2:]:
                 cleanDir(arg, verbose=1)
+
         elif name == 'run':
             moduleName = sys.argv[2]
             params = extractKeywords(sys.argv)
             module = getPreppyModule(moduleName, verbose=0)
             module.run(params)
+
         else:
             #default is run
             moduleName = sys.argv[1]
