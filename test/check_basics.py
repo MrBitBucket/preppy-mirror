@@ -1,9 +1,12 @@
+# copyright ReportLab Inc. 2000
+# see license.txt for license details
+
 # Basic test suite for Preppy.py
 # See check_load.py for load testing
 
-# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_basics.py,v 1.8 2000/11/15 10:10:22 john Exp $
-# $Author: john $
-# $Date: 2000/11/15 10:10:22 $
+# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_basics.py,v 1.9 2000/11/17 14:37:25 john Exp $
+# $Author: john $ (John Precedo - johnp@reportlab.com)
+# $Date: 2000/11/17 14:37:25 $
 
 
 import os, glob, string, random
@@ -140,6 +143,53 @@ class SimpleTestCase(unittest.TestCase):
                     {'1.01':'The key for this dictionary item looks like a number, but is actually a string',
                      '2.78':'So is this one - it looks like a floating point number'}
                     )
+
+    def check10_PreppyInternals_VariableNames(self):
+        # This list contains a number of names of variables that are used internally within Preppy.
+        preppyVariables = ["STARTDELIMITER", "ENDDELIMITER",
+        "QSTARTDELIMITER", "QENDDELIMITER", "QUOTE", "QUOTEQUOTE",
+        "UNESCAPES", "VERSION", "KEYWORDS","out","a", "start",
+        "lines", "firstpass", "linemax", "result","s", "x",
+        "Substringquotes", "cursor", "lineno", "DIAGNOSTIC_FUNCTION",
+        "dictlines", "adddict", "done", "starttaglen", "endtaglen",
+        "dictassntemplate", "key_seen", "findpercent", "findstarttag",
+        "findmin", "sclean", "cursor", "findendtag", "savecursor",
+        "ValueError", "block", "blockx", "sblock", "c", "rc",
+        "substitutionline", "dictassntemplate", "stringsub",
+        "addpart", "teststring", "yislonger", "loop",
+        "TOPLEVELWRAPPER", "__save_sys_stdout__", "TOPLEVELPROLOG",
+        "outputfile", "NameError", "__write__", "__d__", "__n__",
+        "__c__", "__forbidden__", "indentstring", "toplevel",
+        "DIAGNOSTIC_FUNCTION", "segment", "outputlist", "prints",
+        "newcursor", "oldcursor", "inputtext", "startblock", "sblock",
+        "conditional", "iconditional", "inif", "complexdirective",
+        "inif", "directive", "ddblock", "blockmode",
+        "compilemode","endtag", "endlocation", "inputtext",
+        "endtag","t", "v", "tb", "code", "output", "starttaglen",
+        "endtaglen", "newcursor", "inputtext", "findendtag",
+        "startblock", "endblock", "block", "iout", "result",
+        "module_source_template", "lk", "test", "lines",
+        "module_source_template" "line0", "sline0", "ssline0",
+        "firstword", "findfirstword", "indent", "linesout", "l",
+        "lindent", "fn", "P", "out", "name", "result",
+        "GLOBAL_LOADED_MODULE_DICTIONARY", "sourcetext", "verbose",
+        "sourcefilename", "savefile", "module", "checksum",
+        "sourcechecksum", "out", "outfilename", "outfile", "result",
+        "textlines", "i", "l", "l1", "l2", "l3","getModule" ]
+        processTest('sample010')
+ 
+    def check11_PreppyInternals_FunctionNames(self):
+        # This lists contains a number of names of functions that are used internally within Preppy.
+        preppyFunctions = ["unescape", "printstmt", "countnewlines",
+        "quotestring" ,"diag" ,"slen", "quotedparts", "addpart",
+        "indent", "__call__", "diag", "check_condition",
+        "proctologist", "strip", "getDirectiveBlock", "module_source",
+        "proctologist", "check_condition", "complexdirective",
+        "dedent", "parsetest", "testgetmodule", "getPreppyModule",
+        "cleantext", "new_module", "getPreppyModule"]
+        processTest('sample011')
+
+
 
             
 suite = unittest.makeSuite(SimpleTestCase,'check')
