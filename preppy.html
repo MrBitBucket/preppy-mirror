@@ -1,9 +1,9 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<!doctype html public "-//W3C//DTD HTML 4.0 Transitional//EN">
 
 <html>
 <head>
 	<title>Preppy Basics</title>
-	<STYLE TYPE="text/css">
+	<style type="text/css">
 	<!--
 	P, TD, DD, UL, LI, OL, H1, H2, H3 {font-family:Verdana; font-weight: normal; font-size: 9pt;} 
 	DT {font-family:Verdana; font-weight: normal; font-size: 9pt; font-style: italic;}
@@ -13,24 +13,36 @@
 	PRE {font-family:Courier; color: navy; font-weight: normal; font-size: 8pt; margin-left:18pt}
 	BLOCKQUOTE {font-family:Verdana; font-weight: normal; font-size: 8pt; margin-left:18pt} 
 	-->
-	</STYLE>
+	</style>
 </head>
 
 <body>
+<h1>Preppy spec</h1>
+
+<hr>
+
 <blockquote>
-<h1>Title: preppy spec</h1>
-Version: $Revision: 1.2 $<BR>
-Author: Aaron Watters (aaron@reportlab.com)<BR>
-Status: Final<BR>
+Title: preppy spec<br>
+Version: $Revision: 1.3 $<br>
+Author: Aaron Watters (aaron@reportlab.com)<br>
+Status: Final<br>
 Type: Design Specification<br>
 Created: 5-Oct-2000<br>
 </blockquote>
 
+<h3>Goals:</h3>
+<p>Preppy is intended as a simple and fairly general method for preprocessing text files containing special markup (which may contain loops, conditional flow control and generic python code) into python programs.</p>
+
+<h3>Installation and Dependency:</h3>
+<p>preppy requires the following Python libraries to be available for import:<br>
+string, sys, os, traceback, md5</p>
+
+<hr>
 
 <h1>Introduction</h1>
 
 <p>
-    This document describes the preppy.py module operations.
+    This document describes the operations of the module preppy.py.
     It is intended for an audience of proficient python programmers
     and is not intended as a user guide for novices.
 	</p>
@@ -70,26 +82,26 @@ Created: 5-Oct-2000<br>
 	<p>
 	then with 
 	</p>
-	<PRE>
+	<pre>
 	dictionary = {"name": "Fred Flintstone", "sex": "m"}
 	</pre>
-<P>
+<p>
 	the preppy output for this preprocessor source wedded with the
 	dictionary input is
-	</P>
-	<PRE>
+	</p>
+	<pre>
         &lt;html&gt;&lt;head&gt;&lt;title&gt;Fred Flintstone&lt;/title&gt;&lt;/head&gt;&lt;body&gt;
         hello my name is Fred Flintstone and I am
          a guy
                 &lt;/body&gt;&lt;/html&gt;
-	</PRE>
-	<P>
+	</pre>
+	<p>
 	Alternatively with
-	</P>
+	</p>
 	<pre>
 	dictionary = {"name": "Wilma Flintstone", "sex": "f"}
 	</pre>
-	<P>
+	<p>
 	We obtain output
 	</p>
 	<pre>
@@ -98,6 +110,10 @@ Created: 5-Oct-2000<br>
          a gal
                 &lt;/body&gt;&lt;/html&gt;
 	</pre>
+	
+	<p>Note that although these examples are using HTML, Preppy does no checking of 
+	any sort on whether it is valid. The <i>only</i> things Preppy acts on are the 
+	Preppy directives contained within double curly braces.</p>
 
 	<h2>
 Intended Use
@@ -111,7 +127,7 @@ Intended Use
 	<p><pre>
 	{{script}}from foo import bar; bar(){{endscript}}
 	</pre>
-	<P>
+	<p>
 	may result in an infinite loop or a NameError and we make no provision 
 	to attempt to avoid this problem.  Similarly for
 	</p><pre>
@@ -210,34 +226,34 @@ Recursive Imports of preppy modules:
 </p>
 <h2>
 NonDirectives
-</h2><P>
+</h2><p>
 	Text not recognized as directives (or partial erroneous directives)
 	is sent to standard output unmodified by the run() function.
 </p>
 <h2>
 Directives
-</h2><P>
+</h2><p>
 	Directives are set off by 
-</P><PRE>
+</p><pre>
 			STARTDELIMITER = "{{"
 			ENDDELIMITER = "}}"
-</pre><P>
+</pre><p>
 	these module constants can be altered, but alteration may
 	result in parsing difficulties if the replacements are not chosen
 	carefully.
-</P><P>
+</p><p>
 	NOTE ABOUT ESCAPING: The string {${ will be translated to {{ anywhere
 	in the text after delimiters have been identified.  Similarly }$} will
 	be translated to }}.  Furthermore $$ will translate to $.  To specify
 	two $'s in sequence use $$$$.  Single $'s will be left alone outside of
 	{${ or }$}.
-</P><P>
+</p><p>
 	Below are the discussions of the directives in turn.
-<H3>
+<h3>
 token:	{{token}}
 </h3>
-<P>
-	This construct is recognized the token
+<p>
+	This construct is recognized if the token
 	does not match any of the other directives.  The result of this directive
 	is the value of token evaluated as a python expression in the context
 	of the m.run() function.  An example might be
@@ -285,7 +301,7 @@ eval:	{{eval}}python_expression{{endeval}}
 <h3>
 script:	{{script}}python_code_line{{endscript}}
 </h3>
-	which can also be
+	<p>which can also be</p>
 <pre>
 		{{script}}
 		many
@@ -331,7 +347,7 @@ script:	{{script}}python_code_line{{endscript}}
 	output -- reset sys.stdout instead using the outputfile=file third argument.
 	In this case the generated function cannot send output to any structure
 	which doesn't support the Python file protocol.
-</p><h3></h3>
+</p><h3>
 if forms
 </h3>
 <pre>
@@ -354,7 +370,7 @@ for loops
 	This implements a for loop in preppy source.  The for_target should follow
 	normal python conventions for python for loops.  The resulting python 
 	code is roughly
-</p><pre></pre>
+</p><pre>
 	for for_target:
 		interpretation_of(block)
 </pre><h3>
@@ -413,7 +429,7 @@ SYNTAX CHECKING:
 	code blocks or expressions are not allowed.
 </p><p>
 	For example the following will result in errors reported at generation time.
-</p><pre></pre>
+</p><pre>
 		{{5*}} {{10}}  (5* is not a complete expression)
 </pre><p>
 	and
@@ -437,7 +453,7 @@ SYNTAX CHECKING:
 	However NameErrors or other run time errors which are not detected
 	by the Python compiler will not be detected at generation time.  For
 	example the compiler will not understand that this is an invalid
-	function call (it is syntactically acceptible to the grammar)
+	function call (it is syntactically acceptable to the grammar)
 </p><pre>
 		{{ "this"("doesn't work") }}
 </pre><p>
@@ -467,6 +483,19 @@ ADDITIONAL NOTES:
 	(rationale: had problems with extra carriage returns at ends of some lines
 	and this was an easy fix, but AFAIK it may need to be undone at some
 	later time if trailing whitespace is needed sometime...).
-	</p>
+</p><p>
+	Commenting your code: There is no specific Preppy form of comments. It allows 
+	you to use python comments inside its directives, or you can use the style of comments 
+	in whatever language preppy is processing (eg &lt!-- and --&gt in HTML). Be careful
+	about mixing the two. Preppy will always execute preppy directives, no matter what 
+	surrounds them. So attempting to comment out Preppy directives with HTML comments will
+	not work - something that's easily done if you are not concentrating.
+	<pre>
+	&lt!-- 
+	{{# if this wasn't a comment, Preppy would execute it}}
+	--&gt
+	</pre>	
+<hr>
+
 </body>
 </html>
