@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.33 2003/11/05 12:26:59 robin Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.34 2003/11/14 15:23:51 robin Exp $
 
 
 
@@ -292,8 +292,8 @@ else:
 """
 
 
-        
-        
+
+
 class PreProcessor:
     """This class generates the Python source from the Preppy source"""
     #STARTDELIMITER = STARTDELIMITER # NOT USED, USE MODULE GLOBAL
@@ -328,14 +328,14 @@ class PreProcessor:
 
         # but in the middle, the best we cxan do is guess a 1-for-1
         # correspondence, ensuring prepLineNo does not get too high.
-        
-        
+
+
         for lin in range(lineCount):
             if prepLine < self.prepLineNo:
                 prepLine = prepLine + 1
             pyLine = pyLine + 1
             self.lineNoMap.append((prepLine, pyLine, linesAdded[lin][0:20]))
-        
+
         #self.lineNoMap.append((self.prepLineNo, self.pyLineNo))
 
     def setCursor(self, pos):
@@ -346,13 +346,13 @@ class PreProcessor:
     def countLines(self, textBlock):
         "How many lines long is it?"
         return len(string.split(textBlock, '\n'))
-        
+
     def ind(self):
         self.indentLevel = self.indentLevel + 1
 
     def ded(self):
         self.indentLevel = self.indentLevel - 1
-        
+
     def indentText(self, s, indentstring=None):
         #renamed it to avoid confusion with new methods
         if indentstring is None:
@@ -376,7 +376,7 @@ class PreProcessor:
             #raise "oops"
             lineno = [0, "<top level>"]
             self.setCursor(1)
-            
+
         def diag(lineno=lineno):
             return "qs: near line %s at or after %s" % (lineno[0], repr(lineno[1]))
         global DIAGNOSTIC_FUNCTION
@@ -391,7 +391,7 @@ class PreProcessor:
             append(s)
             if "\n" in s:
                 lineno[0] = lineno[0] + countnewlines(s)
-                
+
         dictlines = ["__dict__ = {}"]
         adddict = dictlines.append
         done = None
@@ -476,7 +476,7 @@ class PreProcessor:
         code before and after; the return value of __call__ is the output
         python source, and an updated cursor.  Called recursively as
         the parser identifies significant chunks of stuff."""
-        
+
         # go to end of string (if toplevel) or dedent token (if not toplevel)
         # print "call at", cursor, repr(inputtext[cursor:cursor+10])
 
@@ -539,11 +539,11 @@ class PreProcessor:
                     # AR
                     self.append(sblock, cursor)
 
-                    
+
                     # then get the conditional block
                     self.ind()
                     (conditional, cursor) = self.process(inputtext, cursor, toplevel=0, lineno=lineno)
-                    
+
                     self.ded()
                     iconditional = self.indentText(conditional)
                     a(iconditional)
@@ -725,7 +725,7 @@ class PreProcessor:
         result = module_source_template % out2
         return result
 
-            
+
 
 def proctologist(s):
     """now bend over turn your head and cough"""
@@ -984,7 +984,7 @@ __checksum__ = %s
         return result
     else:
         return None
-    
+
 def cleantext(text):
     ### THIS GETS RID OF EXTRA WHITESPACE AT THE END OF LINES (EG CR'S)
     textlines = string.split(text, "\n")
@@ -1011,12 +1011,13 @@ def installImporter():
     # the python import mechanics are only invoked if you call this,
     # since preppy has very few dependencies and I don't want to
     #add to them.
-    import ihooks
-    class PreppyLoader(ihooks.ModuleLoader):
+    from ihooks import ModuleLoader, ModuleImporter, install
+    class PreppyLoader(ModuleLoader):
         "This allows prep files to be imported."
-        
+
         def find_module_in_dir(self, name, dir, allow_packages=1):
-            stuff = ihooks.ModuleLoader.find_module_in_dir(self, name, dir, allow_packages)
+            ModuleLoader = self.__class__.__bases__[0]
+            stuff = ModuleLoader.find_module_in_dir(self, name, dir, allow_packages)
             if stuff:
                 #print 'standard module loader worked'
                 return stuff
@@ -1025,23 +1026,23 @@ def installImporter():
                     prepFileName = dir + os.sep + name + '.prep'
                 else:
                     prepFileName = name + '.prep'
-                    
+
                 if os.path.isfile(prepFileName):
                     #compile WITHOUT IMPORTING to avoid triggering recursion
                     mod = compileModule(prepFileName, verbose=0, importModule=0)
                     #now use the default...
-                    return ihooks.ModuleLoader.find_module_in_dir(self, name, dir, allow_packages)
+                    return ModuleLoader.find_module_in_dir(self, name, dir, allow_packages)
                 else:
                     return None
 
     loader = PreppyLoader()
-    importer = ihooks.ModuleImporter(loader=loader)
-    ihooks.install(importer)
+    importer = ModuleImporter(loader=loader)
+    install(importer)
 
 def uninstallImporter():
     import ihooks
     ihooks.uninstall()
-    
+
 
 def compileModule(fn, savePy=0, force=0, verbose=1, importModule=1):
     "Compile a prep file to a pyc file.  Optionally, keep the python source too."
@@ -1158,7 +1159,7 @@ def main():
                 verbose = 1
             else:
                 verbose = 0
-                
+
             for arg in names:
                 compileStuff(arg, savePy=savePy, force=force, verbose=verbose)
 
