@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.30 2003/04/22 14:29:36 robin Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.31 2003/07/01 18:33:16 robin Exp $
 
 
 
@@ -992,17 +992,17 @@ def cleantext(text):
 # support the old form here
 getPreppyModule = getModule
 
-
     ####################################################################
     #
     #   utilities for compilation, setup scripts, housekeeping etc.
     #
     ####################################################################
 
-def compileModule(prepFileName, savePy=0, force=0, verbose=1):
+def compileModule(fn, savePy=0, force=0, verbose=1):
     "Compile a prep file to a pyc file.  Optionally, keep the python source too."
-    name, ext = os.path.splitext(prepFileName)
-    m = getModule(name, source_extension=ext, savePyc=1, savePy=savePy, force=force, verbose=verbose)
+    name, ext = os.path.splitext(fn)
+    d = os.path.dirname(fn)
+    return getModule(os.path.basename(name), directory=d, source_extension=ext, savePyc=1, savePy=savePy, force=force, verbose=verbose)
 
 def compileModules(pattern, savePy=0, force=0, verbose=1):
     "Compile all prep files matching the pattern."
