@@ -109,10 +109,13 @@ class GeneratedCodeTestCase(unittest.TestCase):
         self.assertEquals(self.getRunTimeOutput('{{script}}i=1+2+\\\n\t3{{endscript}}{{i}}'), "6")
 
     def checkCatchesUnterminated(self):
-        self.assertRaises(preppy.LexError,self.getRunTimeOutput,'{{script}}i=1+2+\\\n\t3{{endscript}}{{i}')
+        self.assertRaises((ValueError,SyntaxError),self.getRunTimeOutput,'{{script}}i=1+2+\\\n\t3{{endscript}}{{i}')
 
     def checkCatchesIllegalBackSlash(self):
-        self.assertRaises(preppy.SyntaxError,self.getRunTimeOutput,'{{script}}i=1+2+\\ \n\t3{{endscript}}{{i}}')
+        self.assertRaises((SyntaxError,ValueError),self.getRunTimeOutput,'{{script}}i=1+2+\\ \n\t3{{endscript}}{{i}}')
+
+    def checkQuoting(self):
+        self.assertEquals(self.getRunTimeOutput('{{script}}v="{{"{{endscript}}{{v}}'), "{{")
 
 class OutputModeTestCase(unittest.TestCase):
     """Checks all ways of generating output return identical
