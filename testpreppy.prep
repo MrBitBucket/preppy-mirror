@@ -1,0 +1,44 @@
+
+
+$\{garbled nonsense
+this test script should produce a runnable program
+${script
+  class X:
+      pass
+  x = X()
+  x.a = "THE A VALUE OF X"
+  yislonger = "y is longer!"
+  import math
+  a = dictionary = {"key": "value", "key2": "value2", "10%": "TEN PERCENT"}
+  loop = "LOOP"
+$}
+this line has a percent in it 10%
+here is the a value in x: ${x.a$}
+just a norml value here: ${yislonger$} 
+here is a string -->${a["10%"]$}<-- 
+ the cosine of 12.3 is ${math.cos(12.3)$}
+ ${script a=0$}
+ these parens should contain the number 10
+ (${if a:$}
+conditional text${else:$}     10       ${endif$})
+ ${script a=1$}
+ these parens should contain "conditional text"
+ (${if a:$}
+conditional text${else:$}     10     ${endif$})
+stuff between endif and while
+
+${while a==1:$} infinite ${loop$} forever!
+${script a=0$}
+${for (a,b) in dictionary.items():$}
+the key in the dictionary is ${a$} and the value is ${b$}.  And below is a script
+${script
+        # THIS IS A SCRIPT
+        x = 2
+        y = 3
+        # END OF THE SCRIPT
+$}
+stuff after the script
+${endfor$}
+stuff after the for stmt
+${endwhile$}
+stuff after the while stmt
