@@ -1,5 +1,5 @@
 Title: preppy spec
-Version: $Revision: 1.7 $
+Version: $Revision: 1.8 $
 Author: Aaron Watters <aaron@reportlab.com>
 Status: Final
 Type: Design Specification
@@ -135,11 +135,6 @@ Operations
 		L = []
 		app = L.append
 		m.run(dictionary, __write__=app)
-
-	NOTE: This will work only if the any script directive code segments
-	either do not directly produce text output themselves (recommended) or
-	use the __write__ function instead of printing directly to standard
-	output.
 
 	Run has a third optional argument which allows the program to specify
 	a file to use as the standard output for the function.  In this case

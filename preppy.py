@@ -1,9 +1,14 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.29 2003/01/08 17:50:30 robin Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.30 2003/04/22 14:29:36 robin Exp $
 
 
+
+"""
+AM small extra Apr 2003:
+    ensured sys.stdout can be used even when __write__ is given
+"""
 
 """
 #AR - refactoring plans Dec 2002:
@@ -12,10 +17,6 @@
 2. prove this gives same output across test suite by leaving old one
    in and asserting.  Full recompile of major apps.
 3. use self.prepLineNo instead of lineNo
-
-
-
-
 """
 
 """preppy - a Python preprocessor.
@@ -266,6 +267,9 @@ try:
         raise NameError
     if outputfile and __write__:
         raise ValueError, "do not define both outputfile (%s) and __write__ (%s)." %(outputfile, __write__)
+    class stdout: pass
+    stdout = sys.stdout = stdout()
+    stdout.write = __write__
 except NameError:
     __write__ = stdout.write
 # now exec the assignments in the dictionary

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="iso-8859-1" standalone="no" ?> 
 <!DOCTYPE document SYSTEM "rml_1_0.dtd"> 
 <document filename="preppyspec.pdf"> 
-<!-- Last Modified:             $Date: 2001/12/20 18:28:50 $ -->
-<!-- Document Version Number:   $Revision: 1.1 $            -->
+<!-- Last Modified:             $Date: 2003/04/22 14:29:47 $ -->
+<!-- Document Version Number:   $Revision: 1.2 $            -->
 
 <template pageSize="(595, 842)" 
         leftMargin="72" 
@@ -438,12 +438,12 @@ programs.</para>
 		L = []
 		app = L.append
 		m.run(dictionary, __write__=app)
-</pre><para>
+</pre><!--para>
 	NOTE: This will work only if the any script directive code segments
 	either do not directly produce text output themselves (recommended) or
 	use the __write__ function instead of printing directly to standard
 	output.
-</para><para>
+</para--><para>
 	Run has a third optional argument which allows the program to specify
 	a file to use as the standard output for the function.  In this case
 	print statements will work (since sys.stdout will be set to the file
