@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.22 2002/04/17 21:18:35 andy Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.23 2002/04/18 14:54:49 aaron Exp $
 """preppy - a Python preprocessor.
 
 This is the Python equivalent of ASP or JSP - a preprocessor which lets you
@@ -287,6 +287,31 @@ stuff after the script
 stuff after the for stmt
 {{endwhile}}
 stuff after the while stmt
+
+{{script}}
+# test the free variables syntax error problem is gone
+alpha = 3
+def myfunction1(alpha=alpha):
+    try:
+        return free_variable # this would cause an error in an older version of preppy with python 2.2
+    except:
+        pass
+    try:
+        return alpha
+    except:
+        return "oops"
+beta = myfunction1()
+{{endscript}}
+alpha = {{alpha}} and beta = {{beta}}
+
+{${this is invalid but it's escaped, so no problem!}$}
+
+end of text
+
+{{script}}
+# just a comment
+{{endscript}}
+stop here
 """
 
 """
@@ -634,22 +659,25 @@ if __name__=="__main__":
     run({})
 """
 
-def parsetest():
-    fn = "./testoutput.py"
+def parsetest(name="testoutput"):
+    fn = "./%s.py" % name
     P = PreProcessor()
-    (out, c) = P(teststring)
-    print "generated", len(out), "bytes from", c, "input"
+    #(out, c) = P(teststring)
+    out = P.module_source(teststring)
+    #print "test string is\n", teststring
+    print "generated", len(out), "bytes from", len(teststring), "input"
     print "generating file", fn
     f = open(fn, "w")
     import sys
     stdout = sys.stdout
     sys.stdout = f
+    print "__checksum__ = None # test file for preppy, skip checksum"
     print out
     sys.stdout = stdout
     print "wrote", fn
 
-def testgetmodule(name="testpreppy"):
-    name = "testpreppy"
+def testgetmodule(name="testoutput"):
+    #name = "testpreppy"
     print "trying to load", name
     result = getPreppyModule(name, verbose=1)
     print "load successful! running result"
@@ -712,7 +740,7 @@ def getModule(name,
             module = __import__(name)
             checksum = module.__checksum__
             if verbose: print "found...",
-        except: # ImportError:  catch ALL Errors importing the module (eg name="")
+        except # ImportError:  #catch ALL Errors importing the module (eg name="")
             module = checksum = None
             if verbose: print " py/pyc not found...",
             # check against source file
