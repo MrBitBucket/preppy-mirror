@@ -17,8 +17,13 @@ class SimpleTestCase(unittest.TestCase):
         dictionary = {"song1": {"songtitle": "The Lumberjack Song", "by": "Monthy Python"},
                       "song2": {"songtitle": "My Way", "by": "Frank Sinatra"}}
         processTest('sample004', dictionary)
-    def check5Escape(self):
+    def check5Escapes(self):
         processTest('sample005')
+    def check6NoPythonFile(self):
+        mod = preppy.getModule('sample006', verbose=1, savefile=0)
+        outFile = open('sample006.html', 'w')
+        mod.run(dictionary={}, outputfile = outFile)
+        outFile.close()
 
 suite = unittest.makeSuite(SimpleTestCase,'check')
 
@@ -60,6 +65,7 @@ if __name__=='__main__':
                           "song2": {"songtitle": "My Way", "by": "Frank Sinatra"}}
             processTest('sample004', dictionary)
             processTest('sample005')
+#            processTest('sample006')
             print 'please read all sample*.html files'
             sys.exit()
         else:
