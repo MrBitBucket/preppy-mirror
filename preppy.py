@@ -12,7 +12,6 @@ UNESCAPES = ( (QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), 
 import string
 
 def unescape(s, unescapes=UNESCAPES, r=string.replace):
-    r = string.replace
     for (old, new) in unescapes:
         s = r(s, old, new)
     return s
@@ -257,6 +256,7 @@ try:
     stdout = sys.stdout = outputfile
 except NameError:
     stdout = sys.stdout
+    outputfile = None 
 # make sure __write__ is defined
 try:
     if __write__ is None:
@@ -264,7 +264,6 @@ try:
     if outputfile and __write__:
         raise ValueError, "do not define both outputfile (%s) and __write__ (%s)." %(outputfile, __write__)
 except NameError:
-    import sys
     __write__ = stdout.write
 # now exec the assignments in the dictionary 
 try:
@@ -648,10 +647,10 @@ def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0, sa
             print "no further diagnostic available"
         print "ERROR PROCESSING PREPPY FILE"
         sys.exit(1)
-        if savefile:
-            outfilename = os.path.join(directory, name+".py")
-            outfile = open(outfilename, "w")
-            outfile.write("""
+    if savefile:
+        outfilename = os.path.join(directory, name+".py")
+        outfile = open(outfilename, "w")
+        outfile.write("""
 '''
 PREPPY MODULE %s
 Automatically generated file from preprocessor source %s
@@ -659,8 +658,8 @@ DO NOT EDIT!
 '''
 __checksum__ = %s
 """ % (name, sourcefilename, repr(sourcechecksum)))
-            outfile.write(out)
-            outfile.close()
+        outfile.write(out)
+        outfile.close()
     # now make a module
     from imp import new_module
     result = new_module(name)
