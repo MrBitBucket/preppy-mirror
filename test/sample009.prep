@@ -14,7 +14,7 @@
 <TD>
 <FONT COLOR=#FFFFFF>
 <CENTER>
-<H1>Preppy Test 009 - Testing Preppy With A 1,000 Item Dictionary</H1>
+<H1>Preppy Test 009 - Testing Preppy With Things That Look Like Floating Point Numbers</H1>
 </CENTER>
 </FONT>
 </TD>
@@ -22,31 +22,27 @@
 </TABLE>
 
 <BR>
-This test creates a dictionary filled with <I>1,000</I> random numbers, and tests to see that Preppy can handle it.
+This tests to see if Preppy can handle being passed a dictionary with keys that are actually strings, but that look like floating point numbers.
 <H2>Expected Output</H2>
-You should see 1,000 local variables listed below under the dictionary '__d__', all of which will be called key[number], where number is a 4 digit number between 0000 and 0999.
-<BR><BR>
-
+You should see four lines of text between these lines.
 <HR>
-<BR><BR>
 <CENTER>
-
 <TABLE>
 <TR><TD>
-Here are the local variables available to this page:
-<BR><PRE>
-{{script}}
-import pprint
-pprint.pprint(locals())
-{{endscript}}
+<PRE>
+This should print the number 1.01: {{1.01}}
+This should print the number 2.78: {{2.78}}
+<BR>
+This should print the string in key 1.01, but is still plain daft:
+    {{__d__['1.01']}}
+This should print the string in key 2.78 and is still equally daft:
+    {{__d__['2.78']}}
 </PRE>
 </TD></TR>
 </TABLE>
 </CENTER>
 
-<BR><BR>
 <HR>
-
 
 </FONT>
 </BODY>

@@ -56,6 +56,10 @@ This should just show two close braces: }$}<BR>
 </P>
 
 <P>
+This should just display the digit '1':  {{len({ 'a':  {'b':'c'}$})   }}  
+</P>
+
+<P>
 </P>
 </TD></TR>
 </TABLE>

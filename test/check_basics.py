@@ -1,9 +1,9 @@
 # Basic test suite for Preppy.py
-# See load_test.py for load testing
+# See check_load.py for load testing
 
-# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_basics.py,v 1.7 2000/11/14 14:59:24 john Exp $
+# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_basics.py,v 1.8 2000/11/15 10:10:22 john Exp $
 # $Author: john $
-# $Date: 2000/11/14 14:59:24 $
+# $Date: 2000/11/15 10:10:22 $
 
 
 import os, glob, string, random
@@ -127,163 +127,21 @@ class SimpleTestCase(unittest.TestCase):
         outFile.close()
         print 'wrote sample007.html'
 
-    def check08BigDictionary500(self):
-        # creates a 500 item dictionary of random numbers
-        howBig = 500
-        d = makeBigDictionary(howBig)
-        # print d
-        processTest('sample008', d)
+    def check08_StringKeysThatLookLikeIntegers(self):
+        # This test case now works as expected
+        processTest('sample008',
+                    {'1':'The key for this dictionary item looks like a number, but is actually a string',
+                     '2':'So is this one - it looks like an integer'}
+                    )
 
-    def check09BiggerDictionary1000(self):
-        # creates a 1,000 item dictionary of random numbers
-        howBig = 1000
-        d = makeBigDictionary(howBig)
-        processTest('sample009', d)
+    def check09_StringKeysThatLookLikeFloats(self):
+        # This test case now works as expected too
+        processTest('sample009',
+                    {'1.01':'The key for this dictionary item looks like a number, but is actually a string',
+                     '2.78':'So is this one - it looks like a floating point number'}
+                    )
 
-# This test works, but is very _slow_!
-##    def check10HugeDictionary10000(self):
-##        # creates a 10,000 item dictionary of random numbers
-##        howBig = 10000
-##        d = makeBigDictionary(howBig)
-##        # print d
-##        print "..sample10 creates a 10,000 item dictionary - this may take some time...\n.",
-##        processTest('sample010', d)
-
-##    def check11_StringKeysThatLookLikeIntegers(self):
-##        # This test case doesn't work as expected
-##        processTest('sample011', {'1':'crash','2':'burn'})
-##
-##    def check12_StringKeysThatLookLikeFloats(self):
-##        # This test case doesn't work as expected either
-##        processTest('sample012', {'1.01':'crash','2.78':'burn'})
-
-    def check13_65KbFile(self):
-        fileName = "sixtyfiveKTestFile.txt"
-        size = 65
-        makeBigFile(size, fileName)
-        prepFilePartOne = """<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-
-        <HTML>
-        <HEAD>
-        <TITLE>ReportLab Preppy Test Suite 013</TITLE>
-        </HEAD>
-
-        <BODY>
-
-        <FONT COLOR=#000000>
-
-        <TABLE BGCOLOR=#0000CC BORDER=0 CELLPADDING=0 CELLSPACING=0 WIDTH=100% >
-        <TR>
-        <TD>
-        <FONT COLOR=#FFFFFF>
-        <CENTER>
-        <H1>Preppy Test 013 - Testing Preppy With A 65Kb file</H1>
-        </CENTER>
-        </FONT>
-        </TD>
-        </TR>
-        </TABLE>
-
-        <BR>
-        This test creates a file which is 65Kb in length, and checks that Preppy can handle a .prep file of that length.
-        <H2>Expected Output</H2>
-        You should see the words <I>Start</I> and <I>End</I> separated by 3 dots between the following lines.
-        <BR><BR>
-
-        <HR>
-        <BR><BR>
-        <CENTER>
-        <TABLE>
-        <TR><TD>"""
-        prepFilePartTwo = """<BR>
-
-        </TD></TR>
-        </TABLE>
-        </CENTER>
-
-        <BR><BR>
-        <HR>
-
-        </FONT>
-        </BODY>
-        </HTML>"""
-        input = open('sixtyfiveKTestFile.txt', 'r')
-        prepMiddlebit = input.read()
-        prepFile = prepFilePartOne + prepMiddlebit + prepFilePartTwo
-        prepFile
-        output = open('sample013.prep', 'w')
-        output.write(prepFile)
-        output.close()
-        processTest('sample013')
-
-# This is being commented out, since 1 Meg files seem to cause problems...
-##    def check14_1MbFile(self):
-##        fileName = "oneMegTestFile.txt"
-##        size = 1024
-##        makeBigFile(size, fileName)
-##        prepFilePartOne = """<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-##
-##        <HTML>
-##        <HEAD>
-##        <TITLE>ReportLab Preppy Test Suite 014</TITLE>
-##        </HEAD>
-##
-##        <BODY>
-##
-##        <FONT COLOR=#000000>
-##
-##        <TABLE BGCOLOR=#0000CC BORDER=0 CELLPADDING=0 CELLSPACING=0 WIDTH=100% >
-##        <TR>
-##        <TD>
-##        <FONT COLOR=#FFFFFF>
-##        <CENTER>
-##        <H1>Preppy Test 014 - Testing Preppy With A 1Mb file</H1>
-##        </CENTER>
-##        </FONT>
-##        </TD>
-##        </TR>
-##        </TABLE>
-##
-##        <BR>
-##        This test creates a file which is 1 Mb in length, and checks that Preppy can handle a 1 Meg .prep file.
-##        <H2>Expected Output</H2>
-##        You should see the words <I>Start</I> and <I>End</I> separated by 3 dots between the following lines.
-##        <BR><BR>
-##
-##        <HR>
-##        <BR><BR>
-##        <CENTER>
-##        <TABLE>
-##        <TR><TD>"""
-##        prepFilePartTwo = """<BR>
-##
-##        </TD></TR>
-##        </TABLE>
-##        </CENTER>
-##
-##        <BR><BR>
-##        <HR>
-##
-##        </FONT>
-##        </BODY>
-##        </HTML>"""
-##        input = open('oneMegTestFile.txt', 'r')
-##        print "Opened file for input OK..."
-##        prepMiddlebit = input.read()
-##        print "Read in file OK"
-##        prepFile = prepFilePartOne + prepMiddlebit + prepFilePartTwo
-##        print "Done the script adding OK"
-##        output = open('sample014.prep', 'w')
-##        print "Opened file for output OK"
-##        output.write(prepFile)
-##        print "wrote to file OK - sample14.prep now contains prepFile"
-##        output.close()
-##        print "closed file OK"
-##        print "... about to do 'processTest'..."
-##        processTest('sample014')
-##        print "processTest finished!"
-##        print "DONE!"
-           
+            
 suite = unittest.makeSuite(SimpleTestCase,'check')
 
 def processTest(filename, dictionary={}):
@@ -352,15 +210,16 @@ def makeBigFile(howBig, fileName):
     # testmode = prints a length count in the output file
     #testmode=1
     testmode=0
-    print "creating", howBig,"K test file... ",
+    printLine = "..creating "+`howBig`+"K test file... "
+    print printLine,
     oneK(tempString, verbose, howBig, fileName, testmode)
     outFile = open(fileName, 'a')
     outFile.write('...End')
     outFile.close()
-    printLine = `howBig`+"K test file created OK"
+    printLine = `howBig`+"K test file created OK\n."
     if howBig == 1024:
-        printLine = "1Mb test file created OK"
-    print printLine 
+        printLine = "1Mb test file created OK\n."
+    print printLine,
         
 
 if __name__=='__main__':
