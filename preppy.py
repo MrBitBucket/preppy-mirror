@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.18 2001/08/11 08:08:29 robin Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.19 2001/11/26 14:28:59 robin Exp $
 """Python preprocessor"""
 
 STARTDELIMITER = "{{"
@@ -706,7 +706,7 @@ def cleantext(text):
 
 getModule = getPreppyModule
 
-if __name__=="__main__":
+def main():
     import sys
     if len(sys.argv)>1:
         name = sys.argv[1]
@@ -717,5 +717,6 @@ if __name__=="__main__":
         print; print "PAUSING.  To continue hit return"
         raw_input("now: ")
         testgetmodule()
-    
-                
+
+if __name__=="__main__":
+	main()
