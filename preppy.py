@@ -111,6 +111,7 @@ def quotestring(s, cursor=0, lineno=None):
     starttaglen = len(STARTDELIMITER)
     endtaglen = len(ENDDELIMITER)
     dictassntemplate = "__dict__[%s] = %s # %s"
+    key_seen = {}
     while done is None:
         findpercent = find(s, "%", cursor)
         if findpercent<0: findpercent = slen
@@ -161,8 +162,11 @@ def quotestring(s, cursor=0, lineno=None):
                     test = compile(block, "<string>", "eval")
                 except:
                     raise ValueError, "bad expression (after unescape): " + repr(block)
-                substitutionline = dictassntemplate % (repr(sblock), block, repr(s[savecursor:cursor+10]))
-                adddict(substitutionline)
+                # optimization: don't recompute substitutions already seen
+                if not key_seen.has_key(sblock):
+                    substitutionline = dictassntemplate % (repr(sblock), block, repr(s[savecursor:cursor+10]))
+                    adddict(substitutionline)
+                    key_seen[sblock] = block
                 stringsub = "%s(%s)s" % ("%", sblock)
                 addpart(stringsub)
     percentline = dictassntemplate % (repr("#percent#"), repr("%"), "required percent sub")
@@ -243,7 +247,6 @@ except:
     pass
 else:
     for __n__ in __d__.keys():
-        __v__ = dictionary[__n__]
         exec("%s=__d__[%s]") % (__n__, repr(__n__))
 """
 
