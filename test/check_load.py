@@ -170,7 +170,7 @@ def processTest(filename, dictionary={}):
     print 'wrote',outFileName
 
 def clean(dirname='.'):
-    for filename in glob.glob('loadsample*.prep'):
+    for filename in glob.glob('loadsample*.prep')+glob.glob('sample*.prep'):
         root, ext = os.path.splitext(filename)
         if os.path.isfile(root + '.html'):
             os.remove(root + '.html')
@@ -178,13 +178,15 @@ def clean(dirname='.'):
             os.remove(root + '.py')
         if os.path.isfile(root + '.pyc'):
             os.remove(root + '.pyc')
-        os.remove(filename)
+        if filename!='loadsample003.prep' and not filename.startswith('sample'): os.remove(filename)
     # Get rid of dynamically generated stuff not caught by the above code...
-    try:
-        os.remove('loadsample04.prep')
-        os.remove('loadsample05.prep')
-    except:
-        pass
+    for filename in ('loadsample04.prep','loadsample05.prep',
+                'sixtyfiveKTestFile.txt', 'oneMegTestFile.txt', 'sample007.html',
+                ):
+        try:
+            os.remove(filename)
+        except:
+            pass
             
 def makeBigFile(howBig, fileName):
     outFile = open(fileName, 'w')
