@@ -4,9 +4,9 @@
 # Basic test suite for Preppy.py
 # See check_load.py for load testing
 
-# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_basics.py,v 1.9 2000/11/17 14:37:25 john Exp $
+# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_basics.py,v 1.10 2000/11/20 14:39:42 john Exp $
 # $Author: john $ (John Precedo - johnp@reportlab.com)
-# $Date: 2000/11/17 14:37:25 $
+# $Date: 2000/11/20 14:39:42 $
 
 
 import os, glob, string, random
@@ -176,18 +176,28 @@ class SimpleTestCase(unittest.TestCase):
         "sourcefilename", "savefile", "module", "checksum",
         "sourcechecksum", "out", "outfilename", "outfile", "result",
         "textlines", "i", "l", "l1", "l2", "l3","getModule" ]
-        processTest('sample010')
+        dictionary = {}
+        for f in range(0, len(preppyVariables)):
+            tempvar = preppyVariables[f]
+            #print "tempvar =", tempvar
+            dictionary[tempvar] = tempvar
+        processTest('sample010', dictionary)
  
     def check11_PreppyInternals_FunctionNames(self):
         # This lists contains a number of names of functions that are used internally within Preppy.
         preppyFunctions = ["unescape", "printstmt", "countnewlines",
         "quotestring" ,"diag" ,"slen", "quotedparts", "addpart",
         "indent", "__call__", "diag", "check_condition",
-        "proctologist", "strip", "getDirectiveBlock", "module_source",
+        "strip", "getDirectiveBlock", "module_source",
         "proctologist", "check_condition", "complexdirective",
         "dedent", "parsetest", "testgetmodule", "getPreppyModule",
         "cleantext", "new_module", "getPreppyModule"]
-        processTest('sample011')
+        dictionary = {}
+        for f in range(0, len(preppyFunctions)):
+            tempvar = preppyFunctions[f]
+            #print "tempvar =", tempvar
+            dictionary[tempvar] = tempvar
+        processTest('sample011', dictionary)
 
 
 

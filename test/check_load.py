@@ -1,9 +1,12 @@
+# copyright ReportLab Inc. 2000
+# see license.txt for license details
+
 # Load testing/ Stress testing suite for Preppy.py
 # See check_basics.py for basic testing
 
-# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_load.py,v 1.1 2000/11/15 10:10:22 john Exp $
-# $Author: john $
-# $Date: 2000/11/15 10:10:22 $
+# $Header: /rl_home/xxx/repository/rlextra/preppy/test/check_load.py,v 1.2 2000/11/20 14:39:42 john Exp $
+# $Author: john $ (John Precedo - johnp@reportlab.com)
+# $Date: 2000/11/20 14:39:42 $
 
 
 import os, glob, string, random
@@ -11,13 +14,13 @@ from rlextra.preppy import preppy
 from reportlab.test import unittest
 
 class LoadTestCase(unittest.TestCase):
-    def loadcheck01BigDictionary500(self):
+    def lc01(self):
         # creates a 500 item dictionary of random numbers
         howBig = 500
         d = makeBigDictionary(howBig)
         processTest('loadsample001', d)
     
-    def loadcheck02BiggerDictionary1000(self):
+    def lc02(self):
         # creates a 1,000 item dictionary of random numbers
         howBig = 1000
         d = makeBigDictionary(howBig)
