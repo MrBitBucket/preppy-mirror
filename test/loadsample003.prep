@@ -37,7 +37,7 @@ Here are the local variables available to this page:
 <BR><PRE>
 {{script}}
 import pprint
-pprint.pprint(__d__)
+pprint.pprint(locals())
 {{endscript}}
 </PRE>
 </TD></TR>
