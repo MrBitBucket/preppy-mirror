@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.14 2000/11/09 15:15:42 aaron Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.15 2000/11/12 14:51:48 aaron Exp $
 """Python preprocessor"""
 
 STARTDELIMITER = "{{"
@@ -81,7 +81,7 @@ def countnewlines(s):
 
 Substringquotes =[("%", "#P#"), ("(", "#[#"), (")", "#]#")]
 for wc in string.whitespace:
-    Substringquotes.append( (wc, repr(wc)) )
+    Substringquotes.append( (wc, "\\"+repr(ord(wc))) )
                   
 
 def quotestring(s, cursor=0, lineno=None):
@@ -281,7 +281,10 @@ except:
     pass
 else:
     for __n__ in __d__.keys():
-        exec("%s=__d__[%s]") % (__n__, repr(__n__))
+        try:
+            exec("%s=__d__[%s]") % (__n__, repr(__n__))
+        except:
+            pass # ignore dict entries that aren't valid variable names
 ### end of standard prologues
 """
 
