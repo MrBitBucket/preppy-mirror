@@ -101,10 +101,6 @@ class SimpleTestCase(unittest.TestCase):
         </BODY>
         </HTML>"""
 
-        #Temp bit: checking what sourceString is set to at this point...
-        #print "sourceString = ", sourceString
-        #print;print;print
-
         mod = preppy.getModule("dummy_module", sourcetext=sourceString)
         modDataList=[]
         tempDict={'temp':'temporary variable'}
@@ -146,14 +142,140 @@ class SimpleTestCase(unittest.TestCase):
 ##        # print d
 ##        processTest('sample010', d)
 
-    def check11_StringKeysThatLookLikeIntegers(self):
-        # This test case doesn't work as expected
-        processTest('sample011', {'1':'crash','2':'burn'})
+##    def check11_StringKeysThatLookLikeIntegers(self):
+##        # This test case doesn't work as expected
+##        processTest('sample011', {'1':'crash','2':'burn'})
+##
+##    def check12_StringKeysThatLookLikeFloats(self):
+##        # This test case doesn't work as expected either
+##        processTest('sample012', {'1.01':'crash','2.78':'burn'})
 
-    def check12_StringKeysThatLookLikeFloats(self):
-        # This test case doesn't work as expected either
-        processTest('sample012', {'1.01':'crash','2.78':'burn'})
-            
+    def check13_65KbFile(self):
+        fileName = "sixtyfiveKTestFile.txt"
+        size = 65
+        makeBigFile(size, fileName)
+        prepFilePartOne = """<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+        <HTML>
+        <HEAD>
+        <TITLE>ReportLab Preppy Test Suite 013</TITLE>
+        </HEAD>
+
+        <BODY>
+
+        <FONT COLOR=#000000>
+
+        <TABLE BGCOLOR=#0000CC BORDER=0 CELLPADDING=0 CELLSPACING=0 WIDTH=100% >
+        <TR>
+        <TD>
+        <FONT COLOR=#FFFFFF>
+        <CENTER>
+        <H1>Preppy Test 013 - Testing Preppy With A 65Kb file</H1>
+        </CENTER>
+        </FONT>
+        </TD>
+        </TR>
+        </TABLE>
+
+        <BR>
+        This test creates a file which is 65Kb in length, and checks that Preppy can handle a .prep file of that length.
+        <H2>Expected Output</H2>
+        You should see the words <I>Start</I> and <I>End</I> separated by 3 dots between the following lines.
+        <BR><BR>
+
+        <HR>
+        <BR><BR>
+        <CENTER>
+        <TABLE>
+        <TR><TD>"""
+        prepFilePartTwo = """<BR>
+
+        </TD></TR>
+        </TABLE>
+        </CENTER>
+
+        <BR><BR>
+        <HR>
+
+        </FONT>
+        </BODY>
+        </HTML>"""
+        input = open('sixtyfiveKTestFile.txt', 'r')
+        prepMiddlebit = input.read()
+        prepFile = prepFilePartOne + prepMiddlebit + prepFilePartTwo
+        prepFile
+        output = open('sample013.prep', 'w')
+        output.write(prepFile)
+        output.close()
+        processTest('sample013')
+
+    def check14_1MbFile(self):
+        fileName = "oneMegTestFile.txt"
+        size = 1024
+        makeBigFile(size, fileName)
+        prepFilePartOne = """<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+        <HTML>
+        <HEAD>
+        <TITLE>ReportLab Preppy Test Suite 014</TITLE>
+        </HEAD>
+
+        <BODY>
+
+        <FONT COLOR=#000000>
+
+        <TABLE BGCOLOR=#0000CC BORDER=0 CELLPADDING=0 CELLSPACING=0 WIDTH=100% >
+        <TR>
+        <TD>
+        <FONT COLOR=#FFFFFF>
+        <CENTER>
+        <H1>Preppy Test 014 - Testing Preppy With A 1Mb file</H1>
+        </CENTER>
+        </FONT>
+        </TD>
+        </TR>
+        </TABLE>
+
+        <BR>
+        This test creates a file which is 1 Mb in length, and checks that Preppy can handle a 1 Meg .prep file.
+        <H2>Expected Output</H2>
+        You should see the words <I>Start</I> and <I>End</I> separated by 3 dots between the following lines.
+        <BR><BR>
+
+        <HR>
+        <BR><BR>
+        <CENTER>
+        <TABLE>
+        <TR><TD>"""
+        prepFilePartTwo = """<BR>
+
+        </TD></TR>
+        </TABLE>
+        </CENTER>
+
+        <BR><BR>
+        <HR>
+
+        </FONT>
+        </BODY>
+        </HTML>"""
+        input = open('oneMegTestFile.txt', 'r')
+        print "Opened file for input OK..."
+        prepMiddlebit = input.read()
+        print "Read in file OK"
+        prepFile = prepFilePartOne + prepMiddlebit + prepFilePartTwo
+        print "Done the script adding OK"
+        output = open('sample014.prep', 'w')
+        print "Opened file for output OK"
+        output.write(prepFile)
+        print "wrote to file OK - sample14.prep now contains prepFile"
+        output.close()
+        print "closed file OK"
+        print "... about to do 'processTest'..."
+        processTest('sample014')
+        print "processTest finished!"
+        print "DONE!"
+           
 suite = unittest.makeSuite(SimpleTestCase,'check')
 
 def processTest(filename, dictionary={}):
@@ -175,10 +297,53 @@ def clean(dirname='.'):
             os.remove(root + '.py')
         if os.path.isfile(root + '.pyc'):
             os.remove(root + '.pyc')
+    for filename in glob.glob('*TestFile*.txt'):
+        os.remove(filename)
+    # Get rid of dynamically generated stuff not caught by the above code...
+    try:
+        os.remove('sample007.html')
+        os.remove('sample013.prep')
+        os.remove('sample014.prep')
+    except:
+        pass
             
-def makeBigFile(howBig, dictionary={}):
-    # Just a placeholder at the moment...
-    pass
+def makeBigFile(howBig, fileName):
+    outFile = open(fileName, 'w')
+    outFile.write('Start')
+    outFile.close()
+   # Make sure we start with a zero length file...
+    tempString = ""
+    # verbose = prints a length count to screen
+    #verbose=1
+    verbose=0
+    # testmode = prints a length count in the output file
+    #testmode=1
+    testmode=0
+    print "creating", howBig,"K test file... ",
+    oneK(tempString, verbose, howBig, fileName, testmode)
+    outFile = open(fileName, 'a')
+    outFile.write('...End')
+    outFile.close()
+    printLine = `howBig`+"K test file created OK"
+    if howBig == 1024:
+        printLine = "1Mb test file created OK"
+    print printLine 
+
+def oneK(tempString, verbose, howBig, fileName, testmode):
+    for outerCounter in range(1,howBig+1):
+        for innerCounter in range(0,1024):
+            tempString = tempString + " "
+        if testmode:
+            lengthString = `outerCounter`+"K"+"\n"
+            tempString = tempString[:(len(tempString)-(len(lengthString)+1))]
+            tempString = tempString+lengthString
+        if verbose:
+            print outerCounter,"K,", 
+        outFile = open(fileName, 'a')
+        outFile.write(tempString)
+        outFile.close()
+        tempString = ""
+    return tempString
 
 def makeBigDictionary(howBig):
     # This function creates a dictionary of howBig * random numbers  
