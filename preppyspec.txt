@@ -1,5 +1,5 @@
 Title: preppy spec
-Version: $Revision: 1.1 $
+Version: $Revision: 1.2 $
 Author: Aaron Watters <aaron@reportlab.com>
 Status: Preliminary, edit out editorial asides before release
 Type: Design Specification
@@ -113,7 +113,18 @@ Operations
 	m = getPreppyModule("salutation", directory="/usr/lib/preppy")
 	m.run({"name": "Wilma Flintstone", "sex": "f"})
 
+	Run has a second argument which allows the default "write" operation
+	to be redefined.  For example to append the output text segments to
+	a list instead of writing to a file use:
 
+	L = []
+	app = L.append
+	m.run(dictionary, app)
+
+	NOTE: This will work only if the any script directive code segments
+	either do not directly produce text output themselves (recommended) or
+	use the __write__ function instead of printing directly to standard
+	output.
 
 Recursive Imports of preppy modules:
 
@@ -142,18 +153,48 @@ Directives
 
 token:	${token$}
 
-	This construct is recognized if token contains no white space and
+	This construct is recognized the token
 	does not match any of the other directives.  The result of this directive
 	is the value of token evaluated as a python expression in the context
 	of the m.run() function.  An example might be
 
 		${dictionary["name"]$}
 
-	[note: probably should remove the whitespace restriction].
+	The result of the evaluation is introduced into the output stream
 
-	eval:	${eval$}python_expression${endeval$}
+eval:	${eval$}python_expression${endeval$}
 
-	This {would be} a longer way to spell ${python_expression$} :).
+	This is a longer way to spell ${python_expression$} :). It is useful
+	for larger expressions like
+
+	${eval$}
+	a_complex("and", "very", "verbose", function="call")
+	${endeval$}
+
+	The expression is evaluated and the result is inserted in the output
+	stream as in token.
+
+	WARNING: for token, eval, and script any newlines in the code text
+	will be automatically indented to the proper indentation level for
+	the run() module at that insertion point.  This is only a concern
+	for triple quoted strings.  If this may be an issue dont use triple
+	quoted strings in preppy source. Instead of
+
+	x = """
+	a string
+	"""
+
+	use
+
+	x = ("\n"
+	"\ta string\n"
+	)
+
+	or similar.
+
+	NOTE: inside the script and eval directives the STARTTAG ${ and ENDTAG
+	$} will be ignored unless they occur within ${endeval$} or ${endscript$}
+	respectively.
 
 script:	${script$}python_code_line${endscript$}
 
@@ -182,6 +223,24 @@ script:	${script$}python_code_line${endscript$}
 	(except for completely white lines).  In particular if the first line
 	begins with 8 spaces the next line should not begin with a TAB.
 
+	SCRIPT RECOMMENDATION 1: If possible the script tags should not directly
+	produce standard output, but instead define string variables that
+	are introduced in token directives.
+
+	SCRIPT RECOMMENDATION 2: If a script must produce standard output
+	itself it should use the function
+
+		__write__(string)
+
+	which is always defined in the context of the run() function and
+	allows the output to be redirected flexibly without modifying sys.stdout.
+	In particular the script should not use the "print" statement or other
+	direct writes to sys.stdout.
+
+	SCRIPT RECOMMENDATION 3: If you ignore the first 2 recommendations then
+	never use the second argument of the run() function to redirect the
+	output -- reset sys.stdout instead.
+
 if)	${if condition$} block ${endif$}
 	${if condition$} block1 ${else$} block2 ${endif$}
 	${if condition$} block1 ${elif condition2$} block2 ${endif$}
@@ -201,10 +260,31 @@ for)	${for for_target$} block ${endfor$}
 
 	for for_target:
 		interpretation_of(block)
+
 while)	${while condition$} block ${endfor$}
 
 	This implements a while loop in preppy source.  The condition should be
 	a python expression.  The resulting python code is roughly
 
-	for for_target:
+	while condition:
 		interpretation_of(block)
+
+ADDITIONAL NOTES:
+
+	You may define classes and functions in scripts but remember that they
+	are defined in the local context of the run() function and do not have access
+	to local variables in the run() function.  Any variable you wish to
+	use in a class or function (except for __write__ and dictionary, the
+	run function arguments) can be declared global in the script
+
+		global variable
+
+	(But note that this is a slightly dangerous thing to do in the unlikely
+	event that the generated module is used in a multithreaded python
+	application).  Also if you wish to make the classes or functions available
+	to other modules you must declare them global and the run() function must
+	be executed at least once before the exported functions or classes are used.
+
+
+
+

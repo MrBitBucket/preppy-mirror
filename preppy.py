@@ -3,7 +3,7 @@
 STARTTAG = "${"
 ENDTAG = "$}"
 
-VERSION = 0.1
+VERSION = 0.2
 
 """
 ${if x:$} this text $(endif$} that
@@ -21,7 +21,7 @@ could change this to a file.write for more exact control...
 import string
 
 KEYWORDS = string.split("""
-    if else elif for while script
+    if else elif for while script eval
     endif endfor endwhile
 """)
 
@@ -213,6 +213,15 @@ print "---------dict string"
 print ds
 """
 
+TOPLEVELPROLOG = """\
+# make sure __write__ is defined
+try:
+    if __write__ is None:
+        raise NameError
+except NameError:
+    import sys
+    __write__ = sys.stdout.write"""
+
 class PreProcessor:
     #STARTTAG = STARTTAG # NOT USED, USE MODULE GLOBAL
     #ENDTAG = ENDTAG
@@ -233,7 +242,7 @@ class PreProcessor:
         global DIAGNOSTIC_FUNCTION
         DIAGNOSTIC_FUNCTION = diag
         if toplevel:
-            outputlist = ["import sys", "__write__=sys.stdout.write"]
+            outputlist = [TOPLEVELPROLOG]
         else:
             outputlist = []
         a = outputlist.append
@@ -346,21 +355,39 @@ class PreProcessor:
 ##                    #print "... dedented script"
 ##                    #print ddblock
 ##                    a(ddblock)
-                elif find(sblock, "script")==0:
-                    if strip(sblock)!="script":
-                        raise ValueError, "bad script tag: "+repr(sblock)
+                elif find(sblock, "script")==0 or find(sblock, "eval")==0:
+                    if strip(sblock)=="eval":
+                        mode = "eval"
+                        compilemode = "eval"
+                    elif strip(sblock)!="script":
+                        raise ValueError, "bad script or eval tag: "+repr(sblock)
+                    else:
+                        mode = "script"
+                        compilemode = "exec"
                     # look for endscript
-                    endtag = "%sendscript%s" % (STARTTAG, ENDTAG)
+                    #print "modes", mode, compilemode
+                    endtag = "%send%s%s" % (STARTTAG, mode, ENDTAG)
                     endlocation = find(inputtext, endtag, cursor)
                     if endlocation<cursor:
                         raise ValueError, "can't find %s after script start" % repr(endtag)
                     ddblock = inputtext[cursor:endlocation]
                     ddblock = dedent(ddblock)
+                    import sys
                     try:
-                        test = compile(ddblock, "<string>", "exec")
+                        test = compile(ddblock, "<string>", compilemode)
                     except:
-                        raise ValueError, "bad script code\n%s" % (ddblock)
-                    a(ddblock)
+                        t,v,tb = sys.exc_type, sys.exc_value, sys.exc_traceback
+                        import traceback
+                        tb = traceback.format_tb(tb)
+                        tb = string.join(tb, "\n")
+                        # how to get the line in the script for the error?
+                        raise ValueError, "bad script code for %s\n%s\n\n%s\n%s\n%s" % (
+                            compilemode, ddblock, t, v, tb)
+                    if mode=="script":
+                        a(ddblock)
+                    elif mode=="eval":
+                        code = "__write__(str(%s))" % ddblock
+                        a(code)
                     cursor = endlocation + len(endtag)
                 elif not toplevel:
                     # assume the calling routine understands the directive
@@ -465,7 +492,7 @@ def dedent(text):
     return join(linesout, "\n")
 
 module_source_template = """
-def run(dictionary):
+def run(dictionary, __write__=None):
 %s
 
 if __name__=="__main__":
@@ -485,7 +512,7 @@ def parsetest():
     print out
     sys.stdout = stdout
     print "wrote", fn
-
+    
 def testgetmodule():
     name = "testpreppy"
     print "trying to load", name
@@ -494,11 +521,16 @@ def testgetmodule():
     print "=" * 100
     result.run({})
 
+# cache found modules by source file name
+GLOBAL_LOADED_MODULE_DICTIONARY = {}
+
 def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0):
     # see if the module exists as a python file
     from sys import path
     import os
     sourcefilename = os.path.join(directory, name+source_extension)
+    if GLOBAL_LOADED_MODULE_DICTIONARY.has_key(sourcefilename):
+        return GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename]
     if directory not in path:
         path.insert(0, directory)
     try:
@@ -516,6 +548,7 @@ def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0):
         if module is None:
             raise ValueError, "couldn't find source %s or module %s" % (sourcefilename, name)
         # use the existing module??? (NO SOURCE PRESENT)
+        GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = module
         return module
     else:
         sourcetext = sourcefile.read()
@@ -525,6 +558,7 @@ def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0):
         if sourcechecksum==checksum:
             # use the existing module. it matches
             if verbose: print "checksums match, not regenerating python source"
+            GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = module
             return module
         elif verbose:
             print "CHECKSUMS DON'T MATCH"
@@ -569,6 +603,7 @@ __checksum__ = %s
     from imp import new_module
     result = new_module(name)
     exec out in result.__dict__
+    GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = result
     return result
 
 if __name__=="__main__":
