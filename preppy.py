@@ -220,6 +220,8 @@ class PreProcessor:
                 if prints:
                     # close it
                     prints = prints + ")"
+                else:
+                    prints = "pass"
             a(prints)
             cursor = newcursor
             if cursor>=inputlen:
