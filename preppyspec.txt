@@ -1,5 +1,5 @@
 Title: preppy spec
-Version: $Revision: 1.3 $
+Version: $Revision: 1.4 $
 Author: Aaron Watters <aaron@reportlab.com>
 Status: Preliminary, edit out editorial asides before release
 Type: Design Specification
@@ -30,10 +30,10 @@ Introduction
 
 	For example consider the Preppy source file
 
-	<html><head><title>{{dictionary["name"]}}</title></head><body>
-	hello my name is {{dictionary["name"]}} and I am
-	{{if dictionary["sex"]=="f":}} a gal
-	{{elif dictionary["sex"]=="m":}} a guy
+	<html><head><title>{{name}}</title></head><body>
+	hello my name is {{name}} and I am
+	{{if sex=="f":}} a gal
+	{{elif sex=="m":}} a guy
 	{{else:}} neuter {{endif}}
 	</body></html>
 
@@ -267,13 +267,46 @@ for)	{{for for_target}} block {{endfor}}
 	for for_target:
 		interpretation_of(block)
 
-while)	{{while condition}} block {{endfor}}
+while)	{{while condition}} block {{endwhile}}
 
 	This implements a while loop in preppy source.  The condition should be
 	a python expression.  The resulting python code is roughly
 
 	while condition:
 		interpretation_of(block)
+
+STATIC COMPILATION
+
+	To statically compile a preppy module once and for all you can
+	use preppy as command line program.  For example suppose the
+	example file given above is in "./flintstone.prep" in the same
+	directory as preppy.  Then compile it using
+	
+		C:\reportlab\repository\rlextra\preppy> preppy.py flintstone
+		no module flintstone found (or error)
+		CHECKSUMS DON'T MATCH
+		regenerating python source from .\flintstone.prep
+
+	You can then test it using a static import
+
+		C:\reportlab\repository\rlextra\preppy>python
+		Python 1.5.2 (#0, Apr 13 1999, 10:51:12) [MSC 32 bit (Intel)] on win32
+		Copyright 1991-1995 Stichting Mathematisch Centrum, Amsterdam
+		>>> from flintstone import run
+		>>> D =  {'sex': 'm', 'name': 'george'}
+		>>> run(D)
+
+		        <html><head><title>george</title></head><body>
+		        hello my name is george and I am
+		         a guy
+
+		        </body></html>
+		>>>
+
+	Note that preppy modules which do not dynamically import other preppy
+	modules may be used "stand-alone" without the preppy module itself
+	present.
+
 
 SYNTAX CHECKING:
 

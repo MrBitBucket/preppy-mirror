@@ -17,7 +17,7 @@ def unescape(s, unescapes=UNESCAPES, r=string.replace):
         s = r(s, old, new)
     return s
 
-VERSION = 0.2
+VERSION = 0.3
 
 """
 {{if x:}} this text $(endif}} that
@@ -235,7 +235,17 @@ try:
         raise NameError
 except NameError:
     import sys
-    __write__ = sys.stdout.write"""
+    __write__ = sys.stdout.write
+# now exec the assignments in the dictionary 
+try:
+    __d__ = dictionary
+except:
+    pass
+else:
+    for __n__ in __d__.keys():
+        __v__ = dictionary[__n__]
+        exec("%s=%s") % (__n__, repr(__v__))
+"""
 
 class PreProcessor:
     #STARTDELIMITER = STARTDELIMITER # NOT USED, USE MODULE GLOBAL
@@ -530,7 +540,7 @@ def parsetest():
     sys.stdout = stdout
     print "wrote", fn
     
-def testgetmodule():
+def testgetmodule(name="testpreppy"):
     name = "testpreppy"
     print "trying to load", name
     result = getPreppyModule(name, verbose=1)
@@ -626,9 +636,15 @@ __checksum__ = %s
 getModule = getPreppyModule
 
 if __name__=="__main__":
-    parsetest()
-    print; print "PAUSING.  To continue hit return"
-    raw_input("now: ")
-    testgetmodule()
+    import sys
+    if len(sys.argv)>1:
+        name = sys.argv[1]
+        result = getPreppyModule(name, verbose=1)
+    else:
+        print "no argument: running tests"
+        parsetest()
+        print; print "PAUSING.  To continue hit return"
+        raw_input("now: ")
+        testgetmodule()
     
                 
