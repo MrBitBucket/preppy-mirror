@@ -3,8 +3,7 @@
 
 # Tests of various functions and algorithms in preppy.
 # no side-effects on file system, run anywhere.
-# $Author$
-# $Date$
+__version__=''' $Id$ '''
 
 
 import os, glob, string, random
@@ -105,6 +104,15 @@ class GeneratedCodeTestCase(unittest.TestCase):
 
     def checkClosingBraces(self):
         self.assertEquals(self.getRunTimeOutput('i}}'), "i}}")
+
+    def checkBackSlashes(self):
+        self.assertEquals(self.getRunTimeOutput('{{script}}i=1+2+\\\n\t3{{endscript}}{{i}}'), "6")
+
+    def checkCatchesUnterminated(self):
+        self.assertRaises(preppy.LexError,self.getRunTimeOutput,'{{script}}i=1+2+\\\n\t3{{endscript}}{{i}')
+
+    def checkCatchesIllegalBackSlash(self):
+        self.assertRaises(preppy.SyntaxError,self.getRunTimeOutput,'{{script}}i=1+2+\\ \n\t3{{endscript}}{{i}}')
 
 class OutputModeTestCase(unittest.TestCase):
     """Checks all ways of generating output return identical

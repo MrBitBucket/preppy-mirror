@@ -4,9 +4,7 @@
 # Basic test suite for Preppy.py
 # See check_load.py for load testing
 
-# $Author$ (John Precedo - johnp@reportlab.com)
-# $Date$
-
+# $Id:$
 
 import os, glob, string
 from rlextra.preppy import preppy
@@ -43,7 +41,7 @@ class SimpleTestCase(unittest.TestCase):
         <HEAD>
         <TITLE>ReportLab Preppy Test Suite 007</TITLE>
         </HEAD>
-        
+
         <BODY>
         <FONT COLOR=#000000>
         <TABLE BGCOLOR=#0000CC BORDER=0 CELLPADDING=0 CELLSPACING=0 WIDTH=100%>
@@ -57,17 +55,17 @@ class SimpleTestCase(unittest.TestCase):
         </TD>
         </TR>
         </TABLE>
-        
+
         <BR>
 
         This test creates a preppy source module in memory. It does <I>not</I> have a preppy source file (a file ending in '.prep')
-        
+
         <H2>Expected Output</H2>
         <P>
-        
+
         Below is a listing of the files in the same directory as this HTML file. There should be no file called <I>sample007.prep</I>.
 
-                
+
         <BR><HR>
         <BR><CENTER>
         <TABLE>
@@ -75,13 +73,13 @@ class SimpleTestCase(unittest.TestCase):
         import os
         leftColumn = []
         rightColumn = []
-        
+
         fileList = os.listdir(os.getcwd())
-        
+
         for item in range(0,len(fileList),2):
             if os.path.isfile(fileList[item]):
                 leftColumn.append(fileList[item])
-        
+
         for item in range(1,len(fileList)-1,2):
             if os.path.isfile(fileList[item]):
                 rightColumn.append(fileList[item])
@@ -104,7 +102,7 @@ class SimpleTestCase(unittest.TestCase):
 
         <BR>
         <HR>
-        
+
         </FONT>
         </BODY>
         </HTML>"""
@@ -120,7 +118,7 @@ class SimpleTestCase(unittest.TestCase):
         #f.seek(0)
         #output = f.read()
 
-        #this way it goes to the list and also gets printed        
+        #this way it goes to the list and also gets printed
         mod.run(tempDict, __write__ = modDataList.append)
         #print 'length of list is %d' % len(modDataList)
         output=string.join (modDataList,'')
@@ -144,7 +142,7 @@ class SimpleTestCase(unittest.TestCase):
                     )
 
     def check10_PreppyInternals_VariableNames(self):
-        # This list contains a number of names of variables that are used internally within Preppy.
+        # This list contains a number of names of variables that are/might be used internally within Preppy.
         preppyVariables = ["STARTDELIMITER", "ENDDELIMITER",
         "QSTARTDELIMITER", "QENDDELIMITER", "QUOTE", "QUOTEQUOTE",
         "UNESCAPES", "VERSION", "KEYWORDS","out","a", "start",
@@ -181,7 +179,7 @@ class SimpleTestCase(unittest.TestCase):
             #print "tempvar =", tempvar
             dictionary[tempvar] = tempvar
         processTest('sample010', dictionary)
- 
+
     def check11_PreppyInternals_FunctionNames(self):
         # This lists contains a number of names of functions that are used internally within Preppy.
         preppyFunctions = ["unescape", "printstmt", "countnewlines",
@@ -198,9 +196,6 @@ class SimpleTestCase(unittest.TestCase):
             dictionary[tempvar] = tempvar
         processTest('sample011', dictionary)
 
-
-
-            
 suite = unittest.makeSuite(SimpleTestCase,'check')
 
 def processTest(filename, dictionary={}):
@@ -246,5 +241,3 @@ if __name__=='__main__':
         runner = unittest.TextTestRunner()
         runner.run(suite)
         print '\nplease read all sample*.html files'
-        
-    
