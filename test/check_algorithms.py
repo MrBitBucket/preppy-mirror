@@ -88,6 +88,16 @@ class GeneratedCodeTestCase(unittest.TestCase):
     def checkIfNoColon(self):
         self.assertEquals(self.getRunTimeOutput('{{if 1}}1{{endif}}'), "1")
 
+    def checkIndentingWithComments(self):
+        self.assertEquals(self.getRunTimeOutput('''{{script}}
+        #
+            i=0
+                #
+            i=1
+    #
+        {{endscript}}{{i}}'''),"1")
+        
+
 class OutputModeTestCase(unittest.TestCase):
     """Checks all ways of generating output return identical
     results - grab string, file"""
