@@ -868,30 +868,35 @@ def getModule(name,
     #  "spam.prep" in directory "/mydir/subdir".  Failing to get
     # this right means getModule can fail to find it and recompile
     # every time.  This is common during batch compilation of directories.
-    extraDir, name = os.path.split(name)
-    if extraDir:
-        directory = directory + os.sep + extraDir
-    dir = os.path.abspath(os.path.normpath(directory))
+    if hasattr(name,'read'):
+        sourcetext = name.read()
+        name = name.name
+    else:
+        extraDir, name = os.path.split(name)
+        if extraDir:
+            directory = directory + os.sep + extraDir
+        dir = os.path.abspath(os.path.normpath(directory))
 
-    # they may ask for 'spam.prep' instead of just 'spam'.  Trim off
-    # any extension
-    name = os.path.splitext(name)[0]
-    if verbose:
-        print 'checking %s...' % os.path.join(dir, name),
-    # savefile is deprecated but kept for safety.  savePy and savePyc are more
-    # explicit and are the preferred.  By default it generates a pyc and no .py
-    # file to reduce clutter.
-    if savefile and savePyc == 0:
-        savePyc = 1
+        # they may ask for 'spam.prep' instead of just 'spam'.  Trim off
+        # any extension
+        name = os.path.splitext(name)[0]
+        if verbose:
+            print 'checking %s...' % os.path.join(dir, name),
+        # savefile is deprecated but kept for safety.  savePy and savePyc are more
+        # explicit and are the preferred.  By default it generates a pyc and no .py
+        # file to reduce clutter.
+        if savefile and savePyc == 0:
+            savePyc = 1
 
     if sourcetext is not None:
         # they fed us the source explicitly
         if verbose: print "sourcetext provided...",
-        sourcefilename = "<input text %s>" % name
+        pythonFileName = sourcefilename = "<input text %s>" % name
         sourcechecksum = md5.new(sourcetext + repr(VERSION)).digest()
         savePy = 0 # cannot savefile if source file provided
         savePyc = 0
     else:
+        pythonFileName = name + '.py'
         # see if the module exists as a python file
         sourcefilename = os.path.join(dir, name+source_extension)
         if GLOBAL_LOADED_MODULE_DICTIONARY.has_key(sourcefilename):
@@ -948,7 +953,6 @@ def getModule(name,
 
     # generate the python source in memory as if it was a py file.
     # then save to py and pyc as specified.
-    pythonFileName = name + '.py'
     pythonSource = """
 '''
 PREPPY MODULE %s
