@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.28 2002/12/28 22:03:00 andy Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.29 2003/01/08 17:50:30 robin Exp $
 
 
 
@@ -1012,7 +1012,7 @@ def compileDir(dirName, pattern="*.prep", recursive=1, savePy=0, force=0, verbos
     "Compile all prep files in directory, recursively if asked"
     if verbose: print 'compiling directory %s' % dirName
     if recursive:
-        def _visit(A,D,N,pattern=pattern,savePy=savePy, verbose=verbose):
+        def _visit(A,D,N,pattern=pattern,savePy=savePy, verbose=verbose,force=force):
             for filename in filter(lambda fn,pattern=pattern: fnmatch(fn,pattern),
                     filter(os.path.isfile,map(lambda n, D=D: os.path.join(D,n),N))):
                 compileModule(filename, savePy, force, verbose)
