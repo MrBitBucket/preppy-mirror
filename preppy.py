@@ -28,6 +28,9 @@ KEYWORDS = string.split("""
 def printstmt(txt, newline=1, linemax=40):
     """UNCLOSED call to __write__ 
        if everything is properly quoted you can append a % (x1, x2, x3)) onto the end of this"""
+    # if all white return empty
+    if not string.strip(txt):
+        return ""
     lines = string.split(txt, "\n")
     out = []
     a = out.append
@@ -35,7 +38,9 @@ def printstmt(txt, newline=1, linemax=40):
     while lines:
         l = lines[0]
         del lines[0]
-        while l:
+        firstpass = 1
+        while l or firstpass:
+            firstpass=0
             l1 = l[:linemax]
             l = l[linemax:]
             if not l and lines:
@@ -48,15 +53,18 @@ def printstmt(txt, newline=1, linemax=40):
                 a("\t %s" % repr(l1))
     if not out:
         return "" # no write!
-    last = out[-1]
-    if newline:
-        final = ")"
-    else:
-        final = "),"
-    out[-1] = last + " )"
-    return string.join(out, "\n")
+    out[-1] = out[-1] + " )"
+    result = string.join(out, "\n")
+    return result
 
-def quotestring(s, cursor=0):
+def countnewlines(s):
+    # make sure you get newlines at extremes
+    s = ".%s." % s
+    x = len(string.split(s, "\n"))
+    if x: return x-1
+    return 0
+
+def quotestring(s, cursor=0, lineno=None):
     """return a string where ${x$} becomes %(x)s and % becomes %(__percent__)s
        and also return a substitution dictionary for it containing
           __dict__ = {}
@@ -69,10 +77,21 @@ def quotestring(s, cursor=0):
        math.sin(34.1) or dictionary.get("user","anonymous")
     """
     #print "quotestring at", cursor, repr(s[cursor:cursor+10])
+    if lineno is None:
+        #raise "oops"
+        lineno = [0, "<top level>"]
+    def diag(lineno=lineno):
+        return "qs: near line %s at or after %s" % (lineno[0], repr(lineno[1]))
+    global DIAGNOSTIC_FUNCTION
+    DIAGNOSTIC_FUNCTION = diag
     from string import join, split, strip, find, replace
     slen = len(s)
     quotedparts = []
-    addpart = quotedparts.append
+    #addpart = quotedparts.append
+    def addpart(s, append=quotedparts.append, lineno=lineno):
+        append(s)
+        if "\n" in s:
+            lineno[0] = lineno[0] + countnewlines(s)
     dictlines = ["__dict__ = {}"]
     adddict = dictlines.append
     done = None
@@ -86,6 +105,7 @@ def quotestring(s, cursor=0):
         if findstarttag<0: findstarttag = slen
         findmin = min(findpercent, findstarttag)
         sclean = s[cursor:findmin]
+        lineno[1] = s[findmin: findmin+10]
         addpart(sclean)
         #print "clean", repr(sclean)
         cursor = findmin
@@ -100,14 +120,18 @@ def quotestring(s, cursor=0):
             savecursor = cursor
             cursor = cursor+starttaglen
             if findendtag<0:
-                raise ValueError, "no end tag found after %s" % repr(s[cursor-10:cursor+20])
+                raise ValueError, "no end tag found after %s (%s)" % (repr(s[cursor-10:cursor+20]), diag())
+            lineno[1] = s[savecursor: findendtag+10]
             block = s[cursor: findendtag]
             block = strip(block)
             if block[-1]==":":
                 blockx = block[:-1]
             else:
-                blockx = split(block)[0]
-            if complexdirective(block) or blockx in KEYWORDS:
+                blockx = block
+            blockx = split(blockx)[0]
+            #if complexdirective(block) or # disabled to allow complex expressions
+            #print "blockx", blockx
+            if blockx in KEYWORDS:
                 cursor = savecursor
                 done = 1 # can't handle more complex things here
             else:
@@ -117,6 +141,11 @@ def quotestring(s, cursor=0):
                 for (c, rc) in (("%", "#P#"), ("(", "#[#"), (")", "#]#")):
                     if c in sblock:
                         sblock = replace(sblock, c, rc)
+                # test the syntax of the block
+                try:
+                    test = compile(block, "<string>", "eval")
+                except:
+                    raise ValueError, "bad expression: " + repr(block)
                 substitutionline = dictassntemplate % (repr(sblock), block, repr(s[savecursor:cursor+10]))
                 adddict(substitutionline)
                 stringsub = "%s(%s)s" % ("%", sblock)
@@ -133,7 +162,7 @@ def quotestring(s, cursor=0):
 
 teststring = """
 this test script should produce a runnable program
-${script
+${script$}
   class X:
       pass
   x = X()
@@ -142,31 +171,32 @@ ${script
   import math
   a = dictionary = {"key": "value", "key2": "value2", "10%": "TEN PERCENT"}
   loop = "LOOP"
-$}
+${endscript$}
 this line has a percent in it 10%
 here is the a value in x: ${x.a$}
 just a norml value here: ${yislonger$} string ${a["10%"]$}
  the sine of 12.3 is ${math.sin(12.3)$}
- ${script a=0$}
+ ${script$} a=0 ${endscript$}
  these parens should be empty
  (${if a:$}
 conditional text${endif$})
- ${script a=1$}
+ ${script$} a=1
+ ${endscript$}
  these parens should be full
  (${if a:$}
 conditional text${endif$})
 stuff between endif and while
 
 ${while a==1:$} infinite ${loop$} forever!
-${script a=0$}
+${script$} a=0 ${endscript$}
 ${for (a,b) in dictionary.items():$}
 the key in the dictionary is ${a$} and the value is ${b$}.  And below is a script
-${script
+${script$}
         # THIS IS A SCRIPT
         x = 2
         y = 3
         # END OF THE SCRIPT
-$}
+${endscript$}
 stuff after the script
 ${endfor$}
 stuff after the for stmt
@@ -184,16 +214,24 @@ print ds
 """
 
 class PreProcessor:
-    STARTTAG = STARTTAG
-    ENDTAG = ENDTAG
+    #STARTTAG = STARTTAG # NOT USED, USE MODULE GLOBAL
+    #ENDTAG = ENDTAG
     indentstring = "\t"
     def indent(self, s):
         indentstring = self.indentstring
         return indentstring + string.replace(s, "\n", "\n"+indentstring)
     
-    def __call__(self, inputtext, cursor=0, toplevel=1):
+    def __call__(self, inputtext, cursor=0, toplevel=1, lineno=None):
         # go to end of string (if toplevel) or dedent token (if not toplevel)
         #print "call at", cursor, repr(inputtext[cursor:cursor+10])
+        if lineno is None:
+            if not toplevel:
+                raise "internal error", "lineno should be initialized!"
+            lineno = [0, "<toplevel>"]
+        def diag(lineno=lineno):
+            return "pp: near line %s at or after %s" % (lineno[0], repr(lineno[1]))
+        global DIAGNOSTIC_FUNCTION
+        DIAGNOSTIC_FUNCTION = diag
         if toplevel:
             outputlist = ["import sys", "__write__=sys.stdout.write"]
         else:
@@ -210,12 +248,12 @@ class PreProcessor:
         while done is None:
             # do a print statement for stuff before a complex directive
             #print "iterating at", cursor, repr(inputtext[cursor:cursor+10])
-            (quoted, dictstring, newcursor) = quotestring(inputtext, cursor)
+            (quoted, dictstring, newcursor) = quotestring(inputtext, cursor, lineno)
+            segment = inputtext[cursor: newcursor]
             if "%" in quoted:
                 a(dictstring)
-                prints = printstmt(quoted) + "% __dict__ )" # note comma!
+                prints = printstmt(quoted) + " % __dict__ )" # note comma!
             else:
-                segment = inputtext[cursor: newcursor]
                 prints = printstmt(segment)
                 if prints:
                     # close it
@@ -228,18 +266,21 @@ class PreProcessor:
                 done = 1
             else:
                 # should be at a complex directive
-                (startblock, block, sblock, newcursor) = self.getDirectiveBlock(cursor, inputtext)
+                (startblock, block, sblock, newcursor) = self.getDirectiveBlock(cursor, inputtext, lineno)
                 if newcursor==cursor:
                     raise ValueError, "no progress in getdirectiveblock"
                 oldcursor = cursor
                 cursor = newcursor
+                lineno[1] = inputtext[startblock: startblock+20]
                 # now test for constructs
                 if find(sblock, "if") == 0:
                     #print "in if"
                     # if statement, first add the block line
+                    check_condition("if", sblock)
+                    sblock = proctologist(sblock)
                     a(sblock)
                     # then get the conditional block
-                    (conditional, cursor) = self(inputtext, cursor, toplevel=0)
+                    (conditional, cursor) = self(inputtext, cursor, toplevel=0, lineno=lineno)
                     iconditional = self.indent(conditional)
                     a(iconditional)
                     inif = 1
@@ -247,56 +288,80 @@ class PreProcessor:
                         # now we should be at an else elif or endif
                         if find(inputtext, STARTTAG, cursor)!=cursor:
                             raise ValueError, "not at starttag"
-                        (startblock, block, sblock, cursor) = self.getDirectiveBlock(cursor, inputtext)
+                        (startblock, block, sblock, cursor) = self.getDirectiveBlock(cursor, inputtext, lineno)
                         if find(sblock, "else")==0:
                             if complexdirective(block):
                                 raise ValueError, "bad else? %s" %repr(sblock)
+                            #check_condition("else", sblock)
+                            sblock = proctologist(sblock)
                             a(sblock)
-                            (conditional, cursor) = self(inputtext, cursor, toplevel=0)
+                            (conditional, cursor) = self(inputtext, cursor, toplevel=0, lineno=lineno)
                             iconditional = self.indent(conditional)
                             a(iconditional)
                             # MUST be at endif
                             inif = 0
-                            (startblock, block, sblock, cursor) = self.getDirectiveBlock(cursor, inputtext)
+                            (startblock, block, sblock, cursor) = self.getDirectiveBlock(cursor, inputtext, lineno)
                             if find(sblock, "endif")!=0:
                                 raise ValueError, "else not followed by endif %s.%s" % (
                                     repr(inputtext[startblock-10:startblock]), repr(inputtext[startblock:startblock+10]))
                             if complexdirective(block):
                                 raise ValueError, "bad endif? %s" %repr(sblock)
                         elif find(sblock, "elif")==0:
+                            check_condition("elif", sblock)
+                            sblock = proctologist(sblock)
                             a(sblock)
-                            (conditional, cursor) = self(inputtext, cursor, toplevel=0)
+                            (conditional, cursor) = self(inputtext, cursor, toplevel=0, lineno=lineno)
                             iconditional = self.indent(conditional)
                             a(iconditional)
                         elif find(sblock, "endif")==0:
                             #print "saw endif"
                             inif = 0
                 elif find(sblock, "while") == 0 or find(sblock, "for")==0:
-                    if find(sblock, "while") == 0: directive="while"
-                    elif find(sblock, "for")==0: directive="for"
+                    if find(sblock, "while") == 0:
+                        directive="while"
+                    elif find(sblock, "for")==0:
+                        directive="for"
+                    check_condition(directive, sblock)
+                    sblock = proctologist(sblock)
                     #print "in", directive
                     # while statement
                     a(sblock)
                     # then get the conditional block
-                    (conditional, cursor) = self(inputtext, cursor, toplevel=0)
+                    (conditional, cursor) = self(inputtext, cursor, toplevel=0, lineno=lineno)
                     iconditional = self.indent(conditional)
                     a(iconditional)
-                    (startblock, block, sblock, cursor) = self.getDirectiveBlock(cursor, inputtext)
+                    (startblock, block, sblock, cursor) = self.getDirectiveBlock(cursor, inputtext, lineno)
                     if find(sblock, "end"+directive)!=0:
                         raise ValueError, "%s not followed by end%s %s.%s" % (directive, directive,
                             repr(inputtext[startblock-10:startblock]), repr(inputtext[startblock:startblock+10]))
                     if complexdirective(block):
                         raise ValueError, "bad end marker? %s" %repr(block)
                     #print "... done with", directive
+##                elif find(sblock, "script")==0:
+##                    # include literal code, indented properly
+##                    # strip out script tag
+##                    fscript = find(block, "script")
+##                    ddblock = block[fscript+len("script"):]
+##                    ddblock = dedent(ddblock)
+##                    #print "... dedented script"
+##                    #print ddblock
+##                    a(ddblock)
                 elif find(sblock, "script")==0:
-                    # include literal code, indented properly
-                    # strip out script tag
-                    fscript = find(block, "script")
-                    ddblock = block[fscript+len("script"):]
+                    if strip(sblock)!="script":
+                        raise ValueError, "bad script tag: "+repr(sblock)
+                    # look for endscript
+                    endtag = "%sendscript%s" % (STARTTAG, ENDTAG)
+                    endlocation = find(inputtext, endtag, cursor)
+                    if endlocation<cursor:
+                        raise ValueError, "can't find %s after script start" % repr(endtag)
+                    ddblock = inputtext[cursor:endlocation]
                     ddblock = dedent(ddblock)
-                    #print "... dedented script"
-                    #print ddblock
+                    try:
+                        test = compile(ddblock, "<string>", "exec")
+                    except:
+                        raise ValueError, "bad script code\n%s" % (ddblock)
                     a(ddblock)
+                    cursor = endlocation + len(endtag)
                 elif not toplevel:
                     # assume the calling routine understands the directive
                     #print "defaulting to return"
@@ -309,8 +374,9 @@ class PreProcessor:
         output = join(outputlist, "\n")
         return (output, cursor)
     
-    def getDirectiveBlock(self, cursor, inputtext):
+    def getDirectiveBlock(self, cursor, inputtext, lineno=None):
         #print repr((inputtext[cursor], inputtext[cursor:cursor+20]))
+        if lineno is None: lineno = [0]
         from string import find, strip
         starttaglen = len(STARTTAG)
         endtaglen = len(ENDTAG)
@@ -327,6 +393,8 @@ class PreProcessor:
         startblock = cursor
         endblock = findendtag
         block = inputtext[startblock:endblock]
+        if "\n" in block:
+            lineno[0] = lineno[0] + countnewlines(block)
         cursor = endblock+endtaglen
         sblock = strip(block)
         return (startblock, block, sblock, cursor)
@@ -337,6 +405,31 @@ class PreProcessor:
         iout = self.indent(out)
         result = module_source_template % iout
         return result
+
+def proctologist(s):
+    """now bend over turn your head and cough"""
+    # check the colon
+    s = string.strip(s)
+    if s[-1]!=":":
+        # the following dommented to allow x[5:8] in for statements for example.
+        #if ":" in s:
+        #    raise ValueError, repr(s)+" contains bogus colon"
+        s = s+":"
+    return s
+
+def check_condition(keyword, block):
+    "for example in 'if cond:' make sure the condition compiles"
+    block = string.strip(block)
+    if block[-1]==":":
+        block = block[:-1]
+    lk = len(keyword)
+    if block[:lk]!=keyword:
+        raise ValueError, "bad call to check_condition "+repr((block, keyword))
+    block = string.strip(block[lk:])
+    try:
+        test = compile(block, "<string>", "eval")
+    except:
+        raise ValueError, "bad %s expression: %s" % (keyword, repr(block))
 
 def complexdirective(s):
     from string import split, strip
@@ -412,9 +505,9 @@ def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0):
         module = __import__(name)
         checksum = module.__checksum__
         if verbose: print "module", name, "found with checksum", repr(checksum)
-    except ImportError:
+    except: # ImportError:  catch ALL Errors imorting the module
         module = checksum = None
-        if verbose: print "no module", name, "found"
+        if verbose: print "no module", name, "found (or error)"
     # check against source file
     try:
         sourcefile = open(sourcefilename, "r")
@@ -439,7 +532,27 @@ def getPreppyModule(name, directory=".", source_extension=".prep", verbose=0):
     if verbose:
         print "regenerating python source from", sourcefilename
     P = PreProcessor()
-    out = P.module_source(sourcetext)
+    global DIAGNOSTIC_FUNCTION
+    DIAGNOSTIC_FUNCTION = None
+    import sys
+    try:
+        out = P.module_source(sourcetext)
+    except:
+        t,v,tb = sys.exc_type, sys.exc_value, sys.exc_traceback
+        import traceback
+        tb = traceback.format_tb(tb)
+        tb = string.join(tb, "\n")
+        print "ERROR PROCESSING PREPPY FILE TRACEBACK"
+        print tb
+        print "Type", t
+        print "Value", v
+        if DIAGNOSTIC_FUNCTION:
+            print "LAST DIAGNOSTIC:"
+            print DIAGNOSTIC_FUNCTION()
+        else:
+            print "no further diagnostic available"
+        print "ERROR PROCESSING PREPPY FILE"
+        sys.exit(1)
     outfilename = os.path.join(directory, name+".py")
     outfile = open(outfilename, "w")
     outfile.write("""
