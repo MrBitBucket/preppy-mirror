@@ -1,7 +1,7 @@
 #copyright ReportLab Inc. 2000-2002
 #see license.txt for license details
 #history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.25 2002/06/19 17:24:20 robin Exp $
+#$Header: /rl_home/xxx/repository/rlextra/preppy/preppy.py,v 1.26 2002/10/25 11:31:57 robin Exp $
 """preppy - a Python preprocessor.
 
 This is the Python equivalent of ASP or JSP - a preprocessor which lets you
@@ -69,9 +69,7 @@ QUOTEQUOTE = "$$"
 # SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
 UNESCAPES = ( (QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE) )
 
-import string
-import os
-import md5
+import string, os, md5, sys, imp
 
 
 def unescape(s, unescapes=UNESCAPES, r=string.replace):
@@ -707,13 +705,13 @@ def getModule(name,
     extraDir, name = os.path.split(name)
     if extraDir:
         directory = directory + os.sep + extraDir
-    directory = os.path.normpath(directory)
+    directory = os.path.abspath(os.path.normpath(directory))
 
     # they may ask for 'spam.prep' instead of just 'spam'.  Trim off
     # any extension
     name = os.path.splitext(name)[0]
     if verbose:
-        print ('checking %s/%s...' % (directory, name)),
+        print 'checking %s...' % os.path.join(directory, name),
     # savefile is deprecated but kept for safety.  savePy and savePyc are more
     # explicit and are the preferred.  By default it generates a pyc and no .py
     # file to reduce clutter.
@@ -730,14 +728,22 @@ def getModule(name,
         savePyc = 0
     else:
         # see if the module exists as a python file
-        from sys import path
         sourcefilename = os.path.join(directory, name+source_extension)
         if GLOBAL_LOADED_MODULE_DICTIONARY.has_key(sourcefilename):
             return GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename]
-        if directory not in path:
-            path.insert(0, directory)
         try:
-            module = __import__(name)
+            f, p, desc= imp.find_module(name,[directory])
+            if sys.modules.has_key(name):
+                om = sys.modules[name]
+                del sys.modules[name]
+            else:
+                om = None
+            try:
+                module = imp.load_module(name,f,p,desc)
+            finally:
+                if om: sys.modules[name] = om
+                del om
+                if f: f.close()
             checksum = module.__checksum__
             if verbose: print "found...",
         except: # ImportError:  #catch ALL Errors importing the module (eg name="")
@@ -770,7 +776,6 @@ def getModule(name,
     P = PreProcessor()
     global DIAGNOSTIC_FUNCTION
     DIAGNOSTIC_FUNCTION = None
-    import sys
     sourcetext = cleantext(sourcetext) # get rid of gunk in newlines, just in case
     try:
         out = P.module_source(sourcetext)
@@ -918,7 +923,6 @@ def extractKeywords(arglist):
     return d
 
 def main():
-    import sys
     if len(sys.argv)>1:
         name = sys.argv[1]
         if name == 'compile':
