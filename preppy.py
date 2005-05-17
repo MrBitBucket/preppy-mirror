@@ -1,22 +1,5 @@
 #Copyright ReportLab Europe Ltd. 2000-2004
 #see license.txt for license details
-#history www.reportlab.co.uk/rl-cgi/viewcvs.cgi/rlextra/preppy/preppy.py
-
-
-
-"""
-AM small extra Apr 2003:
-    ensured sys.stdout can be used even when __write__ is given
-"""
-
-"""
-#AR - refactoring plans Dec 2002:
-
-1. made the preprocessor object track the output collection
-2. prove this gives same output across test suite by leaving old one
-   in and asserting.  Full recompile of major apps.
-3. use self.prepLineNo instead of lineNo
-"""
 
 """preppy - a Python preprocessor.
 
@@ -50,9 +33,8 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-
-VERSION = 0.6
-
+VERSION = 0.8
+__version__=''' $Id$ '''
 
 USAGE = """
 The command line interface lets you test, compile and clean up:
@@ -83,14 +65,80 @@ QENDDELIMITER = "}$}"
 QUOTE = "$"
 QUOTEQUOTE = "$$"
 # SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
-UNESCAPES = ( (QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE) )
+UNESCAPES = ((QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE))
 
-import string, os, md5, sys, imp, pprint
+import re, sys, os, md5, imp, struct
+from compiler import pycodegen, pyassem, future, consts
 
+class _preppy_FunctionCodeGenerator(pycodegen.FunctionCodeGenerator):
+    def __init__(self, func, scopes, isLambda, class_name, mod):
+        self.scopes = scopes
+        self.scope = scopes[func]
+        self.class_name = class_name
+        self.module = mod
+        if isLambda:
+            klass = FunctionCodeGenerator
+            name = "<lambda.%d>" % klass.lambdaCount
+            klass.lambdaCount = klass.lambdaCount + 1
+        else:
+            name = func.name
+        args, hasTupleArg = pycodegen.generateArgList(func.argnames)
+        self.optimized = int(name!='__code__')
+        self._special_locals = name=='__code__'
+        self.graph = pyassem.PyFlowGraph(name, func.filename, args,
+                                         optimized=self.optimized)
+        if name=='__code__': self.graph.setFlag(consts.CO_NEWLOCALS)
+        self.isLambda = isLambda
+        self.super_init()
 
-def unescape(s, unescapes=UNESCAPES, r=string.replace):
+        if not isLambda and func.doc:
+            self.setDocstring(func.doc)
+
+        lnf = pycodegen.walk(func.code, self.NameFinder(args), verbose=0)
+        self.locals.push(lnf.getLocals())
+        if func.varargs:
+            self.graph.setFlag(CO_VARARGS)
+        if func.kwargs:
+            self.graph.setFlag(CO_VARKEYWORDS)
+        self.set_lineno(func)
+        if hasTupleArg:
+            self.generateArgUnpack(func.argnames)
+        self.graph.setFreeVars(self.scope.get_free_vars())
+        self.graph.setCellVars(self.scope.get_cell_vars())
+        if self.scope.generator is not None:
+            self.graph.setFlag(pycodegen.CO_GENERATOR)
+
+    def _nameOp(self, prefix, name):
+        name = self.mangle(name)
+        scope = self.scope.check_name(name)
+        if self._special_locals and name=='locals': name = 'globals'
+        if scope == consts.SC_LOCAL:
+            if not (self.optimized or name in ['dictionary','__write__','__swrite__','outputfile', '__d__']):
+                self.emit(prefix + '_NAME', name)
+            else:
+                self.emit(prefix + '_FAST', name)
+        elif scope == consts.SC_GLOBAL:
+            if not self.optimized:
+                self.emit(prefix + '_NAME', name)
+            else:
+                self.emit(prefix + '_GLOBAL', name)
+        elif scope == consts.SC_FREE or scope == consts.SC_CELL:
+            self.emit(prefix + '_DEREF', name)
+        else:
+            raise RuntimeError, "unsupported scope for var %s: %d" % \
+                  (name, scope)
+
+class _preppy_ModuleCodeGenerator(pycodegen.ModuleCodeGenerator):
+    def __init__(self, tree):
+        self.graph = pyassem.PyFlowGraph("<module>", tree.filename)
+        self.futures = future.find_futures(tree)
+        pycodegen.ModuleCodeGenerator._ModuleCodeGenerator__super_init(self)
+        self.__class__.FunctionGen = _preppy_FunctionCodeGenerator
+        pycodegen.walk(tree, self)
+
+def unescape(s, unescapes=UNESCAPES):
     for (old, new) in unescapes:
-        s = r(s, old, new)
+        s = s.replace(old, new)
     return s
 
 
@@ -106,55 +154,6 @@ print (that\n")
 note that extra spaces may be introduced compliments of print.
 could change this to a file.write for more exact control...
 """
-
-KEYWORDS = string.split("""
-    if else elif for while script eval
-    endif endfor endwhile
-""")
-
-def printstmt(txt, newline=1, linemax=40):
-    """UNCLOSED call to __write__
-       if everything is properly quoted you can append a % (x1, x2, x3)) onto the end of this"""
-    # if all white return empty
-    if not string.strip(txt):
-        return ""
-    lines = string.split(txt, "\n")
-    out = []
-    a = out.append
-    start = 1
-    while lines:
-        l = lines[0]
-        del lines[0]
-        firstpass = 1
-        while l or firstpass:
-            firstpass=0
-            l1 = l[:linemax]
-            l = l[linemax:]
-            if not l and lines:
-                # paste back the newline
-                l1 = l1+"\n"
-            if start:
-                a("__write__ (  (%s" % repr(l1))
-                start = 0
-            else:
-                a("\t %s" % repr(l1))
-    if not out:
-        return "" # no write!
-    out[-1] = out[-1] + " )"
-    result = string.join(out, "\n")
-    return result
-
-def countnewlines(s):
-    # make sure you get newlines at extremes
-    s = ".%s." % s
-    x = len(string.split(s, "\n"))
-    if x: return x-1
-    return 0
-
-Substringquotes =[("%", "#P#"), ("(", "#[#"), (")", "#]#")]
-for wc in string.whitespace:
-    Substringquotes.append( (wc, "w."+repr(ord(wc))) )
-
 
 teststring = """
 this test script should produce a runnable program
@@ -233,588 +232,335 @@ print qs
 print "---------dict string"
 print ds
 """
-
-
-#### standard code templates
-
-TOPLEVELWRAPPER = """\
-### begin standard prologue
-import sys
-__save_sys_stdout__ = sys.stdout
-try: # compiled logic below
-%s
-finally: #### end of compiled logic, standard cleanup
-    import sys # for safety
-    #print "resetting stdout", sys.stdout, "to", __save_sys_stdout__
-    sys.stdout = __save_sys_stdout__
-"""
-
-TOPLEVELPROLOG = """\
-### top level prologue
-# redirect stdout, maybe
-try:
-    # if outputfile is defined, blindly assume it supports file protocol, reset sys.stdout
-    if outputfile is None:
-        raise NameError
-    stdout = sys.stdout = outputfile
-except NameError:
-    stdout = sys.stdout
-    outputfile = None
-# make sure __write__ is defined
-try:
-    if __write__ is None:
-        raise NameError
-    if outputfile and __write__:
-        raise ValueError, "do not define both outputfile (%s) and __write__ (%s)." %(outputfile, __write__)
-    class stdout: pass
-    stdout = sys.stdout = stdout()
-    stdout.write = __write__
-except NameError:
-    __write__ = stdout.write
-# now exec the assignments in the dictionary
-try:
-    __d__ = dictionary
-except:
-    pass
-else:
-    for __n__ in __d__.keys():
-        __forbidden__ = 0 # paranoid security check: disallow complex python L-expressions...
-        for __c__ in ".([{": # no function calls, lists, attributes, dicts, etc.
-            if __c__ in __n__:
-                __forbidden__ = 1
-        if not __forbidden__:
-            try:
-                exec("%s=__d__[%s]") % (__n__, repr(__n__)) in locals()
-            except:
-                pass # ignore dict entries that aren't valid variable names
-### end of standard prologues
-"""
-
-
-
-
-class PreProcessor:
-    """This class generates the Python source from the Preppy source"""
-    #STARTDELIMITER = STARTDELIMITER # NOT USED, USE MODULE GLOBAL
-    #ENDDELIMITER = ENDDELIMITER
-    indentstring = "\t"
-    def __init__(self):
-        # keep some stuff for tracking the mapping
-        self.output = [TOPLEVELPROLOG]
-        self.pyLineNo = 50  # must be derivable somehow...
-        self.prepLineNo = 0
-        self.inputText = ''
-        self.lineNoMap = []  #pairs of prep -> py mappings plus diagnostic text.
-        self.indentLevel = 0
-
-    def append(self, stuff, prepCursor):
-        """Put stuff on the end of the new text buffer, updating mappings."""
-        firstLine = string.split(stuff, '\n')[0]
-##        print 'about to append after prep=%d,py=%d:   %s' % (self.prepLineNo, self.pyLineNo, firstLine)
-##        print self.indentText(stuff)
-
-        self.output.append(self.indentText(stuff, self.indentstring * self.indentLevel))
-
-        # line number tracking
-        prepLine = self.prepLineNo
-        pyLine = self.pyLineNo
-
-        # At the end of the block we should be able to get exactly 'in synch'
-        linesAdded = string.split(stuff, '\n')
-        lineCount = len(linesAdded)
-        self.setCursor(prepCursor)
-        self.pyLineNo = self.pyLineNo + lineCount
-
-        # but in the middle, the best we cxan do is guess a 1-for-1
-        # correspondence, ensuring prepLineNo does not get too high.
-
-
-        for lin in range(lineCount):
-            if prepLine < self.prepLineNo:
-                prepLine = prepLine + 1
-            pyLine = pyLine + 1
-            self.lineNoMap.append((prepLine, pyLine, linesAdded[lin][0:20]))
-
-        #self.lineNoMap.append((self.prepLineNo, self.pyLineNo))
-
-    def setCursor(self, pos):
-        "Track the byte position into the input text, and thus the line number"
-        self.prepCursor = pos
-        self.prepLineNo = self.countLines(self.inputText[0:pos])
-
-    def countLines(self, textBlock):
-        "How many lines long is it?"
-        return len(string.split(textBlock, '\n'))
-
-    def ind(self):
-        self.indentLevel = self.indentLevel + 1
-
-    def ded(self):
-        self.indentLevel = self.indentLevel - 1
-
-    def indentText(self, s, indentstring=None):
-        #renamed it to avoid confusion with new methods
-        if indentstring is None:
-            indentstring = self.indentstring
-        return indentstring + string.replace(s, "\n", "\n"+indentstring)
-
-    def quoteString(self, s, cursor=0, lineno=None):
-        """return a string where {{x}} becomes %(x)s and % becomes %(__percent__)s
-           and also return a substitution dictionary for it containing
-              __dict__ = {}
-              __dict__["__percent__"] = "%"
-              ...
-              __dict__["x"] = x
-              ...
-           return the cursor where the process breaks (end or at {{if x:...}
-           {{x}} x must not contain whitespace (except surrounding) but it can be (eg)
-           math.sin(34.1) or dictionary.get("user","anonymous")
-        """
-        #print "quotestring at", cursor, repr(s[cursor:cursor+10])
-        if lineno is None:
-            #raise "oops"
-            lineno = [0, "<top level>"]
-            self.setCursor(1)
-
-        def diag(lineno=lineno):
-            return "qs: near line %s at or after %s" % (lineno[0], repr(lineno[1]))
-        global DIAGNOSTIC_FUNCTION
-        DIAGNOSTIC_FUNCTION = diag
-        from string import join, split, strip, find, replace
-        slen = len(s)
-        quotedparts = []
-
-        #addpart = quotedparts.append
-        def addpart(s, append=quotedparts.append, lineno=lineno, self=self):
-            s = unescape(s) # unescape all text in output string
-            append(s)
-            if "\n" in s:
-                lineno[0] = lineno[0] + countnewlines(s)
-
-        dictlines = ["__dict__ = {}"]
-        adddict = dictlines.append
-        done = None
-        starttaglen = len(STARTDELIMITER)
-        endtaglen = len(ENDDELIMITER)
-        dictassntemplate = "__dict__[%s] = %s # %s"
-        key_seen = {}
-        while done is None:
-            findpercent = find(s, "%", cursor)
-            if findpercent<0: findpercent = slen
-            findstarttag = find(s, STARTDELIMITER, cursor)
-            if findstarttag<0: findstarttag = slen
-            findmin = min(findpercent, findstarttag)
-            sclean = s[cursor:findmin]
-            lineno[1] = s[findmin: findmin+10]
-            addpart(sclean)
-            #print "clean", repr(sclean)
-            cursor = findmin
-            if cursor==slen:
-                done = 1
-            elif s[cursor]=="%":
-                cursor = cursor+1
-                addpart("%(#percent#)s")
-            else:
-                # must be at start tag
-                findendtag = find(s, ENDDELIMITER, cursor)
-                savecursor = cursor
-                cursor = cursor+starttaglen
-                if findendtag<0:
-                    raise ValueError, "no end tag found after %s (%s)" % (repr(s[cursor-10:cursor+20]), diag())
-                lineno[1] = s[savecursor: findendtag+10]
-                block = s[cursor: findendtag]
-                block = strip(block)
-                if block[-1]==":":
-                    blockx = block[:-1]
-                else:
-                    blockx = block
-                blockx = split(blockx)[0]
-                #if complexdirective(block) or # disabled to allow complex expressions
-                #print "blockx", blockx
-                if blockx in KEYWORDS:
-                    cursor = savecursor
-                    done = 1 # can't handle more complex things here
-                else:
-                    cursor = findendtag+endtaglen
-                    sblock = block
-                    # unescape the block, and the sblock...
-                    sblock = block = unescape(block)
-                    # quote sblock for substitution format
-                    for (c, rc) in Substringquotes:
-                        if c in sblock:
-                            sblock = replace(sblock, c, rc)
-                    # test the syntax of the block
-                    try:
-                        test = compile(block, "<string>", "eval")
-                    except:
-                        raise ValueError, "bad expression (after unescape): " + repr(block)
-                    # optimization: don't recompute substitutions already seen
-                    if not key_seen.has_key(sblock):
-                        key_seen[sblock] = ''
-                    else:
-                        key_seen[sblock] += ' '
-                    sblock += key_seen[sblock]
-                    substitutionline = dictassntemplate % (repr(sblock), block, repr(s[savecursor:cursor+10]))
-                    adddict(substitutionline)
-                    stringsub = "%s(%s)s" % ("%", sblock)
-                    addpart(stringsub)
-        percentline = dictassntemplate % (repr("#percent#"), repr("%"), "required percent sub")
-        adddict(percentline)
-        quotestring = join(quotedparts, "")
-        dictstring = join(dictlines, "\n")
-        #print "==== dictstring"
-        #print dictstring
-        #print "==== quotestring"
-        #print quotestring
-        return (quotestring, dictstring, cursor)
-
-
-    def process(self, inputtext, cursor=0, toplevel=1, lineno=None):
-        """Preprocesses the prep file into a chunk of text with __write__
-        statements and logic.  This EXCLUDES the standard module template
-        code before and after; the return value of __call__ is the output
-        python source, and an updated cursor.  Called recursively as
-        the parser identifies significant chunks of stuff."""
-
-        # go to end of string (if toplevel) or dedent token (if not toplevel)
-        # print "call at", cursor, repr(inputtext[cursor:cursor+10])
-
-        if lineno is None:
-            if not toplevel:
-                raise "internal error", "lineno should be initialized!"
-            lineno = [0, "<toplevel>"]
-        def diag(lineno=lineno):
-            return "pp: near line %s at or after %s" % (lineno[0], repr(lineno[1]))
-        global DIAGNOSTIC_FUNCTION
-        DIAGNOSTIC_FUNCTION = diag
-        if toplevel:
-            outputlist = [TOPLEVELPROLOG]
-        else:
-            outputlist = []
-
-        a = outputlist.append
-        from string import strip, join, find
-        done = None
-        inputlen = len(inputtext)
-        while done is None:
-            # do a print statement for stuff before a complex directive
-            #print "iterating at", cursor, repr(inputtext[cursor:cursor+10])
-            (quoted, dictstring, newcursor) = self.quoteString(inputtext, cursor, lineno)
-            segment = inputtext[cursor: newcursor]
-            if "%" in quoted:
-                a(dictstring)
-                self.append(dictstring, newcursor)
-                prints = printstmt(quoted) + " % __dict__ )" # note comma!
-            else:
-                segment = unescape(segment)
-                prints = printstmt(segment)
-                if prints:
-                    # close it
-                    prints = prints + ")"
-                else:
-                    prints = "pass"
-            a(prints)
-
-            self.append(prints, newcursor)
-            cursor = newcursor
-            if cursor>=inputlen:
-                done = 1
-            else:
-                # should be at a complex directive
-                (startblock, block, sblock, newcursor) = self.getDirectiveBlock(cursor, inputtext, lineno)
-                if newcursor==cursor:
-                    raise ValueError, "no progress in getdirectiveblock"
-                oldcursor = cursor
-                cursor = newcursor
-                lineno[1] = inputtext[startblock: startblock+20]
-                # now test for constructs
-                if find(sblock, "if") == 0:
-                    #print "in if"
-                    # if statement, first add the block line
-                    check_condition("if", sblock)
-                    sblock = proctologist(sblock)
-                    a(sblock)
-
-                    # AR
-                    self.append(sblock, cursor)
-
-
-                    # then get the conditional block
-                    self.ind()
-                    (conditional, cursor) = self.process(inputtext, cursor, toplevel=0, lineno=lineno)
-
-                    self.ded()
-                    iconditional = self.indentText(conditional)
-                    a(iconditional)
-                    inif = 1
-                    while inif:
-                        # now we should be at an else elif or endif
-                        if find(inputtext, STARTDELIMITER, cursor)!=cursor:
-                            raise ValueError, "not at starttag"
-                        (startblock, block, sblock, cursor) = self.getDirectiveBlock(cursor, inputtext, lineno)
-                        if find(sblock, "else")==0:
-                            if complexdirective(block):
-                                raise ValueError, "bad else? %s" %repr(sblock)
-                            #check_condition("else", sblock)
-                            sblock = proctologist(sblock)
-                            a(sblock)
-
-                            # dedent, write the 'else ...' and indent
-                            self.append(sblock, cursor)
-
-                            self.ind()
-                            (conditional, cursor) = self.process(inputtext, cursor, toplevel=0, lineno=lineno)
-                            self.ded()
-                            iconditional = self.indentText(conditional)
-                            a(iconditional)
-                            # MUST be at endif
-                            inif = 0
-                            (startblock, block, sblock, cursor) = self.getDirectiveBlock(cursor, inputtext, lineno)
-                            if find(sblock, "endif")!=0:
-                                raise ValueError, "else not followed by endif %s.%s" % (
-                                    repr(inputtext[startblock-10:startblock]), repr(inputtext[startblock:startblock+10]))
-                            if complexdirective(block):
-                                raise ValueError, "bad endif? %s" %repr(sblock)
-                        elif find(sblock, "elif")==0:
-                            check_condition("elif", sblock)
-                            sblock = proctologist(sblock)
-                            a(sblock)
-
-                            self.append(sblock, cursor)
-
-                            self.ind()
-                            (conditional, cursor) = self.process(inputtext, cursor, toplevel=0, lineno=lineno)
-                            self.ded()
-                            iconditional = self.indentText(conditional)
-                            a(iconditional)
-                        elif find(sblock, "endif")==0:
-                            #print "saw endif"
-                            inif = 0
-
-                elif find(sblock, "while") == 0 or find(sblock, "for")==0:
-                    if find(sblock, "while") == 0:
-                        directive="while"
-                    elif find(sblock, "for")==0:
-                        directive="for"
-                    check_condition(directive, sblock)
-                    sblock = proctologist(sblock)
-                    #print "in", directive
-                    # while statement
-                    a(sblock)
-                    self.append(sblock, cursor)
-                    # then get the conditional block
-                    self.ind()
-                    (conditional, cursor) = self.process(inputtext, cursor, toplevel=0, lineno=lineno)
-                    self.ded()
-                    iconditional = self.indentText(conditional)
-                    a(iconditional)
-                    (startblock, block, sblock, cursor) = self.getDirectiveBlock(cursor, inputtext, lineno)
-                    if find(sblock, "end"+directive)!=0:
-                        raise ValueError, "%s not followed by end%s %s.%s" % (directive, directive,
-                            repr(inputtext[startblock-10:startblock]), repr(inputtext[startblock:startblock+10]))
-                    if complexdirective(block):
-                        raise ValueError, "bad end marker? %s" %repr(block)
-                    #print "... done with", directive
-##                elif find(sblock, "script")==0:
-##                    # include literal code, indented properly
-##                    # strip out script tag
-##                    fscript = find(block, "script")
-##                    ddblock = block[fscript+len("script"):]
-##                    ddblock = dedent(ddblock)
-##                    #print "... dedented script"
-##                    #print ddblock
-##                    a(ddblock)
-                elif find(sblock, "script")==0 or find(sblock, "eval")==0:
-                    if strip(sblock)=="eval":
-                        mode = "eval"
-                        compilemode = "eval"
-                    elif strip(sblock)!="script":
-                        raise ValueError, "bad script or eval tag: "+repr(sblock)
-                    else:
-                        mode = "script"
-                        compilemode = "exec"
-                    # look for endscript
-                    #print "modes", mode, compilemode
-                    endtag = "%send%s%s" % (STARTDELIMITER, mode, ENDDELIMITER)
-                    endlocation = find(inputtext, endtag, cursor)
-                    if endlocation<cursor:
-                        raise ValueError, "can't find %s after script start" % repr(endtag)
-                    ddblock = inputtext[cursor:endlocation]
-                    ddblock = dedent(ddblock)
-                    ddblock = unescape(ddblock)
-                    import sys
-                    try:
-                        test = compile(ddblock, "<string>", compilemode)
-                    except:
-                        t,v,tb = sys.exc_type, sys.exc_value, sys.exc_traceback
-                        import traceback
-                        tb = traceback.format_tb(tb)
-                        tb = string.join(tb, "\n")
-                        # how to get the line in the script for the error?
-                        raise ValueError, "bad script code for %s\n%s\n\n%s\n%s\n%s" % (
-                            compilemode, ddblock, t, v, tb)
-                    if mode=="script":
-                        a(ddblock)
-                        self.append(ddblock, cursor)
-                    elif mode=="eval":
-                        code = "__write__(str(%s))" % ddblock
-                        a(code)
-                        self.append(code, cursor)
-                    cursor = endlocation + len(endtag)
-                elif not toplevel:
-                    # assume the calling routine understands the directive
-                    #print "defaulting to return"
-                    cursor = oldcursor
-                    done = 1
-                    continue
-                else:
-                    raise ValueError, "at toplevel don't understand directive %s.%s" % (
-                        repr(inputtext[startblock-10:startblock]), repr(inputtext[startblock:startblock+10]))
-        output = join(outputlist, "\n")
-        if toplevel:
-            output = self.indentText(output)
-            output = TOPLEVELWRAPPER % output
-        return (output, cursor)
-
-    def getDirectiveBlock(self, cursor, inputtext, lineno=None):
-        #print repr((inputtext[cursor], inputtext[cursor:cursor+20]))
-        if lineno is None: lineno = [0]
-        from string import find, strip
-        starttaglen = len(STARTDELIMITER)
-        endtaglen = len(ENDDELIMITER)
-        # should be at a starttag
-        newcursor = cursor+starttaglen
-        if inputtext[cursor:newcursor]!=STARTDELIMITER:
-                    raise ValueError, "no start tag found at %s.%s" % (
-                        repr(inputtext[cursor-10:cursor]), repr(inputtext[cursor:cursor+10]))
-        cursor = newcursor
-        findendtag = find(inputtext, ENDDELIMITER, cursor)
-        if findendtag<cursor:
-                    raise ValueError, "no end tag found after %s.%s" % (
-                        repr(inputtext[cursor-10:cursor]), repr(inputtext[cursor:cursor+10]))
-        startblock = cursor
-        endblock = findendtag
-        block = inputtext[startblock:endblock]
-        if "\n" in block:
-            lineno[0] = lineno[0] + countnewlines(block)
-        cursor = endblock+endtaglen
-        sblock = unescape(strip(block))
-        return (startblock, block, sblock, cursor)
-
-    def getPythonSource(self, inputString):
-        """make a module with a function run(dictionary) which executes the interpreted string"""
-        # print 'getPythonSource called'
-        self.inputText = inputString
-        (out, c) = self.process(inputString)
-        iout = self.indentText(out)
-##        print '======================'
-##        print iout
-##        print '======================'
-        result = module_source_template % iout
-
-        #AR - check the new collector works same way...
-        out2 = self.indentText(TOPLEVELWRAPPER % self.indentText(string.join(self.output, '\n')))
-##        print '======================'
-##        print out2
-##        print '======================'
-        assert iout == out2, 'generated source differs!'
-##        print 'lineNoMap:'
-##        import pprint
-##        pprint.pprint(self.lineNoMap)
-        result = module_source_template % out2
-        return result
-
-
-
-def proctologist(s):
-    """now bend over turn your head and cough"""
-    # check the colon
-    s = string.strip(s)
-    if s[-1]!=":":
-        # the following commented to allow x[5:8] in for statements for example.
-        #if ":" in s:
-        #    raise ValueError, repr(s)+" contains bogus colon"
-        s = s+":"
-    return s
-
-def check_condition(keyword, block):
-    "for example in 'if cond:' make sure the condition compiles"
-    block = string.strip(block)
-    if block[-1]==":":
-        block = block[:-1]
-    lk = len(keyword)
-    if block[:lk]!=keyword:
-        raise ValueError, "bad call to check_condition "+repr((block, keyword))
-    block = string.strip(block[lk:])
-    try:
-        test = compile(block, "<string>", "eval")
-    except:
-        raise ValueError, "bad %s expression: %s" % (keyword, repr(block))
-
-def complexdirective(s):
-    from string import split, strip
-    return len(split(strip(s))) != 1
-
 def dedent(text):
-    """get rid of redundant indentation in text
-       this dedenter IS NOT smart about converting tabs to spaces!!!"""
-    from string import split, find, strip, join
-    lines = split(text, "\n")
+    """get rid of redundant indentation in text this dedenter IS NOT smart about converting tabs to spaces!!!"""
+    lines = text.split("\n")
     # omit empty lines
-    while lines and not strip(lines[0]):
+    lempty = 0
+    while lines:
+        line0 = lines[0].strip()
+        if line0 and line0[0]!='#': break
         del lines[0]
-    if not lines:
-        return "" # completely white
+        lempty += 1
+    if not lines: return "" # completely white
     line0 = lines[0]
-    sline0 = strip(line0)
-    ssline0 = split(sline0)
-    firstword = ssline0[0]
-    findfirstword = find(line0, firstword)
-    if findfirstword<0:
-        raise "huh?"
+    findfirstword = line0.find(line0.strip().split()[0])
+    if findfirstword<0: raise ValueError('internal dedenting error')
     indent = line0[:findfirstword]
     linesout = []
     for l in lines:
-        if not strip(l):
+        lines0 = l.strip()
+        if not lines0 or lines0[0]=='#':
             linesout.append("")
             continue
         lindent = l[:findfirstword]
         if lindent!=indent:
             raise ValueError, "inconsistent indent expected %s got %s in %s" % (repr(indent), repr(lindent), l)
         linesout.append(l[findfirstword:])
-    return join(linesout, "\n")
+    return '\n'.join(lempty*['']+linesout)
 
-module_source_template = """
-def run(dictionary, __write__=None, outputfile=None):
-%s
 
-def getOutput(dictionary):
-    "Return module output as a single string"
-    import string
-    buf = []
-    run(dictionary, __write__=buf.append)
-    return string.join(buf, '')
+_pat = re.compile('{{\\s*|}}',re.M)
+_s = re.compile(r'^(?P<start>while|if|elif|for)(?P<startend>\s+|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
 
-if __name__=="__main__":
-    run({})
-"""
+def _renumber(node,lineno_offset):
+    if node.lineno: node.lineno += lineno_offset
+    for child in node.getChildNodes(): _renumber(child,lineno_offset)
 
-def parsetest(name="testoutput"):
-    fn = "./%s.py" % name
-    P = PreProcessor()
-    #(out, c) = P(teststring)
-    out = P.getPythonSource(teststring)
-    #print "test string is\n", teststring
-    print "generated", len(out), "bytes from", len(teststring), "input"
-    print "generating file", fn
-    f = open(fn, "w")
+def _denumber(node):
+    if node.lineno!=-1: node.lineno = -1
+    for child in node.getChildNodes(): _denumber(child)
+
+class PreppyParser(pycodegen.Module):
+    from compiler import parse as _cparse
+    _cparse = staticmethod(_cparse)
+    def __init__(self,*args,**kw):
+        pycodegen.Module.__init__(self,*args,**kw)
+
+    def compile(self, display=0):
+        tree = self._get_tree()
+        gen = _preppy_ModuleCodeGenerator(tree)
+        if display:
+            import pprint
+            print pprint.pprint(tree)
+        self.code = gen.getCode()
+
+    def getPycHeader(self):
+        try:
+            if getattr(self,'nosourcefile',0): raise ValueError
+            mtime = os.path.getmtime(self.filename)
+        except:
+            import time
+            mtime = time.time()
+        mtime = struct.pack('<i', mtime)
+        return self.MAGIC + mtime
+
+    def _get_tree(self):
+        from compiler import misc, syntax
+        tree = self.__get_ast()
+        misc.set_filename(self.filename, tree)
+        syntax.check(tree)
+        return tree
+
+    def __lexerror(self, msg, pos):
+        text = self.source
+        pos0 = text.rfind('\n',0,pos)+1
+        pos1 = text.find('\n',pos)
+        if pos1<0: pos1 = len(text)
+        raise SyntaxError('%s\n%s\n%s (near line %d of %s)' %(text[pos0:pos1],(' '*(pos-pos0)),msg,text.count('\n',0,pos)+1,self.filename))
+
+    def __tokenize(self):
+        text = self.source
+        self._tokens = tokens = []
+        a = tokens.append
+        state = 0
+        ix = 0
+        for i in _pat.finditer(text):
+            i0 = i.start()
+            i1 = i.end()
+            lineno = text.count('\n',0,ix)+1
+            if i.group()!='}}':
+                if state:
+                    self.__lexerror('Unexpected {{', i0)
+                else:
+                    state = 1
+                    if i0!=ix: a(('const',lineno,ix,i0))
+                    ix = i1
+            elif state:
+                    state = 0
+                    #here's where a preppy token is finalized
+                    m = _s.match(text[ix:i0])
+                    if m:
+                        t = m.group('start')
+                        if t:
+                            if not m.group('startend'): self.__lexerror('Bad %s' % t, i0)
+                            ix += len(t)    #skip over the 'while ' or 'for ' etc
+                        else:
+                            t = m.group('end')
+                            if t:
+                                ee = m.group('endend')
+                                if ee and t!='else' and ee.strip()!=':': self.__lexerror('Bad %s' % t, i0)
+                    else:
+                        t = 'expr'  #expression
+                    if i0!=ix: a((t,lineno,ix,i0))
+                    ix = i1
+        else:
+            lineno = 0
+        if state: self.__lexerror('Unterminated preppy token', ix)
+        textLen = len(text)
+        if ix!=textLen:
+            lineno = text.count('\n',0,ix)+1
+            a(('const',lineno,ix,textLen))
+        a(('eof',lineno+1,textLen,textLen))
+        self._tokenX = 0
+        return tokens
+
+    def __tokenText(self,colonRemove=0, strip=1):
+        t = self._tokens[self._tokenX]
+        text = self.source[t[2]:t[3]]
+        if strip: text = text.strip()
+        if colonRemove and text.endswith(':'): text = text[:-1]
+        return unescape(text)
+
+    def __tokenPop(self):
+        t = self._tokens[self._tokenX]
+        self._tokenX += 1
+        return t
+
+    def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval'],followers=['eof']):
+        from compiler.ast import Stmt
+        C = []
+        a = C.append
+        mangle = '_%s__'%self.__class__.__name__
+        tokens = self._tokens
+        while 1:
+            t = tokens[self._tokenX][0]
+            if t in followers: break
+            p = t in funcs and getattr(self,mangle+t) or self.__serror
+            r = p()
+            if type(r) is list: C += r
+            else: a(r)
+        self.__tokenPop()
+        return Stmt(C)
+        
+    def __while(self,followers=['endwhile']):
+        from compiler.ast import While
+        try:
+            cond = self._cparse(self.__tokenText(colonRemove=1),'eval').node
+        except:
+            self.__error()
+        t = self.__tokenPop()
+        _renumber(cond,t[1]-1)
+        r = While(cond,self.__preppy(followers=followers),None)
+        return r
+
+    def __for(self,followers=['endfor']):
+        from compiler.ast import For
+        try:
+            f = self._cparse('for %s:\n pass\n'%self.__tokenText(colonRemove=1),'exec').node.nodes[0]
+        except:
+            self.__error()
+        t = self.__tokenPop()
+        _renumber(f,t[1]-1)
+        f.body = self.__preppy(followers=followers)
+        return f
+
+    def __script(self,mode='script'):
+        self.__tokenPop()
+        text = dedent(self.__tokenText(strip=0))
+        scriptMode = 'script'==mode
+        if text:
+            try:
+                stmt = self._cparse(text,scriptMode and 'exec' or 'eval').node
+            except:
+                self.__error()
+        t = self.__tokenPop()
+        end = 'end'+mode
+        try:
+            assert self._tokens[self._tokenX][0]==end
+            self.__tokenPop()
+        except:
+            self.__error(end+' expected')
+        if not text: return []
+        _renumber(stmt,t[1]-1)
+
+        if scriptMode: return stmt.nodes
+        from compiler.ast import Discard, CallFunc, Name, Const
+        return Discard(CallFunc(Name('__swrite__'), [stmt.getChildren()[0]],None,None))
+
+    def __eval(self):
+        return self.__script(mode='eval')
+
+    def __if(self,followers=['endif','elif','else']):
+        from compiler.ast import If
+        tokens = self._tokens
+        CS = []
+        t = 'elif'
+        while t=='elif':
+            try:
+                cond = self._cparse(self.__tokenText(colonRemove=1),'eval').node
+            except:
+                self.__error()
+            t = self.__tokenPop()
+            _renumber(cond,t[1]-1)
+            CS.append((cond,self.__preppy(followers=followers)))
+            t = tokens[self._tokenX-1][0]   #we consumed the terminal in __preppy
+            if t=='elif': self._tokenX -= 1
+        if t=='else':
+            stmt = self.__preppy(followers=['endif'])
+        else:
+            stmt = None
+        return If(CS,stmt)
+
+    def __const(self):
+        from compiler.ast import Discard, CallFunc, Name, Const
+        try:
+            n = Discard(CallFunc(Name('__write__'), [Const(self.__tokenText(strip=0))], None, None))
+            t = self.__tokenPop()
+            _renumber(n,t[1]-1)
+            return n
+        except:
+            self.__error('bad constant')
+
+    def __expr(self):
+        from compiler.ast import Discard, CallFunc, Name
+        t = self.__tokenText()
+        try:
+            n= Discard(CallFunc(Name('__swrite__'), [self._cparse(t,'eval').getChildren()[0]],None,None))
+            t = self.__tokenPop()
+            _renumber(n,t[1]-1)
+            return n
+        except:
+            self.__error('bad expression')
+
+    def __error(self,msg='invalid syntax'):
+        pos = self._tokens[self._tokenX][2]
+        import traceback, StringIO
+        f = StringIO.StringIO()
+        traceback.print_exc(file=f)
+        f = f.getvalue()
+        m = 'File "<string>", line '
+        i = f.rfind('File "<string>", line ')
+        if i<0:
+            t, v = map(str,sys.exc_info()[:2])
+            self.__lexerror('%s %s(%s)' % (msg, t, v),pos)
+        else:
+            i += len(m)
+            f = f[i:].split('\n')
+            n = int(f[0].strip())+self.source[:pos].count('\n')
+            raise SyntaxError('  File %s, line %d\n%s' % (self.filename,n,'\n'.join(f[1:])))
+
+    def __serror(self,msg='invalid syntax'):
+        self.__lexerror(msg,self._tokens[self._tokenX][2])
+
+    def __parse(self,text=None):
+        from compiler.ast import Stmt
+        if text: self.source = text
+        self.__tokenize()
+        return self.__preppy().nodes
+
+    def __get_ast(self):
+        from compiler.ast import    Module, Stmt, Assign, AssName, Const, Function, For, Getattr,\
+                                    TryFinally, TryExcept, If, Import, AssAttr, Name, CallFunc,\
+                                    Class, Compare, Raise, And, Mod, Tuple, Pass, Not, Exec, List,\
+                                    Discard, Keyword, Return, Dict, Break, AssTuple, Subscript,\
+                                    Printnl, From
+        global _preambleAst, _localizer
+        if not _preambleAst:
+            _preambleAst = self._cparse(_preamble).node.nodes
+            for n in _preambleAst:
+                _denumber(n)
+            _localizer = [Assign([AssName('__d__', 'OP_ASSIGN')], Name('dictionary')), Discard(CallFunc(Getattr(CallFunc(Name('globals'), [], None, None), 'update'), [Name('__d__')], None, None))]
+        preppyNodes = _localizer+self.__parse()
+        FA = ('__code__', ['dictionary', 'outputfile', '__write__','__swrite__'], (), 0, None, Stmt(preppyNodes))
+        if sys.hexversion >=0x2040000: FA = (None,)+FA
+        return Module(self.filename,
+                Stmt([Assign([AssName('__checksum__', 'OP_ASSIGN')], Const(getattr(self,'sourcechecksum'))),
+                        Function(*FA),
+                    ]+_preambleAst))
+
+_preambleAst=None
+_preamble='''def run(dictionary, __write__=None, outputfile=None,code=__code__):
+    ### begin standard prologue
     import sys
-    stdout = sys.stdout
-    sys.stdout = f
-    print "__checksum__ = None # test file for preppy, skip checksum"
-    print out
-    sys.stdout = stdout
-    print "wrote", fn
+    __save_sys_stdout__ = sys.stdout
+    try: # compiled logic below
+        try:
+            # if outputfile is defined, blindly assume it supports file protocol, reset sys.stdout
+            if outputfile is None:
+                raise NameError
+            stdout = sys.stdout = outputfile
+        except NameError:
+            stdout = sys.stdout
+            outputfile = None
+        # make sure __write__ is defined
+        try:
+            if __write__ is None:
+                raise NameError
+            if outputfile and __write__:
+                raise ValueError, "do not define both outputfile (%s) and __write__ (%s)." %(outputfile, __write__)
+            class stdout: pass
+            stdout = sys.stdout = stdout()
+            stdout.write = __write__
+        except NameError:
+            __write__ = stdout.write
+        __swrite__ = lambda x: __write__(str(x))
+        __code__(dictionary,outputfile,__write__,__swrite__)
+    finally: #### end of compiled logic, standard cleanup
+        import sys # for safety
+        #print "resetting stdout", sys.stdout, "to", __save_sys_stdout__
+        sys.stdout = __save_sys_stdout__
+def getOutput(dictionary):
+    buf=[]
+    run(dictionary,__write__=buf.append)
+    return ''.join(buf)
+if __name__=='__main__':
+    run()
+'''
+
+def testgetOutput(name="testoutput"):
+    mod = getModule(name,'.',savePyc=1,sourcetext=teststring,importModule=1)
+    print mod.getOutput({})
 
 def testgetmodule(name="testoutput"):
     #name = "testpreppy"
@@ -857,11 +603,7 @@ def getModule(name,
               importModule=1):
     """Returns a python module implementing the template, compiling if needed.
 
-    savePy: tells it to save the intermediate python module (useful
-            for learning what preppy does or advanced debugging)
     force: ignore up-to-date checks and always recompile.
-
-
     """
     # it's possible that someone could ask for
     #  name "subdir/spam.prep" in directory "/mydir", instead of
@@ -870,7 +612,8 @@ def getModule(name,
     # every time.  This is common during batch compilation of directories.
     if hasattr(name,'read'):
         sourcetext = name.read()
-        name = name.name
+        name = getattr(name,'name',None)
+        if not name: name = '_preppy_'+md5.new(sourcetext+repr(VERSION)).digest()
     else:
         extraDir, name = os.path.split(name)
         if extraDir:
@@ -891,12 +634,11 @@ def getModule(name,
     if sourcetext is not None:
         # they fed us the source explicitly
         if verbose: print "sourcetext provided...",
-        pythonFileName = sourcefilename = "<input text %s>" % name
+        sourcefilename = "<input text %s>" % name
         sourcechecksum = md5.new(sourcetext + repr(VERSION)).digest()
-        savePy = 0 # cannot savefile if source file provided
-        savePyc = 0
+        nosourcefile = 1
     else:
-        pythonFileName = name + '.py'
+        nosourcefile = 0
         # see if the module exists as a python file
         sourcefilename = os.path.join(dir, name+source_extension)
         if GLOBAL_LOADED_MODULE_DICTIONARY.has_key(sourcefilename):
@@ -936,84 +678,38 @@ def getModule(name,
             elif verbose:
                 print "changed,",
     # if we got here we need to rebuild the module from source
-    if verbose:
-        print "recompiling"
-    P = PreProcessor()
+    if verbose: print "recompiling"
     global DIAGNOSTIC_FUNCTION
     DIAGNOSTIC_FUNCTION = None
-    sourcetext = cleantext(sourcetext) # get rid of gunk in newlines, just in case
-    try:
-        out = P.getPythonSource(sourcetext)
-    except:
-        t,v,tb = sys.exc_type, sys.exc_value, sys.exc_traceback
-        v = "ERROR PROCESSING PREPPY FILE type=%s Value=%s" % (str(t), str(v))
-        if DIAGNOSTIC_FUNCTION: v = '%s\n%s' % (v, DIAGNOSTIC_FUNCTION())
-        raise t, v, tb
-
-
-    # generate the python source in memory as if it was a py file.
-    # then save to py and pyc as specified.
-    pythonSource = """
-'''
-PREPPY MODULE %s
-Automatically generated file from preprocessor source %s
-DO NOT EDIT!
-'''
-__checksum__ = %s
-%s
-""" % (name, pythonFileName, repr(sourcechecksum), out)
-
-    # default is not to save source.
-    if savePy:
-        srcFileName = os.path.join(dir, pythonFileName)
-    else:
-        import tempfile
-        srcFileName = tempfile.mktemp()
-    open(srcFileName, 'w').write(pythonSource)
+    P = PreppyParser(sourcetext,sourcefilename)
+    P.nosourcefile = nosourcefile
+    P.sourcechecksum = sourcechecksum
+    P.compile(0)
 
     # default is compile to bytecode and save that.
     if savePyc:
-        import py_compile
-
-        py_compile.compile(srcFileName,
-                           cfile=dir + os.sep + name + '.pyc',
-                           dfile=name + '.py')
-
-
-    if not savePy:
-        os.remove(srcFileName)
+        f = open(dir + os.sep + name + '.pyc','wb')
+        P.dump(f)
+        f.close()
 
     if importModule:
         # now make a module
         from imp import new_module
         result = new_module(name)
-        exec out in result.__dict__
+        exec P.code in result.__dict__
         GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = result
         return result
     else:
         return None
 
-def cleantext(text):
-    ### THIS GETS RID OF EXTRA WHITESPACE AT THE END OF LINES (EG CR'S)
-    textlines = string.split(text, "\n")
-    for i in range(len(textlines)):
-        l = textlines[i]
-        l1 = "."+l
-        l2 = string.strip(l1)
-        l3 = l2[1:]
-        textlines[i] = l3
-    return string.join(textlines, "\n")
-
 # support the old form here
 getPreppyModule = getModule
 
-    ####################################################################
-    #
-    #   utilities for compilation, setup scripts, housekeeping etc.
-    #
-    ####################################################################
-
-
+####################################################################
+#
+#   utilities for compilation, setup scripts, housekeeping etc.
+#
+####################################################################
 def installImporter():
     "This lets us import prep files directly"
     # the python import mechanics are only invoked if you call this,
@@ -1050,7 +746,6 @@ def installImporter():
 def uninstallImporter():
     import ihooks
     ihooks.uninstall()
-
 
 def compileModule(fn, savePy=0, force=0, verbose=1, importModule=1):
     "Compile a prep file to a pyc file.  Optionally, keep the python source too."
@@ -1125,7 +820,7 @@ def extractKeywords(arglist):
     "extracts a dictionary of keywords"
     d = {}
     for arg in arglist:
-        chunks = string.split(arg, '=')
+        chunks = arg.split('=')
         if len(chunks)==2:
             key, value = chunks
             d[key] = value
@@ -1189,7 +884,7 @@ def main():
             module.run(params)
     else:
         print "no argument: running tests"
-        parsetest()
+        testgetOutput()
         print; print "PAUSING.  To continue hit return"
         raw_input("now: ")
         testgetmodule()
