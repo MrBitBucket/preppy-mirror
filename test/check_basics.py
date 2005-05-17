@@ -4,7 +4,7 @@
 # Basic test suite for Preppy.py
 # See check_load.py for load testing
 
-# $Id:$
+# $Id$
 
 import os, glob, string
 from rlextra.preppy import preppy
@@ -195,6 +195,9 @@ class SimpleTestCase(unittest.TestCase):
             #print "tempvar =", tempvar
             dictionary[tempvar] = tempvar
         processTest('sample011', dictionary)
+
+    def check12_quotingOverride(self):
+        processTest('sample012')
 
 suite = unittest.makeSuite(SimpleTestCase,'check')
 

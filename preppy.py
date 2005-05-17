@@ -520,7 +520,7 @@ class PreppyParser(pycodegen.Module):
                     ]+_preambleAst))
 
 _preambleAst=None
-_preamble='''def run(dictionary, __write__=None, outputfile=None,code=__code__):
+_preamble='''def run(dictionary, __write__=None, quoteFunc=str, outputfile=None,code=__code__):
     ### begin standard prologue
     import sys
     __save_sys_stdout__ = sys.stdout
@@ -533,6 +533,9 @@ _preamble='''def run(dictionary, __write__=None, outputfile=None,code=__code__):
         except NameError:
             stdout = sys.stdout
             outputfile = None
+        # make sure quoteFunc is defined:
+        if quoteFunc is None:
+            raise ValueError("quoteFunc must be defined")
         # make sure __write__ is defined
         try:
             if __write__ is None:
@@ -541,18 +544,18 @@ _preamble='''def run(dictionary, __write__=None, outputfile=None,code=__code__):
                 raise ValueError, "do not define both outputfile (%s) and __write__ (%s)." %(outputfile, __write__)
             class stdout: pass
             stdout = sys.stdout = stdout()
-            stdout.write = __write__
+            stdout.write = lambda x:__write__(quoteFunc(x))
         except NameError:
-            __write__ = stdout.write
-        __swrite__ = lambda x: __write__(str(x))
+            __write__ = lambda x: stdout.write(quoteFunc(x))
+        __swrite__ = lambda x: __write__(quoteFunc(x))
         __code__(dictionary,outputfile,__write__,__swrite__)
     finally: #### end of compiled logic, standard cleanup
         import sys # for safety
         #print "resetting stdout", sys.stdout, "to", __save_sys_stdout__
         sys.stdout = __save_sys_stdout__
-def getOutput(dictionary):
+def getOutput(dictionary, quoteFunc=str):
     buf=[]
-    run(dictionary,__write__=buf.append)
+    run(dictionary,__write__=buf.append, quoteFunc=quoteFunc)
     return ''.join(buf)
 if __name__=='__main__':
     run()

@@ -16,13 +16,13 @@ class GeneratedCodeTestCase(unittest.TestCase):
     output is as expected.  This should catch gross failures
     of preppy """
 
-    def getRunTimeOutput(self, prepCode, **params):
+    def getRunTimeOutput(self, prepCode, quoteFunc=str, **params):
         "compile code, run with parameters and collect output"
 
         mod=preppy.getModule('test_preppy',savePyc=0,sourcetext=prepCode)
 
         collector = []
-        mod.run(params, __write__=collector.append)
+        mod.run(params, __write__=collector.append, quoteFunc=quoteFunc)
         output = string.join(collector,'')
         return output
 
@@ -115,7 +115,39 @@ class GeneratedCodeTestCase(unittest.TestCase):
         self.assertRaises((SyntaxError,ValueError),self.getRunTimeOutput,'{{script}}i=1+2+\\ \n\t3{{endscript}}{{i}}')
 
     def checkQuoting(self):
-        self.assertEquals(self.getRunTimeOutput('{{script}}v="{{"{{endscript}}{{v}}'), "{{")
+
+        #preppy by default does nothing
+        source = "<p>{{clientName}}</p>"
+        out = self.getRunTimeOutput(source, clientName='Smith & Jones')
+        self.assertEquals(out, "<p>Smith & Jones</p>")
+
+
+        #a quoting function should work on output
+        source = "A&B<p>{{clientName}}</p><p>{{script}}print clientName{{endscript}}</p>"
+        out = self.getRunTimeOutput(source, clientName='Smith & Jones')
+        self.assertEquals(out, "A&B<p>Smith & Jones</p><p>Smith & Jones\n</p>")
+        #self.assertEquals(self.getRunTimeOutput('{{script}}v="{{"{{endscript}}{{v}}'), "{{")
+
+
+        
+
+
+        from rlextra.utils.cgisupport import quoteValue
+        out = self.getRunTimeOutput(source, clientName='Smith & Jones', quoteFunc=quoteValue)
+        #print out
+        self.assertEquals(out, "A&B<p>Smith &amp; Jones</p><p>Smith &amp; Jones\n</p>")        
+
+
+        def myQuote(x):
+            return x.replace("&", "and")
+        out = self.getRunTimeOutput(source, clientName='Smith & Jones', quoteFunc=myQuote)
+        self.assertEquals(out, "A&B<p>Smith and Jones</p><p>Smith and Jones\n</p>")
+        
+
+  #      from rlextra.ers.htmltext import htmlescape, makeTextField
+        
+        
+                
 
 class OutputModeTestCase(unittest.TestCase):
     """Checks all ways of generating output return identical
