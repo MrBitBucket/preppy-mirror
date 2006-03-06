@@ -113,7 +113,7 @@ class _preppy_FunctionCodeGenerator(pycodegen.FunctionCodeGenerator):
         scope = self.scope.check_name(name)
         if self._special_locals and name=='locals': name = 'globals'
         if scope == consts.SC_LOCAL:
-            if not (self.optimized or name in ['dictionary','__write__','__swrite__','outputfile', '__d__']):
+            if not (self.optimized or name in ['dictionary','__write__','__swrite__','outputfile', '__save_sys_stdout__', '__d__']):
                 self.emit(prefix + '_NAME', name)
             else:
                 self.emit(prefix + '_FAST', name)
@@ -512,7 +512,7 @@ class PreppyParser(pycodegen.Module):
                 _denumber(n)
             _localizer = [Assign([AssName('__d__', 'OP_ASSIGN')], Name('dictionary')), Discard(CallFunc(Getattr(CallFunc(Name('globals'), [], None, None), 'update'), [Name('__d__')], None, None))]
         preppyNodes = _localizer+self.__parse()
-        FA = ('__code__', ['dictionary', 'outputfile', '__write__','__swrite__'], (), 0, None, Stmt(preppyNodes))
+        FA = ('__code__', ['dictionary', 'outputfile', '__write__','__swrite__','__save_sys_stdout__'], (), 0, None, Stmt(preppyNodes))
         if sys.hexversion >=0x2040000: FA = (None,)+FA
         return Module(self.filename,
                 Stmt([Assign([AssName('__checksum__', 'OP_ASSIGN')], Const(getattr(self,'sourcechecksum'))),
@@ -548,7 +548,7 @@ _preamble='''def run(dictionary, __write__=None, quoteFunc=str, outputfile=None,
         except NameError:
             __write__ = lambda x: stdout.write(quoteFunc(x))
         __swrite__ = lambda x: __write__(quoteFunc(x))
-        __code__(dictionary,outputfile,__write__,__swrite__)
+        __code__(dictionary,outputfile,__write__,__swrite__,__save_sys_stdout__)
     finally: #### end of compiled logic, standard cleanup
         import sys # for safety
         #print "resetting stdout", sys.stdout, "to", __save_sys_stdout__
