@@ -2,7 +2,7 @@
 <!DOCTYPE document SYSTEM "rml_1_0.dtd"> 
 <document filename="preppyspec.pdf"> 
 <!-- Last Modified:             $Date$ -->
-<!-- Document Version Number:   $Revision: 1.2 $            -->
+<!-- Document Version Number:   $Revision$            -->
 
 <template pageSize="(595, 842)" 
         leftMargin="72" 
