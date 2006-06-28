@@ -593,7 +593,8 @@ except:
             if f: f.close()
 
 # cache found modules by source file name
-GLOBAL_LOADED_MODULE_DICTIONARY = {}
+FILE_MODULES = {}
+SOURCE_MODULES = {}
 def getModule(name,
               directory=".",
               source_extension=".prep",
@@ -608,16 +609,16 @@ def getModule(name,
 
     force: ignore up-to-date checks and always recompile.
     """
-    # it's possible that someone could ask for
-    #  name "subdir/spam.prep" in directory "/mydir", instead of
-    #  "spam.prep" in directory "/mydir/subdir".  Failing to get
-    # this right means getModule can fail to find it and recompile
-    # every time.  This is common during batch compilation of directories.
     if hasattr(name,'read'):
         sourcetext = name.read()
         name = getattr(name,'name',None)
         if not name: name = '_preppy_'+md5.new(sourcetext+repr(VERSION)).digest()
     else:
+        # it's possible that someone could ask for
+        #  name "subdir/spam.prep" in directory "/mydir", instead of
+        #  "spam.prep" in directory "/mydir/subdir".  Failing to get
+        # this right means getModule can fail to find it and recompile
+        # every time.  This is common during batch compilation of directories.
         extraDir, name = os.path.split(name)
         if extraDir:
             directory = directory + os.sep + extraDir
@@ -636,16 +637,21 @@ def getModule(name,
 
     if sourcetext is not None:
         # they fed us the source explicitly
+        if not name: name = '_preppy_'+md5.new(sourcetext+repr(VERSION)).digest()
         if verbose: print "sourcetext provided...",
         sourcefilename = "<input text %s>" % name
         sourcechecksum = md5.new(sourcetext + repr(VERSION)).digest()
         nosourcefile = 1
+        module = SOURCE_MODULES.get(sourcetext,None)
+        if module:
+            return module
     else:
         nosourcefile = 0
         # see if the module exists as a python file
         sourcefilename = os.path.join(dir, name+source_extension)
-        if GLOBAL_LOADED_MODULE_DICTIONARY.has_key(sourcefilename):
-            return GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename]
+        module = FILE_MODULES.get(sourcefilename,None)
+        if module:
+            return module
 
         try:
             module = rl_get_module(name,dir)
@@ -662,7 +668,7 @@ def getModule(name,
             if module is None:
                 raise ValueError, "couldn't find source %s or module %s" % (sourcefilename, name)
             # use the existing module??? (NO SOURCE PRESENT)
-            GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = module
+            FILE_MODULES[sourcefilename] = module
             return module
         else:
             sourcetext = sourcefile.read()
@@ -673,13 +679,14 @@ def getModule(name,
                     # use the existing module. it matches
                     if verbose:
                         print "up to date."
-                    GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = module
+                    FILE_MODULES[sourcefilename] = module
                     return module
                 else:
                     # always recompile
                     if verbose: print 'forced recompile,',
             elif verbose:
                 print "changed,",
+
     # if we got here we need to rebuild the module from source
     if verbose: print "recompiling"
     global DIAGNOSTIC_FUNCTION
@@ -697,12 +704,14 @@ def getModule(name,
 
     # now make a module
     from imp import new_module
-    mod = new_module(name)
-    exec P.code in mod.__dict__
+    module = new_module(name)
+    exec P.code in module.__dict__
     if importModule:
-        if not nosourcefile:
-            GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = mod
-    return mod
+        if nosourcefile:
+            SOURCE_MODULES[sourcetext] = module
+        else:
+            FILE_MODULES[sourcefilename] = module
+    return module
 
 # support the old form here
 getPreppyModule = getModule
