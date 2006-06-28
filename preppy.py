@@ -695,15 +695,14 @@ def getModule(name,
         P.dump(f)
         f.close()
 
+    # now make a module
+    from imp import new_module
+    mod = new_module(name)
+    exec P.code in mod.__dict__
     if importModule:
-        # now make a module
-        from imp import new_module
-        result = new_module(name)
-        exec P.code in result.__dict__
-        GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = result
-        return result
-    else:
-        return None
+        if not nosourcefile:
+            GLOBAL_LOADED_MODULE_DICTIONARY[sourcefilename] = mod
+    return mod
 
 # support the old form here
 getPreppyModule = getModule
