@@ -11,6 +11,10 @@ from rlextra.preppy import preppy
 from reportlab.test import unittest
 
 class SimpleTestCase(unittest.TestCase):
+    def setUp(self):
+        import rlextra.preppy.test.check_basics
+        self.dirName = os.path.dirname(rlextra.preppy.test.check_basics.__file__)
+
     def check01ScriptTag(self):
         processTest('sample001')
 
@@ -29,11 +33,10 @@ class SimpleTestCase(unittest.TestCase):
         processTest('sample005')
 
     def check06NoPythonFile(self):
-        mod = preppy.getModule('sample006', savefile=0)
-        outFile = open('sample006.html', 'w')
+        mod = preppy.getModule(os.path.join(self.dirName, 'sample006'), savefile=0)
+        outFile = open(os.path.join(self.dirName, 'sample006.html'), 'w')
         mod.run(dictionary={}, outputfile = outFile)
         outFile.close()
-        print 'wrote sample006.html'
 
     def check07NoOutputFile(self):
         sourceString = """<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
@@ -125,7 +128,6 @@ class SimpleTestCase(unittest.TestCase):
         outFile=open('sample007.html', 'w')
         outFile.write(output)
         outFile.close()
-        print 'wrote sample007.html'
 
     def check08_StringKeysThatLookLikeIntegers(self):
         # This test case now works as expected
@@ -202,14 +204,18 @@ class SimpleTestCase(unittest.TestCase):
 suite = unittest.makeSuite(SimpleTestCase,'check')
 
 def processTest(filename, dictionary={}):
+    #this ensures we search for prep files in the module
+    #where this tests lives, wherever we invoked them from.
+    import rlextra.preppy.test.check_basics
+    dirName = os.path.dirname(rlextra.preppy.test.check_basics.__file__)
     #print 'processTest:',dictionary
     root, ext = os.path.splitext(filename)
-    outFileName = root + '.html'
-    mod = preppy.getModule(root)
+    outFileName = os.path.join(dirName, root + '.html')
+    mod = preppy.getModule(os.path.join(dirName, root))
     outFile = open(outFileName, 'w')
     mod.run(dictionary, outputfile = outFile)
     outFile.close()
-    print 'wrote',outFileName
+    #print 'wrote',outFileName
 
 def clean(dirname='.'):
     for filename in glob.glob('sample*.prep'):

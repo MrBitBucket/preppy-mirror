@@ -180,9 +180,11 @@ class OutputModeTestCase(unittest.TestCase):
         output3 = mod.getOutput(params)
         assert output3 == output2, 'getOutput(...) and outputfile results differ'
 
-if __name__=='__main__':
-    runner = unittest.TextTestRunner()
+def makeSuite():
     suite2 = unittest.makeSuite(GeneratedCodeTestCase,'check')
     suite3 = unittest.makeSuite(OutputModeTestCase,'check')
-    suite = unittest.TestSuite((suite2, suite3))
-    runner.run(suite)
+    return unittest.TestSuite((suite2, suite3))
+    
+if __name__=='__main__':
+    runner = unittest.TextTestRunner()
+    runner.run(makeSuite())
