@@ -180,10 +180,27 @@ class OutputModeTestCase(unittest.TestCase):
         output3 = mod.getOutput(params)
         assert output3 == output2, 'getOutput(...) and outputfile results differ'
 
+
+class IncludeTestCase(unittest.TestCase):
+    def testRequiredArgs(self):
+        def args(*args, **stuff):
+            return True
+        inner = "{{direction}}"
+        modInner = preppy.getModule('dummy1',savePyc=0,sourcetext=inner)
+        outer = """{{for direction in directions}}{{inner.getOutput({'direction':direction})}}{{endfor}}"""
+        modOuter = preppy.getModule('dummy2',savePyc=0,sourcetext=outer)
+        ns = {'directions':('NORTH','SOUTH','EAST','WEST'),
+              'args':args,
+              'inner':modInner}
+        output = modOuter.getOutput(ns)
+        #self.assertRaises(NameError, modOuter.getOutput, ns)
+        self.assertEquals(output, "NORTHSOUTHEASTWEST")
+
 def makeSuite():
     suite2 = unittest.makeSuite(GeneratedCodeTestCase,'check')
     suite3 = unittest.makeSuite(OutputModeTestCase,'check')
-    return unittest.TestSuite((suite2, suite3))
+    suite4 = unittest.makeSuite(IncludeTestCase)
+    return unittest.TestSuite((suite2, suite3, suite4))
     
 if __name__=='__main__':
     runner = unittest.TextTestRunner()
