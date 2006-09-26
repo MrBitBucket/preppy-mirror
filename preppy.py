@@ -97,9 +97,9 @@ class _preppy_FunctionCodeGenerator(pycodegen.FunctionCodeGenerator):
         lnf = pycodegen.walk(func.code, self.NameFinder(args), verbose=0)
         self.locals.push(lnf.getLocals())
         if func.varargs:
-            self.graph.setFlag(CO_VARARGS)
+            self.graph.setFlag(consts.CO_VARARGS)
         if func.kwargs:
-            self.graph.setFlag(CO_VARKEYWORDS)
+            self.graph.setFlag(consts.CO_VARKEYWORDS)
         self.set_lineno(func)
         if hasTupleArg:
             self.generateArgUnpack(func.argnames)
@@ -557,6 +557,12 @@ def getOutput(dictionary, quoteFunc=str):
     buf=[]
     run(dictionary,__write__=buf.append, quoteFunc=quoteFunc)
     return ''.join(buf)
+
+def getOutputFromKeywords(quoteFunc=str, **kwds):
+    buf=[]
+    run(kwds,__write__=buf.append, quoteFunc=quoteFunc)
+    return ''.join(buf)
+
 if __name__=='__main__':
     run()
 '''
