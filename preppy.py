@@ -919,6 +919,62 @@ def extractKeywords(arglist):
             d[key] = value
     return d
 
+from reportlab.lib.utils import find_locals
+def _find_quoteValue(name):
+    def func(L):
+        if L.has_key(name): return L[name] 
+        return None
+    try:
+        return find_locals(func)
+    except:
+        return None
+
+def include(viewName,*args,**kwd):
+    dir, filename = os.path.split(viewName)
+    root, ext = os.path.splitext(filename)
+    m = getModule(root,directory=dir,source_extension=ext)
+    if hasattr(m,'get'):
+        #newstyle
+        lquoter = quoter = None
+        if kwd.has_key('__quoteFunc__'):
+            quoter = kwd.pop('__quoteFunc__')
+        elif kwd.has_key('quoteFunc'):
+            quoter = kwd.pop('quoteFunc')
+        if not quoter:
+            quoter = _find_quoteValue('__quoteFunc__')
+            if not quoter:
+                quoter = _find_quoteValue('quoteFunc')
+        if kwd.has_key('__lquoteFunc__'):
+            lquoter = kwd.pop('__lquoteFunc__')
+        if not lquoter:
+            lquoter = _find_quoteValue('__lquoteFunc__')
+            if not lquoter:
+                lquoter = _find_quoteValue('quoteFunc')
+        return m.get(__quoteFunc__=quoter or str,__lquoteFunc__=lquoter or str, *args,**kwd)
+    else:
+        #oldstyle
+        if args:
+            if len(args)>1:
+                raise TypeError("include for old style prep file can have only one positional argument, dictionary")
+            if kwd.has_key('dictionary'):
+                raise TypeError('include: dictionary argument specified twice')
+            dictionary = args(1).copy()
+        elif kwd.has_key('dictionary'):
+            dictionary = kwd.pop('dictionary').copy()
+        else:
+            dictionary = {}
+        quoteFunc = None
+        if kwd.has_key('quoteFunc'):
+            quoteFunc = kwd.pop('quoteFunc')
+        elif kwd.has_key('__quoteFunc__'):
+            quoteFunc = kwd.pop('__quoteFunc__')
+        if not quoteFunc:
+            quoteFunc = _find_quoteValue('quoteFunc')
+            if not quoteFunc:
+                quoteFunc = _find_quoteValue('__quoteFunc__')
+        dictionary.update(kwdquoteFunc=quoteFunc or str)
+        return m.getOutput(dictionary)
+
 def main():
     if len(sys.argv)>1:
         name = sys.argv[1]
