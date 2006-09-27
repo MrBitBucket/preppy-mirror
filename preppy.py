@@ -261,21 +261,22 @@ def dedent(text):
 
 
 _pat = re.compile('{{\\s*|}}',re.M)
-_s = re.compile(r'^(?P<start>while|if|elif|for)(?P<startend>\s+|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
+_s = re.compile(r'^(?P<start>while|if|elif|for)(?P<startend>\s+|$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
 
 def _renumber(node,lineno_offset):
     if node.lineno: node.lineno += lineno_offset
     for child in node.getChildNodes(): _renumber(child,lineno_offset)
 
-def _denumber(node):
-    if node.lineno!=-1: node.lineno = -1
-    for child in node.getChildNodes(): _denumber(child)
+def _denumber(node,lineno=-1):
+    if node.lineno!=lineno: node.lineno = lineno
+    for child in node.getChildNodes(): _denumber(child,lineno)
 
 class PreppyParser(pycodegen.Module):
     from compiler import parse as _cparse
     _cparse = staticmethod(_cparse)
     def __init__(self,*args,**kw):
         pycodegen.Module.__init__(self,*args,**kw)
+        self._defSeen = 0
 
     def compile(self, display=0):
         tree = self._get_tree()
@@ -340,8 +341,21 @@ class PreppyParser(pycodegen.Module):
                             if t:
                                 ee = m.group('endend')
                                 if ee and t!='else' and ee.strip()!=':': self.__lexerror('Bad %s' % t, i0)
+                            else:
+                                t = m.group('def')
+                                if t:
+                                    if not m.group('defend'): self.__lexerror('Bad %s' % t, i0)
+                                    if self._defSeen:
+                                        if self._defSeen>0:
+                                            self.__lexerror('Only one def may be used',i0)
+                                        else:
+                                            self.__lexerror('def must come first',i0)
+                                    else:
+                                        self._defSeen = 1
+                                ix += len(t)    #skip over the 'while ' or 'for ' etc
                     else:
                         t = 'expr'  #expression
+                    if not self._defSeen: self._defSeen = -1
                     if i0!=ix: a((t,lineno,ix,i0))
                     ix = i1
         else:
@@ -367,7 +381,7 @@ class PreppyParser(pycodegen.Module):
         self._tokenX += 1
         return t
 
-    def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval'],followers=['eof']):
+    def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval','def'],followers=['eof']):
         from compiler.ast import Stmt
         C = []
         a = C.append
@@ -379,10 +393,25 @@ class PreppyParser(pycodegen.Module):
             p = t in funcs and getattr(self,mangle+t) or self.__serror
             r = p()
             if type(r) is list: C += r
-            else: a(r)
+            elif r is not None: a(r)
         self.__tokenPop()
         return Stmt(C)
         
+    def __def(self,followers=['endwhile']):
+        from compiler.ast import While
+        try:
+            F = self._cparse('def X%s: pass' % self.__tokenText(colonRemove=1).strip()).node.nodes[0]
+            self._fnc_argnames = F.argnames
+            self._fnc_defaults = F.defaults
+            self._fnc_varargs = F.varargs
+            self._fnc_kwargs = F.kwargs
+            self._fnc_flags = F.flags
+        except:
+            self.__error()
+        t = self.__tokenPop()
+        self._fnc_lineno = t[1]
+        return None
+
     def __while(self,followers=['endwhile']):
         from compiler.ast import While
         try:
@@ -504,20 +533,57 @@ class PreppyParser(pycodegen.Module):
                                     TryFinally, TryExcept, If, Import, AssAttr, Name, CallFunc,\
                                     Class, Compare, Raise, And, Mod, Tuple, Pass, Not, Exec, List,\
                                     Discard, Keyword, Return, Dict, Break, AssTuple, Subscript,\
-                                    Printnl, From
-        global _preambleAst, _localizer
-        if not _preambleAst:
-            _preambleAst = self._cparse(_preamble).node.nodes
-            for n in _preambleAst:
-                _denumber(n)
-            _localizer = [Assign([AssName('__d__', 'OP_ASSIGN')], Name('dictionary')), Discard(CallFunc(Getattr(CallFunc(Name('globals'), [], None, None), 'update'), [Name('__d__')], None, None))]
-        preppyNodes = _localizer+self.__parse()
-        FA = ('__code__', ['dictionary', 'outputfile', '__write__','__swrite__','__save_sys_stdout__'], (), 0, None, Stmt(preppyNodes))
+                                    Printnl, From, Lambda
+
+        preppyNodes = self.__parse()
+        if self._defSeen==1:
+            fixargs = self._fnc_argnames
+            defaults = list(self._fnc_defaults)
+            if self._fnc_kwargs:
+                spargs = [fixargs[-1]]
+                fixargs = fixargs[:-1]
+            else:
+                spargs = ['__kwds__']
+            if self._fnc_varargs:
+                spargs.insert(0,fixargs[-1])
+                fixargs = fixargs[:-1]
+            kwargs = fixargs[-len(defaults):]
+            fixargs = fixargs[:-len(defaults)]
+            flags = self._fnc_flags
+
+            #construct the getOutput function
+            nodes = [Assign([AssName('__lquoteFunc__', 'OP_ASSIGN')], CallFunc(Getattr(Name(spargs[-1]), 'setdefault'), [Const('__lquoteFunc__'), Name('str')], None, None)),
+                    Discard(CallFunc(Getattr(Name(spargs[-1]), 'pop'),[Const('__lquoteFunc__')], None, None)),
+                    Assign([AssName('__quoteFunc__', 'OP_ASSIGN')], CallFunc(Getattr(Name(spargs[-1]), 'setdefault'), [Const('__quoteFunc__'), Name('str')], None, None)),
+                    Discard(CallFunc(Getattr(Name(spargs[-1]), 'pop'), [Const('__quoteFunc__')], None, None))]
+            if not self._fnc_kwargs:
+                nodes += [If([(Name(spargs[-1]), Stmt([Raise(CallFunc(Name('TypeError'), [Const('get: unexpected keyword arguments')], None, None), None, None)]))], None)]
+            nodes += [Assign([AssName('__append__', 'OP_ASSIGN')], Getattr(List(()), 'append')),
+                    Assign([AssName('__write__', 'OP_ASSIGN')], Lambda(['x'], [], 0, CallFunc(Name('__append__'), [CallFunc(Name('__lquoteFunc__'), [Name('x')], None, None)], None, None))),
+                    Assign([AssName('__swrite__', 'OP_ASSIGN')], Lambda(['x'], [], 0, CallFunc(Name('__append__'), [CallFunc(Name('__quoteFunc__'), [Name('x')], None, None)], None, None)))]
+            for n in nodes: _denumber(n,self._fnc_lineno)
+            preppyNodes = nodes + preppyNodes + [Return(CallFunc(Getattr(Const(''), 'join'), [Getattr(Name('__append__'), '__self__')], None, None))]
+            argnames = list(fixargs)+list(kwargs)+list(spargs)
+            FA = ('get',argnames, defaults,flags|8,None,Stmt(preppyNodes))
+            global _newPreambleAst
+            if not _newPreambleAst:
+                _newPreambleAst = self._cparse(_newPreamble).node.nodes
+                map(_denumber,_newPreambleAst)
+            extraAst = _newPreambleAst
+        else:
+            global _preambleAst, _localizer
+            if not _preambleAst:
+                _preambleAst = self._cparse(_preamble).node.nodes
+                map(_denumber,_preambleAst)
+                _localizer = [Assign([AssName('__d__', 'OP_ASSIGN')], Name('dictionary')), Discard(CallFunc(Getattr(CallFunc(Name('globals'), [], None, None), 'update'), [Name('__d__')], None, None))]
+            preppyNodes = _localizer+preppyNodes
+            FA = ('__code__', ['dictionary', 'outputfile', '__write__','__swrite__','__save_sys_stdout__'], (), 0, None, Stmt(preppyNodes))
+            extraAst = _preambleAst
         if sys.hexversion >=0x2040000: FA = (None,)+FA
         return Module(self.filename,
                 Stmt([Assign([AssName('__checksum__', 'OP_ASSIGN')], Const(getattr(self,'sourcechecksum'))),
                         Function(*FA),
-                    ]+_preambleAst))
+                    ]+extraAst))
 
 _preambleAst=None
 _preamble='''def run(dictionary, __write__=None, quoteFunc=str, outputfile=None,code=__code__):
@@ -548,7 +614,7 @@ _preamble='''def run(dictionary, __write__=None, quoteFunc=str, outputfile=None,
         except NameError:
             __write__ = lambda x: stdout.write(quoteFunc(x))
         __swrite__ = lambda x: __write__(quoteFunc(x))
-        __code__(dictionary,outputfile,__write__,__swrite__,__save_sys_stdout__)
+        code(dictionary,outputfile,__write__,__swrite__,__save_sys_stdout__)
     finally: #### end of compiled logic, standard cleanup
         import sys # for safety
         #print "resetting stdout", sys.stdout, "to", __save_sys_stdout__
@@ -566,6 +632,16 @@ def getOutputFromKeywords(quoteFunc=str, **kwds):
 if __name__=='__main__':
     run()
 '''
+_newPreambleAst=None
+_newPreamble='''def run(*args,**kwds):
+    raise ValueError('Wrong kind of prep file')
+def getOutput(*args,**kwds):
+    run()
+if __name__=='__main__':
+    run()
+'''
+
+
 
 def testgetOutput(name="testoutput"):
     mod = getModule(name,'.',savePyc=1,sourcetext=teststring,importModule=1)
@@ -896,9 +972,12 @@ def main():
         else:
             #default is run
             moduleName = sys.argv[1]
-            params = extractKeywords(sys.argv)
             module = getPreppyModule(moduleName, verbose=0)
-            module.run(params)
+            if hasattr(module,'get'):
+                print module.get()
+            else:
+                params = extractKeywords(sys.argv)
+                module.run(params)
     else:
         print "no argument: running tests"
         testgetOutput()
