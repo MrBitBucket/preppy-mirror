@@ -972,8 +972,8 @@ def include(viewName,*args,**kwd):
             quoteFunc = _find_quoteValue('quoteFunc')
             if not quoteFunc:
                 quoteFunc = _find_quoteValue('__quoteFunc__')
-        dictionary.update(kwdquoteFunc=quoteFunc or str)
-        return m.getOutput(dictionary)
+        dictionary.update(kwd)
+        return m.getOutput(dictionary,quoteFunc=quoteFunc)
 
 def main():
     if len(sys.argv)>1:
