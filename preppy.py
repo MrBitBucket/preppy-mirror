@@ -703,7 +703,10 @@ def getModule(name,
         # every time.  This is common during batch compilation of directories.
         extraDir, name = os.path.split(name)
         if extraDir:
-            directory = directory + os.sep + extraDir
+            if os.path.isabs(extraDir):
+                directory = extraDir
+            else:
+                directory = directory + os.sep + extraDir
         dir = os.path.abspath(os.path.normpath(directory))
 
         # they may ask for 'spam.prep' instead of just 'spam'.  Trim off
