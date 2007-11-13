@@ -686,7 +686,7 @@ def getModule(name,
               savePy=0,
               force=0,
               savePyc=1,
-              importModule=1):
+              importModule=1,_globals=None):
     """Returns a python module implementing the template, compiling if needed.
 
     force: ignore up-to-date checks and always recompile.
@@ -740,6 +740,9 @@ def getModule(name,
 
         try:
             module = rl_get_module(name,dir)
+            module.__dict__['include'] = include
+            if _globals:
+                module.__dict__.update(_globals)
             checksum = module.__checksum__
             if verbose: print "found...",
         except: # ImportError:  #catch ALL Errors importing the module (eg name="")
@@ -790,6 +793,9 @@ def getModule(name,
     # now make a module
     from imp import new_module
     module = new_module(name)
+    module.__dict__['include'] = include
+    if _globals:
+        module.__dict__.update(_globals)
     exec P.code in module.__dict__
     if importModule:
         if nosourcefile:
@@ -935,7 +941,10 @@ def _find_quoteValue(name):
 def include(viewName,*args,**kwd):
     dir, filename = os.path.split(viewName)
     root, ext = os.path.splitext(filename)
-    m = getModule(root,directory=dir,source_extension=ext)
+    m = {}
+    if dir: m['directory'] = dir
+    if ext: m['source_extension'] = ext
+    m = getModule(root,**m)
     if hasattr(m,'get'):
         #newstyle
         lquoter = quoter = None
