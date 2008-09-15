@@ -8,7 +8,7 @@
 
 import os, glob, string
 from rlextra.preppy import preppy
-from reportlab.test import unittest
+import unittest
 
 class SimpleTestCase(unittest.TestCase):
     def setUp(self):

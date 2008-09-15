@@ -8,7 +8,7 @@ __version__=''' $Id$ '''
 
 import os, glob, string, random
 from rlextra.preppy import preppy
-from reportlab.test import unittest
+import unittest
 
 class GeneratedCodeTestCase(unittest.TestCase):
     """Maybe the simplest and most all-encompassing:
