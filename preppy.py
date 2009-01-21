@@ -67,7 +67,11 @@ QUOTEQUOTE = "$$"
 # SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
 UNESCAPES = ((QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE))
 
-import re, sys, os, md5, imp, struct
+import re, sys, os, imp, struct
+try:
+    from hashlib import md5
+except ImportError:
+    from md5 import md5
 from compiler import pycodegen, pyassem, future, consts
 
 class _preppy_FunctionCodeGenerator(pycodegen.FunctionCodeGenerator):
@@ -694,7 +698,7 @@ def getModule(name,
     if hasattr(name,'read'):
         sourcetext = name.read()
         name = getattr(name,'name',None)
-        if not name: name = '_preppy_'+md5.new(sourcetext+repr(VERSION)).digest()
+        if not name: name = '_preppy_'+md5(sourcetext+repr(VERSION)).digest()
     else:
         # it's possible that someone could ask for
         #  name "subdir/spam.prep" in directory "/mydir", instead of
@@ -722,10 +726,10 @@ def getModule(name,
 
     if sourcetext is not None:
         # they fed us the source explicitly
-        if not name: name = '_preppy_'+md5.new(sourcetext+repr(VERSION)).digest()
+        if not name: name = '_preppy_'+md5(sourcetext+repr(VERSION)).digest()
         if verbose: print "sourcetext provided...",
         sourcefilename = "<input text %s>" % name
-        sourcechecksum = md5.new(sourcetext + repr(VERSION)).digest()
+        sourcechecksum = md5(sourcetext + repr(VERSION)).digest()
         nosourcefile = 1
         module = SOURCE_MODULES.get(sourcetext,None)
         if module:
@@ -761,7 +765,7 @@ def getModule(name,
         else:
             sourcetext = sourcefile.read()
             # NOTE: force recompile on each new version of this module.
-            sourcechecksum = md5.new(sourcetext + repr(VERSION)).digest()
+            sourcechecksum = md5(sourcetext + repr(VERSION)).digest()
             if sourcechecksum==checksum:
                 if force==0:
                     # use the existing module. it matches
