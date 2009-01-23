@@ -215,13 +215,13 @@ class NewGeneratedCodeTestCase(unittest.TestCase):
                 "{{def(a,**kwds)}}Hello World{{a}}{{if kwds}}{{[k for k in sorted(kwds.items())]}}{{endif}}",1,b=2,c=3),
             "Hello World1[('b', 2), ('c', 3)]")
 
-    @staticmethod
     def bracket(x):
         return "[%s]" % x
+    bracket=staticmethod(bracket)
 
-    @staticmethod
     def brace(x):
         return "{%s}" % x
+    brace=staticmethod(brace)
 
     def checkLQuoting(self):
         '''__lquoteFunc__ applies to the literals'''
