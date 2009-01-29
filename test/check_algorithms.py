@@ -4,8 +4,6 @@
 # Tests of various functions and algorithms in preppy.
 # no side-effects on file system, run anywhere.
 __version__=''' $Id$ '''
-
-
 import os, glob, string, random
 from rlextra.preppy import preppy
 import unittest
@@ -121,30 +119,21 @@ class GeneratedCodeTestCase(unittest.TestCase):
         out = self.getRunTimeOutput(source, clientName='Smith & Jones')
         self.assertEquals(out, "<p>Smith & Jones</p>")
 
-
         #a quoting function should work on output
         source = "A&B<p>{{clientName}}</p><p>{{script}}print clientName{{endscript}}</p>"
         out = self.getRunTimeOutput(source, clientName='Smith & Jones')
         self.assertEquals(out, "A&B<p>Smith & Jones</p><p>Smith & Jones\n</p>")
         #self.assertEquals(self.getRunTimeOutput('{{script}}v="{{"{{endscript}}{{v}}'), "{{")
 
-
-        
-
-
         from rlextra.utils.cgisupport import quoteValue
         out = self.getRunTimeOutput(source, clientName='Smith & Jones', quoteFunc=quoteValue)
         #print out
-        self.assertEquals(out, "A&B<p>Smith &amp; Jones</p><p>Smith &amp; Jones\n</p>")        
-
+        self.assertEquals(out, "A&B<p>Smith &amp; Jones</p><p>Smith &amp; Jones\n</p>")
 
         def myQuote(x):
             return x.replace("&", "and")
         out = self.getRunTimeOutput(source, clientName='Smith & Jones', quoteFunc=myQuote)
         self.assertEquals(out, "A&B<p>Smith and Jones</p><p>Smith and Jones\n</p>")
-        
-
-  #      from rlextra.ers.htmltext import htmlescape, makeTextField
 
 class NewGeneratedCodeTestCase(unittest.TestCase):
     """Maybe the simplest and most all-encompassing:
@@ -204,7 +193,7 @@ class NewGeneratedCodeTestCase(unittest.TestCase):
             self.getRunTimeOutput(
                 "{{def(a,*args)}}Hello World{{a}}{{if args}}{{args}}{{endif}}",1,2,3),
             "Hello World1(2, 3)")
-    
+
     def checkKwds(self):
         self.assertEquals(
             self.getRunTimeOutput(
@@ -343,7 +332,7 @@ class NewGeneratedCodeTestCase(unittest.TestCase):
 #       from rlextra.utils.cgisupport import quoteValue
 #       out = self.getRunTimeOutput(source, clientName='Smith & Jones', quoteFunc=quoteValue)
 #       #print out
-#       self.assertEquals(out, "A&B<p>Smith &amp; Jones</p><p>Smith &amp; Jones\n</p>")        
+#       self.assertEquals(out, "A&B<p>Smith &amp; Jones</p><p>Smith &amp; Jones\n</p>")
 #
 #
 #       def myQuote(x):
@@ -382,7 +371,6 @@ class OutputModeTestCase(unittest.TestCase):
         output3 = mod.getOutput(params)
         assert output3 == output2, 'getOutput(...) and outputfile results differ'
 
-
 class IncludeTestCase(unittest.TestCase):
     def testRequiredArgs(self):
         def args(*args, **stuff):
@@ -404,7 +392,7 @@ def makeSuite():
     suite3 = unittest.makeSuite(OutputModeTestCase,'check')
     suite4 = unittest.makeSuite(IncludeTestCase)
     return unittest.TestSuite((suite1,suite2, suite3, suite4))
-    
+
 if __name__=='__main__':
     runner = unittest.TextTestRunner()
     runner.run(makeSuite())
