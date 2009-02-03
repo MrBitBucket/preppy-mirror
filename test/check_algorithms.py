@@ -149,6 +149,18 @@ class NewGeneratedCodeTestCase(unittest.TestCase):
     def checkNoGet(self):
         self.assertRaises(AttributeError,self.getRunTimeOutput,"Hello World")
 
+    def checkUnicodeName(self):
+        mod=preppy.getModule(u'./test_preppy',savePyc=0,sourcetext='Hello World')
+
+    def checkUnicodeDirectory(self):
+        mod=preppy.getModule('./test_preppy',directory=u'.',savePyc=0,sourcetext='Hello World')
+
+    def checkUnicodeExtension(self):
+        mod=preppy.getModule('./test_preppy',source_extension=u'.prep',savePyc=0,sourcetext='Hello World')
+
+    def checkUnicodeSourceText(self):
+        mod=preppy.getModule('./test_preppy',savePyc=0,sourcetext=u'Hello World')
+
     def checkNoArgs(self):
         self.assertEquals(self.getRunTimeOutput("{{def()}}Hello World"), "Hello World")
 

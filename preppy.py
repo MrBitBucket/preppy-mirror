@@ -695,6 +695,10 @@ def getModule(name,
 
     force: ignore up-to-date checks and always recompile.
     """
+    if isinstance(name,unicode): name = name.encode('utf8')
+    if isinstance(directory,unicode): directory = directory.encode('utf8')
+    if isinstance(source_extension,unicode): source_extension = source_extension.encode('utf8')
+    if isinstance(sourcetext,unicode): sourcetext = sourcetext.encode('utf8')
     if hasattr(name,'read'):
         sourcetext = name.read()
         name = getattr(name,'name',None)
