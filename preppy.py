@@ -67,12 +67,20 @@ QUOTEQUOTE = "$$"
 # SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
 UNESCAPES = ((QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE))
 
-import re, sys, os, imp, struct
+import re, sys, os, imp, struct, tokenize, StringIO, token
 try:
     from hashlib import md5
 except ImportError:
     from md5 import md5
 from compiler import pycodegen, pyassem, future, consts
+
+def validSimpleLHS(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
+    L = []
+    try:
+        tokenize.tokenize(StringIO.StringIO(s.strip()).readline,lambda *a: L.append(a))
+    except:
+        return False
+    return len(L)==2 and L[0][0]==NAME and L[1][0]==ENDMARKER
 
 class _preppy_FunctionCodeGenerator(pycodegen.FunctionCodeGenerator):
     def __init__(self, func, scopes, isLambda, class_name, mod):
@@ -936,13 +944,12 @@ def extractKeywords(arglist):
             d[key] = value
     return d
 
-from reportlab.lib.utils import find_locals
-def _find_quoteValue(name):
-    def func(L):
-        if L.has_key(name): return L[name] 
-        return None
+def _find_quoteValue(name,depth=2):
     try:
-        return find_locals(func)
+        while 1:
+            g = sys._getframe(depth).f_globals
+            if g.has_key(name): return g[name]
+            depth += 1
     except:
         return None
 
