@@ -10,7 +10,7 @@
 
 import os, glob, string, random
 from rlextra.preppy import preppy
-from reportlab.test import unittest
+import unittest
 
 class LoadTestCase(unittest.TestCase):
     def lc01(self):
