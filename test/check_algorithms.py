@@ -392,11 +392,17 @@ class IncludeTestCase(unittest.TestCase):
         outer = """{{for direction in directions}}{{inner.getOutput({'direction':direction})}}{{endfor}}"""
         modOuter = preppy.getModule('dummy2',savePyc=0,sourcetext=outer)
         ns = {'directions':('NORTH','SOUTH','EAST','WEST'),
-              'args':args,
               'inner':modInner}
         output = modOuter.getOutput(ns)
         #self.assertRaises(NameError, modOuter.getOutput, ns)
         self.assertEquals(output, "NORTHSOUTHEASTWEST")
+
+    def testIncludeQuoting(self):
+        m = preppy.getModule('outer',savePyc=0)
+        self.assertEquals(m.getOutput(dict(j='J')),
+                'in outer.prep\n\n\tbefore include inner i=0 j=J\n\tin inner.prep v=J*10 w=0\n\n\tbefore include inner1 i=0 j=J\n\tin inner1.prep v=0 w=J*100\n\n\tafter include inner1 i=0 j=J\n\n')
+        self.assertEquals(m.getOutput(dict(j='J'),quoteFunc=lambda x: '[%s]' % x),
+                'in outer.prep\n\n\tbefore include inner i=[0] j=[J]\n\t[[in inner.prep v=][J*10][ w=][0][\n]]\n\tbefore include inner1 i=[0] j=[J]\n\t[in inner1.prep v=[0] w=[J*100]\n]\n\tafter include inner1 i=[0] j=[J]\n\n')
 
 def makeSuite():
     suite1 = unittest.makeSuite(NewGeneratedCodeTestCase,'check')
