@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = 0.8
+VERSION = 0.9
 __version__=''' $Id$ '''
 
 USAGE = """
@@ -74,7 +74,7 @@ except ImportError:
     from md5 import md5
 from compiler import pycodegen, pyassem, future, consts
 
-def validSimpleLHS(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
+def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
     L = []
     try:
         tokenize.tokenize(StringIO.StringIO(s.strip()).readline,lambda *a: L.append(a))
@@ -89,9 +89,9 @@ class _preppy_FunctionCodeGenerator(pycodegen.FunctionCodeGenerator):
         self.class_name = class_name
         self.module = mod
         if isLambda:
-            klass = FunctionCodeGenerator
+            klass = pycodegen.FunctionCodeGenerator
             name = "<lambda.%d>" % klass.lambdaCount
-            klass.lambdaCount = klass.lambdaCount + 1
+            klass.lambdaCount += 1
         else:
             name = func.name
         args, hasTupleArg = pycodegen.generateArgList(func.argnames)
@@ -125,7 +125,7 @@ class _preppy_FunctionCodeGenerator(pycodegen.FunctionCodeGenerator):
         scope = self.scope.check_name(name)
         if self._special_locals and name=='locals': name = 'globals'
         if scope == consts.SC_LOCAL:
-            if not (self.optimized or name in ['dictionary','__write__','__swrite__','outputfile', '__save_sys_stdout__', '__d__']):
+            if not (self.optimized or name in ['dictionary','__write__','__swrite__','outputfile', '__save_sys_stdout__', '__preppy__d__']):
                 self.emit(prefix + '_NAME', name)
             else:
                 self.emit(prefix + '_FAST', name)
@@ -576,7 +576,7 @@ class PreppyParser(pycodegen.Module):
             for n in nodes: _denumber(n,self._fnc_lineno)
             preppyNodes = nodes + preppyNodes + [Return(CallFunc(Getattr(Const(''), 'join'), [Getattr(Name('__append__'), '__self__')], None, None))]
             argnames = list(fixargs)+list(kwargs)+list(spargs)
-            FA = ('get',argnames, defaults,flags|8,None,Stmt(preppyNodes))
+            FA = ('get',argnames, defaults,flags|consts.CO_VARKEYWORDS,None,Stmt(preppyNodes))
             global _newPreambleAst
             if not _newPreambleAst:
                 _newPreambleAst = self._cparse(_newPreamble).node.nodes
@@ -587,7 +587,8 @@ class PreppyParser(pycodegen.Module):
             if not _preambleAst:
                 _preambleAst = self._cparse(_preamble).node.nodes
                 map(_denumber,_preambleAst)
-                _localizer = [Assign([AssName('__d__', 'OP_ASSIGN')], Name('dictionary')), Discard(CallFunc(Getattr(CallFunc(Name('globals'), [], None, None), 'update'), [Name('__d__')], None, None))]
+                _localizer = [Assign([AssName('__d__', 'OP_ASSIGN')], Name('dictionary')), Discard(CallFunc(Getattr(CallFunc(Name('locals'), [], None, None), 'update'), [Name('__d__')], None, None))]
+                #_localizer = [Assign([AssName('__preppy__d__', 'OP_ASSIGN')], Name('dictionary')), For(AssName('__preppy__x__', 'OP_ASSIGN'), Name('__preppy__d__'), Stmt([If([(CallFunc(Name('__preppy__vlhs__'), [Name('__preppy__x__')], None, None), Stmt([Exec(Mod((Const('%s=__preppy__d__[%r]'), Tuple([Name('__preppy__x__'), Name('__preppy__x__')]))), None, None)]))], None)]), None), AssName('__preppy__x__', 'OP_DELETE')]
             preppyNodes = _localizer+preppyNodes
             FA = ('__code__', ['dictionary', 'outputfile', '__write__','__swrite__','__save_sys_stdout__'], (), 0, None, Stmt(preppyNodes))
             extraAst = _preambleAst
@@ -614,6 +615,7 @@ _preamble='''def run(dictionary, __write__=None, quoteFunc=str, outputfile=None,
         # make sure quoteFunc is defined:
         if quoteFunc is None:
             raise ValueError("quoteFunc must be defined")
+        globals()['__quoteFunc__'] = quoteFunc
         # make sure __write__ is defined
         try:
             if __write__ is None:
@@ -757,6 +759,7 @@ def getModule(name,
         try:
             module = rl_get_module(name,dir)
             module.__dict__['include'] = include
+            module.__dict__['__preppy__vlhs__'] = __preppy__vlhs__
             if _globals:
                 module.__dict__.update(_globals)
             checksum = module.__checksum__
@@ -810,6 +813,7 @@ def getModule(name,
     from imp import new_module
     module = new_module(name)
     module.__dict__['include'] = include
+    module.__dict__['__preppy__vlhs__'] = __preppy__vlhs__
     if _globals:
         module.__dict__.update(_globals)
     exec P.code in module.__dict__
@@ -947,7 +951,11 @@ def extractKeywords(arglist):
 def _find_quoteValue(name,depth=2):
     try:
         while 1:
-            g = sys._getframe(depth).f_globals
+            g = sys._getframe(depth)
+            if g.f_code.co_name=='__code__':
+                g=g.f_globals
+            else:
+                g=g.f_locals
             if g.has_key(name): return g[name]
             depth += 1
     except:
