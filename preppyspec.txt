@@ -1,5 +1,5 @@
 Title: preppy spec
-Version: $Revision: 1.8 $
+Version: $Revision$
 Author: Aaron Watters <aaron@reportlab.com>
 Status: Final
 Type: Design Specification
