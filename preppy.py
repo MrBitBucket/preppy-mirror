@@ -74,6 +74,11 @@ except ImportError:
     from md5 import md5
 from compiler import pycodegen, pyassem, future, consts
 
+try:
+    consts_SC_GLOBAL = (consts.SC_GLOBAL_IMPLICIT, consts.SC_GLOBAL_EXPLICT)
+except AttributeError:
+    consts_SC_GLOBAL = (consts.SC_GLOBAL,)
+
 def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
     L = []
     try:
@@ -129,7 +134,7 @@ class _preppy_FunctionCodeGenerator(pycodegen.FunctionCodeGenerator):
                 self.emit(prefix + '_NAME', name)
             else:
                 self.emit(prefix + '_FAST', name)
-        elif scope == consts.SC_GLOBAL:
+        elif scope in consts_SC_GLOBAL:
             if not self.optimized:
                 self.emit(prefix + '_NAME', name)
             else:
