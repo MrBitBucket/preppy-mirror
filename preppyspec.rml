@@ -1,0 +1,783 @@
+<?xml version="1.0" encoding="iso-8859-1" standalone="no" ?> 
+<!DOCTYPE document SYSTEM "rml_1_0.dtd"> 
+<document filename="preppyspec.pdf"> 
+<!-- Last Modified:             $Date$ -->
+<!-- Document Version Number:   $Revision$            -->
+
+<template pageSize="(595, 842)" 
+        leftMargin="72" 
+        showBoundary="0"
+        title="Preppy Spec"
+        author="Reportlab Inc"
+        >
+
+    <pageTemplate id="cover">
+    <pageGraphics>
+        <setFont name="Times-Bold" size="48"/>
+        <drawCentredString x="297" y="516">Preppy Spec</drawCentredString>
+        <setFont name="Times-Bold" size="12"/>
+        <drawCentredString x="297" y="414"></drawCentredString>
+
+        <lines>
+        72 132 523 132
+        </lines>
+
+        <image file="../rml2pdf/doc/images/replogo.gif" x="155" y="626"/>
+
+        <setFont name="Times-Roman" size="10"/>
+        <drawString x="72" y="110">Lombard Business Park</drawString>
+        <drawString x="72" y="98">8 Lombard Road</drawString>
+        <drawString x="72" y="86">Wimbledon</drawString>
+        <drawString x="72" y="74">London, ENGLAND SW19 3TZ</drawString>
+
+        <drawRightString x="523" y="110">103 Bayard Street</drawRightString>
+        <drawRightString x="523" y="98">New Brunswick</drawRightString>
+        <drawRightString x="523" y="86">New Jersey, 08901</drawRightString>
+        <drawRightString x="523" y="74">USA</drawRightString>
+    </pageGraphics>
+    <frame id="first" x1="72" y1="72" width="451" height="698"/>
+    </pageTemplate>
+
+    <pageTemplate id="contents">
+    <pageGraphics>
+    </pageGraphics>
+    <frame id="first" x1="72" y1="72" width="451" height="698"/>
+    </pageTemplate>
+
+    <pageTemplate id="inside">
+    <pageGraphics>
+        <lines>
+        72 796 523 796
+        </lines>
+        <setFont name="Times-Roman" size="10"/>
+        <drawString x="72" y="808">Preppy Spec</drawString>
+        <drawRightString x="523" y="808">Revision: 1.3</drawRightString>
+        <drawCentredString x="297.5" y="60">Page <pageNumber/></drawCentredString>
+    </pageGraphics>
+    <frame id="first" x1="72" y1="72" width="451" height="698"/>
+    </pageTemplate>
+
+</template>
+
+<stylesheet>
+    <initialize>
+            <alias id="style.normal" value="style.Normal"/>
+    </initialize>
+	
+    <paraStyle name="style.h1"
+    fontName="Times-Bold"
+    fontSize="20"
+    leading="36"
+    />
+
+    <paraStyle name="style.h2"
+    fontName="Times-Bold"
+    fontSize="20"
+    leading="36"
+    />
+
+    <paraStyle name="style.h3"
+    fontName="Times-Bold"
+    fontSize="12"
+    leading="15"
+    />
+
+    <paraStyle name="contents"
+    fontName="Times-Bold"
+    fontSize="12"
+    />
+
+    <paraStyle name="contents2"
+    fontName="Times-Roman"
+    fontSize="12"
+    leftIndent="20"
+    />
+
+    <paraStyle name="contents2a"
+    fontName="Times-Roman"
+    fontSize="12"
+    leftIndent="20"
+    spaceAfter="12"
+    />
+
+    <paraStyle name="contents2h"
+    fontName="Times-Bold"
+    fontSize="12"
+    leftIndent="20"
+    />
+    
+    <paraStyle name="contents3"
+    fontName="Times-Roman"
+    fontSize="12"
+    leftIndent="40"
+    />
+
+    <paraStyle name="contents3a"
+    fontName="Times-Roman"
+    fontSize="12"
+    leftIndent="40"
+    spaceAfter="12"
+    />
+
+    <paraStyle name="contents3h"
+    fontName="Times-Bold"
+    fontSize="12"
+    leftIndent="40"
+    />
+
+    <paraStyle name="style.Normal"
+    fontName="Times-Roman"
+    fontSize="10"
+    leading="12"
+    spaceAfter="12"
+    firstLineIndent="0"
+    />
+
+    <paraStyle name="programListing"
+    parent="style.Normal"
+    fontName="Courier-Bold"
+    fontSize="8"
+	leading="10"
+    spaceBefore="2"
+    spaceAfter="10"
+    textColor="darkblue"
+    leftIndent="1.2cm"
+    />
+
+    <paraStyle name="programListingConventionLabel"
+    parent="programListing"
+	spaceAfter="0"
+    leftIndent="0"
+    />
+	
+    <paraStyle name="bulletList" 
+    parent="style.Normal" 
+    bulletFontName="ZapfDingbats"
+    bulletFontSize="5"
+    bulletIndent="20"
+    leftIndent="35"
+    spaceAfter="6"
+    />
+
+    <paraStyle name="bulletNospace" 
+    parent="bulletList" 
+    spaceAfter="0"
+    />
+    
+    <paraStyle name="nospace" 
+    spaceAfter="0"
+    parent="style.Normal" 
+    />
+    
+    <paraStyle name="figureCaption" 
+    spaceBefore="0"
+    spaceAfter="15"
+    alignment="CENTER"
+    fontSize="8"
+    fontName="Times-Italic"
+    />
+    
+    <paraStyle name="paddingTableStyle"
+	fontName="Helvetica-BoldOblique"
+	fontSize="10"
+	textColor="white"
+	alignment="CENTER"
+	/>
+
+</stylesheet>
+
+
+<story>
+
+<outlineAdd level="0">Preppy Spec</outlineAdd>
+<setNextTemplate name="cover"/>
+
+<setNextTemplate name="contents"/>
+<nextFrame/>
+
+<h1>Preppy Spec</h1>
+<outlineAdd level="1">Contents</outlineAdd>
+
+<h2>Contents</h2>
+<para style="contents2a">
+<name id="chapterNumber" value="1"/>
+<seqReset id="sectionNumber"/>
+Goals</para>
+
+<para style="contents2a">
+<getName id="chapterNumber"/>.<seq id="sectionNumber"/>
+Introduction</para>
+
+<para style="contents2a">
+<getName id="chapterNumber"/>.<seq id="sectionNumber"/>
+Intended Use</para>
+
+<para style="contents2a">
+<getName id="chapterNumber"/>.<seq id="sectionNumber"/>
+Operations</para>
+
+<para style="contents2a">
+<getName id="chapterNumber"/>.<seq id="sectionNumber"/>
+Recursive Imports of preppy modules</para>
+
+<para style="contents2a">
+<getName id="chapterNumber"/>.<seq id="sectionNumber"/>
+NonDirectives</para>
+
+<para style="contents2a">
+<getName id="chapterNumber"/>.<seq id="sectionNumber"/>
+Directives</para>
+
+<para style="contents2a">
+<getName id="chapterNumber"/>.<seq id="sectionNumber"/>
+Static Compliation</para>
+
+<para style="contents2a">
+<getName id="chapterNumber"/>.<seq id="sectionNumber"/>
+Syntax Checking</para>
+
+<para style="contents2a">
+<getName id="chapterNumber"/>.<seq id="sectionNumber"/>
+Additional Notes</para>
+
+<setNextTemplate name="inside"/>
+<nextFrame/>
+
+
+<h1>Preppy Spec</h1>
+
+
+<pre>
+Title: preppy spec
+Version: Revision: 1.3
+Author: Aaron Watters (aaron@reportlab.com)
+Status: Final
+Type: Design Specification
+Created: 5-Oct-2000
+</pre>
+
+<h3>Goals:</h3>
+<outlineAdd level="2">Goals</outlineAdd>
+
+<para>
+Preppy is intended as a simple and fairly general method for
+preprocessing text files containing special markup (which may contain
+loops, conditional flow control and generic python code) into python
+programs.</para>
+
+<h3>Installation and Dependency:</h3>
+<para>preppy requires the following Python libraries to be available for import:</para>
+<pre>string, sys, os, traceback, md5</pre>
+
+<h2>Introduction</h2>
+<outlineAdd level="1">Introduction</outlineAdd>
+
+<para>
+    This document describes the operations of the module preppy.py.
+    It is intended for an audience of proficient python programmers
+    and is not intended as a user guide for novices.
+	</para>
+
+	<para>
+	Preppy is intended as a simple and fairly general method for
+	preprocessing text files containing special markup into python
+	programs.  The markup may contain loops and conditional flow
+	control and generic python code.  A module generated by preppy
+	sends text output to standard output.  Nondirectives in the
+	source file are sent unmodified and directives in the source
+	file result in computation which may result in substitutions into
+	the text output or evaluation of flow control that
+	decides whether and how many times segments of text are injected
+	into the output stream.
+	</para>
+
+	<para>
+	An example use for Preppy would be to generate a series of similar
+	HTML files from the results of database queries -- where the general
+	form of the document remains fixed but certain data elements
+	change.
+	</para>
+
+	<para>
+	For example consider the Preppy source file
+	</para>
+
+	<pre style="programListing">
+	<![CDATA[
+	<html><head><title>{{name}}</title></head><body>
+	hello my name is {{name}} and I am
+	{{if sex=="f":}} a gal
+	{{elif sex=="m":}} a guy
+	{{else:}} neuter {{endif}}
+	</body></html>
+    ]]>
+	</pre>
+	<para>
+	then with 
+	</para>
+	<pre style="programListing">
+	dictionary = {"name": "Fred Flintstone", "sex": "m"}
+	</pre>
+    <para>
+	the preppy output for this preprocessor source wedded with the
+	dictionary input is
+	</para>
+	<pre style="programListing"><![CDATA[
+        <html><head><title>Fred Flintstone</title></head><body>
+        hello my name is Fred Flintstone and I am
+         a guy
+                </body></html>
+	]]></pre>
+	<para>
+	Alternatively with
+	</para>
+	<pre style="programListing">
+	dictionary = {"name": "Wilma Flintstone", "sex": "f"}
+	</pre>
+	<para>
+	We obtain output
+	</para>
+	<pre style="programListing"><![CDATA[
+	<html><head><title>Wilma Flintstone</title></head><body>
+        hello my name is Wilma Flintstone and I am
+         a gal
+                </body></html>
+	]]></pre>
+	
+	<para>Note that although these examples are using HTML, Preppy does no checking of 
+	any sort on whether it is valid. The <i>only</i> things Preppy acts on are the 
+	Preppy directives contained within double curly braces.</para>
+
+	<h2>Intended Use</h2>
+    <outlineAdd level="1">Intended Use</outlineAdd>
+
+<para>
+	Preppy is intended for use in a professional environment with testing.
+	In particular there are few provisions to prevent infinite loops or
+	NameErrors, or Divide by Zero errors, or other problems familiar to
+	professional programmers.  In particular the preppy source
+	</para>
+	<pre style="programListing">
+	{{script}}from foo import bar; bar(){{endscript}}
+	</pre>
+	<para>
+	may result in an infinite loop or a NameError and we make no provision 
+	to attempt to avoid this problem.  Similarly for
+	</para>
+	<pre style="programListing">
+	{{while 1}}
+		INFINITE LOOP!!! {{X}}
+	{{endwhile}}
+	</pre><para>
+	This is only one example of many
+	where using the preppy module may result in errors or bugs.
+	</para>
+
+<h2>Operations</h2>
+<outlineAdd level="1">Operations</outlineAdd>
+
+<para>
+	Load a preppy module (possibly from source text) using
+	</para>
+	<pre style="programListing">
+	m = getModule(name, directory=".", source_extension=".prep", 
+		verbose=0, savefile=1, sourcetext=None)
+		</pre>
+	<para>
+	This function will look for the python module named "name" and if
+	if exists check to see that it matches the preppy source module
+	name+source_extension in the specified directory.  If the
+	module does not exist or does not match a new python module
+	will be built from the source file, stored as a python module
+	name+".py" in the directory (which must be writable if the modules
+	don't match.)  
+	</para>
+<para>
+	If you do not want to save the regenerated module
+	text then use savefile=0 and no file will be written during the
+	load (but a matching existing python module will still be preferred).
+</para><para>
+	If the source module is not present, but the python module is present
+	the python module will be assumed correct and used.  When the source
+	text and the generated python module match the python code will not
+	be regenerated (as an optimization).
+</para><para>
+	The preppy module itself will keep a cache of those modules previously
+	built by preppy and will not reexecute the test/generation code when
+	a module of the same name is requested twice -- instead it will provide
+	the previously built module.
+</para><para>
+	It is also possible to use preppy to make a module without any
+	use of the filesystem.  In this case provide source text as a string
+	with a module name (of no significance) to getModule
+</para>
+	<pre style="programListing">
+		m = getModule("dummymodule", sourcetext=my_string)
+</pre><para>
+	In this case (when sourcetext is provided) no file will be read and
+	no file will be generated.  The module m will be constructed in memory
+	for use by the current process only.
+</para><para>
+	The entry point for a Preppy module is the function
+</para>
+<pre style="programListing">
+		m.run(dictionary, __write__=None, outputfile=None)
+</pre><para>
+	Where dictionary provides external information to the run function.
+	An example usage might be
+</para>
+	<pre style="programListing">
+	m = getModule("salutation", directory="/usr/lib/preppy")
+	m.run({"name": "Wilma Flintstone", "sex": "f"})
+</pre><para>
+	Run has a second argument which allows the default "write" operation
+	to be redefined.  For example to append the output text segments to
+	a list instead of writing to a file use:
+</para>
+<pre style="programListing">
+		L = []
+		app = L.append
+		m.run(dictionary, __write__=app)
+</pre><!--para>
+	NOTE: This will work only if the any script directive code segments
+	either do not directly produce text output themselves (recommended) or
+	use the __write__ function instead of printing directly to standard
+	output.
+</para--><para>
+	Run has a third optional argument which allows the program to specify
+	a file to use as the standard output for the function.  In this case
+	print statements will work (since sys.stdout will be set to the file
+	while run() executes and set back to whatever it was previously
+	afterwards.  Thus you can call
+</para>
+	<pre style="programListing">
+		f = open("flintstone.html", "w")
+		m.run(dictionary, outputfile=f)
+</pre><para>
+	WARNING: the preppy module will signal an error if both __write__ and
+	outputfile are defined -- use one or the other or neither, not both.
+</para>
+
+<h2>Recursive Imports of preppy modules:</h2>
+<outlineAdd level="1">Recursive Imports of preppy modules</outlineAdd>
+
+<para>
+	Recursive imports of preppy modules should use getModule which
+	guarantees that once the module is loaded once it will not be loaded
+	a second time. At present there is no special directive to do this.
+	Use a script directive.
+</para>
+
+<h2>NonDirectives</h2>
+<outlineAdd level="1">NonDirectives</outlineAdd>
+
+<para>
+	Text not recognized as directives (or partial erroneous directives)
+	is sent to standard output unmodified by the run() function.
+</para>
+
+<h2>Directives</h2>
+<outlineAdd level="1">Directives</outlineAdd>
+
+<para>
+	Directives are set off by 
+</para>
+	<pre style="programListing">
+			STARTDELIMITER = "{{"
+			ENDDELIMITER = "}}"
+</pre><para>
+	these module constants can be altered, but alteration may
+	result in parsing difficulties if the replacements are not chosen
+	carefully.
+</para><para>
+	NOTE ABOUT ESCAPING: The string {${ will be translated to {{ anywhere
+	in the text after delimiters have been identified.  Similarly }$} will
+	be translated to }}.  Furthermore $$ will translate to $.  To specify
+	two $'s in sequence use $$$$.  Single $'s will be left alone outside of
+	{${ or }$}.
+</para><para>
+	Below are the discussions of the directives in turn.
+</para>
+<h3>
+token:	{{token}}
+</h3>
+<para>
+	This construct is recognized if the token
+	does not match any of the other directives.  The result of this directive
+	is the value of token evaluated as a python expression in the context
+	of the m.run() function.  An example might be
+</para>
+	<pre style="programListing">
+		{{dictionary["name"]+2}}
+</pre><para>
+	The result of the evaluation is introduced into the output stream
+	(using standard python string conversion, if needed).
+</para>
+<h3>
+eval:	{{eval}}python_expression{{endeval}}
+</h3><para>
+	This is a longer way to spell {{python_expression}} :). It is useful
+	for larger expressions like
+</para>
+	<pre style="programListing">
+	{{eval}}
+	a_complex("and", "very", "verbose", function="call")
+	{{endeval}}
+</pre><para>
+	The expression is evaluated and the result is inserted in the output
+	stream as in token.
+</para><para>
+	WARNING: for token, eval, and script any newlines in the code text
+	will be automatically indented to the proper indentation level for
+	the run() module at that insertion point.  This is only a concern
+	for triple quoted strings.  If this may be an issue don't use triple
+	quoted strings in preppy source. Instead of
+</para>
+	<pre style="programListing">
+	x = """
+	a string
+	"""
+</pre><para>
+	use
+</para>
+	<pre style="programListing">
+	x = ("\n"
+	"\ta string\n"
+	)
+</pre><para>
+	or similar.
+</para><para>
+	NOTE: inside the script and eval directives the STARTTAG {{ and ENDTAG
+	}} will be ignored unless they occur within {{endeval}} or {{endscript}}
+	respectively.
+</para>
+<h3>
+script:	{{script}}python_code_line{{endscript}}
+</h3>
+	<para>which can also be</para>
+	<pre style="programListing">
+		{{script}}
+		many
+		lines
+		indented
+		properly
+		{{endscript}}
+</pre>
+<para>
+	This executes a sequence of python code within the context of the
+	run() function.  An example would be
+</para>
+	<pre style="programListing">
+		{{script}}import math; x = math.sin(math.pi/4.0){{endscript}}
+</pre><para>
+	or
+</para>
+	<pre style="programListing">
+		{{script}}
+		import math
+		x = math.sin(math.pi/4.0){{endscript}}
+</pre><para>
+	RESTRICTION: in the multiline case the indentation should follow
+	Python conventions (of course) and any initial indentation should be
+	character for character the same between the lines of code
+	(except for completely white lines).  In particular if the first line
+	begins with 8 spaces the next line should not begin with a TAB.
+</para><para>
+	SCRIPT RECOMMENDATION 1: If possible the script tags should not directly
+	produce standard output, but instead define string variables that
+	are introduced in token directives.
+</para><para>
+	SCRIPT RECOMMENDATION 2: If a script must produce standard output
+	itself it should use the function
+</para>
+	<pre style="programListing">
+		__write__(string)
+</pre><para>
+	which is always defined in the context of the run() function and
+	allows the output to be redirected flexibly without modifying sys.stdout.
+	In particular the script should not use the "print" statement or other
+	direct writes to sys.stdout.
+</para><para>
+	SCRIPT RECOMMENDATION 3: If you ignore the first 2 recommendations then
+	never use the second argument of the run() function to redirect the
+	output -- reset sys.stdout instead using the outputfile=file third argument.
+	In this case the generated function cannot send output to any structure
+	which doesn't support the Python file protocol.
+</para><h3>
+if forms
+</h3>
+	<pre style="programListing">
+	{{if condition}} block {{endif}}
+	{{if condition}} block1 {{else}} block2 {{endif}}
+	{{if condition}} block1 {{elif condition2}} block2 {{endif}}
+	{{if condition}} block1 {{elif condition2}} block2 
+			{{else}} block3 {{endif}}
+		...etcetera...
+</pre><para>
+	This conditionally executes segments of text and directives.
+	each condition should be a python expression in the context of the
+	run() function.  The blocks may contain other directives and text.
+</para><h3>
+for loops
+</h3>
+	<pre style="programListing">
+	{{for for_target}} block {{endfor}}
+</pre><para>
+	This implements a for loop in preppy source.  The for_target should follow
+	normal python conventions for python for loops.  The resulting python 
+	code is roughly
+</para>
+	<pre style="programListing">
+	for for_target:
+		interpretation_of(block)
+</pre><h3>
+while loops
+</h3>
+	<pre style="programListing">
+	{{while condition}} block {{endwhile}}
+</pre>	
+<para>
+	This implements a while loop in preppy source.  The condition should be
+	a python expression.  The resulting python code is roughly
+</para>
+	<pre style="programListing">
+	while condition:
+		interpretation_of(block)
+</pre>
+
+<h2>
+STATIC COMPILATION
+</h2>
+<outlineAdd level="1">Static Compilation</outlineAdd>
+
+<para>
+	To statically compile a preppy module once and for all you can
+	use preppy as command line program.  For example suppose the
+	example file given above is in "./flintstone.prep" in the same
+	directory as preppy.  Then compile it using
+	</para>
+		<pre style="programListing">
+		C:\reportlab\repository\rlextra\preppy> preppy.py flintstone
+		no module flintstone found (or error)
+		CHECKSUMS DON'T MATCH
+		regenerating python source from .\flintstone.prep
+</pre><para>
+	You can then test it using a static import
+</para>	<pre style="programListing"><![CDATA[
+		C:\reportlab\repository\rlextra\preppy>python
+		Python 1.5.2 (#0, Apr 13 1999, 10:51:12) [MSC 32 bit (Intel)] on win32
+		Copyright 1991-1995 Stichting Mathematisch Centrum, Amsterdam
+		>>> from flintstone import run
+		>>> D =  {'sex': 'm', 'name': 'george'}
+		>>> run(D)
+
+		        <html><head><title>george</title></head><body>
+		        hello my name is george and I am
+		         a guy
+
+		        </body></html>
+		>>>
+]]></pre><para>
+	Note that preppy modules which do not dynamically import other preppy
+	modules may be used "stand-alone" without the preppy module itself
+	present.
+</para>
+
+<h2>
+SYNTAX CHECKING:
+</h2>
+<outlineAdd level="1">Syntax Checking</outlineAdd>
+
+<para>
+	Python code expressions and code blocks are checked for syntactic
+	correctness using the Python compiler during generation in an attempt
+	to detect errors in a helpful way during code generation.  Partial
+	code blocks or expressions are not allowed.
+</para><para>
+	For example the following will result in errors reported at generation time.
+</para>
+	<pre style="programListing">
+		{{5*}} {{10}}  (5* is not a complete expression)
+</pre><para>
+	and
+</para>
+	<pre style="programListing">
+		{{script}}
+		if x=40: # syntax error in expression x=40
+			y = 9
+		{{endscript}}
+</pre><para>
+	and
+</para>
+	<pre style="programListing">
+		{{script}}
+		if x==40: # incomplete if statement
+		{{endscript}}
+			the value of x is 40
+</pre><para>
+	and
+</para>
+	<pre style="programListing">
+		{{if x==40: y=9}} (not a valid if directive)
+</pre><para>
+	However NameErrors or other run time errors which are not detected
+	by the Python compiler will not be detected at generation time.  For
+	example the compiler will not understand that this is an invalid
+	function call (it is syntactically acceptable to the grammar)
+</para>
+	<pre style="programListing">
+		{{ "this"("doesn't work") }}
+</pre><para>
+	This error will be detected during execution of the run() function
+	if and when the code segment containing it is executed.
+</para>
+	<pre style="programListing">
+		...TypeError: call of non-function (type string)
+</pre>
+
+<h2>
+ADDITIONAL NOTES:
+</h2>
+<outlineAdd level="1">Additional Notes</outlineAdd>
+
+<para>
+	You may define classes and functions in scripts but remember that they
+	are defined in the local context of the run() function and do not have access
+	to local variables in the run() function.  Any variable you wish to
+	use in a class or function (except for __write__ and dictionary and
+	outputfile, the run function arguments) can be declared global in the script
+</para>
+	<pre style="programListing">
+		global variable
+</pre><para>
+	(But note that this is a slightly dangerous thing to do in the unlikely
+	event that the generated module is used in a multithreaded python
+	application).  Also if you wish to make the classes or functions available
+	to other modules you must declare them global and the run() function must
+	be executed at least once before the exported functions or classes are used
+	(NOT RECOMMENDED!).
+</para><para>
+	WARNING: extra whitespace at the end of a line is discarded in the source.
+	(rationale: had problems with extra carriage returns at ends of some lines
+	and this was an easy fix, but AFAIK it may need to be undone at some
+	later time if trailing whitespace is needed sometime...).
+</para><para>
+	Commenting your code: There is no specific Preppy form of comments. It allows 
+	you to use python comments inside its directives, or you can use the style of comments 
+	in whatever language preppy is processing (eg <!-- and --> in HTML). Be careful
+	about mixing the two. Preppy will always execute preppy directives, no matter what 
+	surrounds them. So attempting to comment out Preppy directives with HTML comments will
+	not work - something that's easily done if you are not concentrating.
+	</para>
+		<pre style="programListing">
+<![CDATA[
+	<!-- 
+	{{# if this wasn't a comment, Preppy would execute it}}
+	-->
+	]]></pre>	
+
+
+ 
+</story>
+
+</document>
