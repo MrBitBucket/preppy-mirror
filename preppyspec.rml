@@ -25,15 +25,11 @@
         <image file="../rml2pdf/doc/images/replogo.gif" x="155" y="626"/>
 
         <setFont name="Times-Roman" size="10"/>
-        <drawString x="72" y="110">Lombard Business Park</drawString>
-        <drawString x="72" y="98">8 Lombard Road</drawString>
+        <drawString x="72" y="110">Thornton House</drawString>
+        <drawString x="72" y="98">Thornton Road</drawString>
         <drawString x="72" y="86">Wimbledon</drawString>
-        <drawString x="72" y="74">London, ENGLAND SW19 3TZ</drawString>
+        <drawString x="72" y="74">London SW19 4NG, UK</drawString>
 
-        <drawRightString x="523" y="110">103 Bayard Street</drawRightString>
-        <drawRightString x="523" y="98">New Brunswick</drawRightString>
-        <drawRightString x="523" y="86">New Jersey, 08901</drawRightString>
-        <drawRightString x="523" y="74">USA</drawRightString>
     </pageGraphics>
     <frame id="first" x1="72" y1="72" width="451" height="698"/>
     </pageTemplate>
