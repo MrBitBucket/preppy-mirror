@@ -9,7 +9,7 @@
 
 
 import os, glob, string, random
-from rlextra.preppy import preppy
+import preppy
 import unittest
 
 class LoadTestCase(unittest.TestCase):

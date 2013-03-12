@@ -7,13 +7,13 @@
 # $Id$
 
 import os, glob, string
-from rlextra.preppy import preppy
+import preppy
 import unittest
 
 class SimpleTestCase(unittest.TestCase):
     def setUp(self):
-        import rlextra.preppy.test.check_basics
-        self.dirName = os.path.dirname(rlextra.preppy.test.check_basics.__file__)
+        import check_basics
+        self.dirName = os.path.dirname(check_basics.__file__)
 
     def check01ScriptTag(self):
         processTest('sample001')
@@ -206,8 +206,8 @@ suite = unittest.makeSuite(SimpleTestCase,'check')
 def processTest(filename, dictionary={}):
     #this ensures we search for prep files in the module
     #where this tests lives, wherever we invoked them from.
-    import rlextra.preppy.test.check_basics
-    dirName = os.path.dirname(rlextra.preppy.test.check_basics.__file__)
+    import check_basics
+    dirName = os.path.dirname(check_basics.__file__)
     #print 'processTest:',dictionary
     root, ext = os.path.splitext(filename)
     outFileName = os.path.join(dirName, root + '.html')

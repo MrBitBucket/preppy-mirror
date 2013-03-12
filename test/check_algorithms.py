@@ -5,7 +5,7 @@
 # no side-effects on file system, run anywhere.
 __version__=''' $Id$ '''
 import os, glob, string, random
-from rlextra.preppy import preppy
+import preppy
 import unittest
 
 class GeneratedCodeTestCase(unittest.TestCase):
@@ -125,8 +125,27 @@ class GeneratedCodeTestCase(unittest.TestCase):
         self.assertEquals(out, "A&B<p>Smith & Jones</p><p>Smith & Jones\n</p>")
         #self.assertEquals(self.getRunTimeOutput('{{script}}v="{{"{{endscript}}{{v}}'), "{{")
 
-        from rlextra.utils.cgisupport import quoteValue
-        out = self.getRunTimeOutput(source, clientName='Smith & Jones', quoteFunc=quoteValue)
+
+        def customQuoteFunc(v):
+            """Here's a very old, but real, quote function we once used.
+            
+            Defense against people embedding Javascript in parameters.
+            Script kiddies often hope that you will echo through some form
+            parameter like a surname in a text field into HTML, so they
+            can embed some huge chunk of their own HTMl code in it.
+            This ensures any tags in input are escaped and thus deactivated"""
+
+            vs = v.split("&")
+            if len(vs)>1:
+                # quote ampersands, but not twice
+                v = '&'.join([vs[0]]+
+                        [((";" not in f or len(f.split(";")[0].split())>1) and 'amp;' or '')+f for f in vs[1:]]
+                        )
+            return v.replace("<","&lt;").replace(">","&gt;").replace('"',"&quot;").replace("'","&#039;")
+
+
+
+        out = self.getRunTimeOutput(source, clientName='Smith & Jones', quoteFunc=customQuoteFunc)
         #print out
         self.assertEquals(out, "A&B<p>Smith &amp; Jones</p><p>Smith &amp; Jones\n</p>")
 
@@ -243,7 +262,7 @@ class NewGeneratedCodeTestCase(unittest.TestCase):
             self.getRunTimeOutput("{{def()}}{{script}}i=14{{endscript}}Hello World{{i}}",
                 __quoteFunc__=self.brace, __lquoteFunc__=self.bracket),
                 "[Hello World]{14}")
-#
+
 #   def checkExpr1(self):
 #       prepCode = "Hello {{2+2}} World"
 #       out = self.getRunTimeOutput(prepCode)

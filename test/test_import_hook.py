@@ -1,7 +1,7 @@
 #
 import os
-from rlextra.preppy import preppy
-from reportlab.test import unittest
+import preppy
+import unittest
 
 class ImportTestCase(unittest.TestCase):
 
@@ -11,8 +11,8 @@ class ImportTestCase(unittest.TestCase):
         preppy.installImporter()
         if os.path.isfile('sample001.pyc'):
             os.remove('sample001.pyc')
-        import rlextra.preppy.test.sample001
-        rlextra.preppy.test.sample001.getOutput({})
+        import sample001
+        sample001.getOutput({})
 
         #uninstallImporter seems not to work
 
