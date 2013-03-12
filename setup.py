@@ -1,10 +1,50 @@
 from distutils.core import setup
+import os, sys
 
-setup(name='preppy',
-      version='0.9.1',
-      description='preppy - a Preprocessor for Python',
-      author='Robin Becker, Andy Robinson, Aaron Watters',
-      author_email='andy@reportlab.com',
-      url='http://bitbucket.org/rptlab/preppy',
-      py_modules=['preppy']
+if __name__=='__main__':
+    pkgDir=os.path.dirname(sys.argv[0])
+    if not pkgDir:
+        pkgDir=os.getcwd()
+    if not os.path.isabs(pkgDir):
+        pkgDir=os.path.abspath(pkgDir)
+
+
+    scriptsPath=os.path.join(pkgDir,'build','scripts')
+    def makeScript(modName):
+        try:
+            bat=sys.platform in ('win32','amd64')
+            scriptPath=os.path.join(scriptsPath+(bat and '.bat' or ''),modName)
+            exePath=sys.executable
+            f = open(scriptPath,'w')
+            try:
+                if bat:
+                    text = '@echo off\n"%s" -m "%s" %%*\n' % (exePath,modName)
+                else:
+                    text = '#!/bin/sh\nexec "%s" -m "%s" $*\n' % (exePath,modName)
+                f.write(text)
+            finally:
+                f.close()
+        except:
+            print 'script for %s not created or erroneous' % modName
+            import traceback
+            traceback.print_exc(file=sys.stdout)
+            return None
+        print 'Created "%s"' % scriptPath
+        return scriptPath
+
+    scripts = []
+    if not os.path.isdir(scriptsPath): os.makedirs(scriptsPath)
+    scripts.extend(filter(None,[
+            makeScript('preppy'),
+        ]))
+
+
+    setup(name='preppy',
+        version='1.0dev',
+        description='preppy - a Preprocessor for Python',
+        author='Robin Becker, Andy Robinson, Aaron Watters',
+        author_email='andy@reportlab.com',
+        url='http://bitbucket.org/rptlab/preppy',
+        py_modules=['preppy'],
+        scripts=scripts,
      )
