@@ -40,7 +40,7 @@ if __name__=='__main__':
 
 
     setup(name='preppy',
-        version='1.0dev',
+        version='1.0rc1',
         description='preppy - a Preprocessor for Python',
         author='Robin Becker, Andy Robinson, Aaron Watters',
         author_email='andy@reportlab.com',
