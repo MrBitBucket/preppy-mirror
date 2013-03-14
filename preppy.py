@@ -33,8 +33,8 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = 0.9
-__version__=''' $Id$ '''
+VERSION = '1.0b1'
+__version__ = VERSION
 
 USAGE = """
 The command line interface lets you test, compile and clean up:

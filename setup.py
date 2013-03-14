@@ -7,9 +7,23 @@ if __name__=='__main__':
         pkgDir=os.getcwd()
     if not os.path.isabs(pkgDir):
         pkgDir=os.path.abspath(pkgDir)
+    sys.path.insert(0,pkgDir)
+    os.chdir(pkgDir)
 
+    def getVERSION(fn):
+        f = open(fn,'r')
+        try:
+            for l in f.readlines():
+                if l.startswith('VERSION'):
+                    exec l
+                    return VERSION
+        finally:
+            f.close()
+        return 'unknown'
 
+    version = getVERSION(os.path.join(pkgDir,'preppy.py'))
     scriptsPath=os.path.join(pkgDir,'build','scripts')
+
     def makeScript(modName):
         try:
             bat=sys.platform in ('win32','amd64')
@@ -18,9 +32,9 @@ if __name__=='__main__':
             f = open(scriptPath,'w')
             try:
                 if bat:
-                    text = '@echo off\n"%s" -m "%s" %%*\n' % (exePath,modName)
+                    text = '@echo off\nrem startup script for %s-%s\n"%s" -m "%s" %%*\n' % (modName,version,exePath,modName)
                 else:
-                    text = '#!/bin/sh\nexec "%s" -m "%s" $*\n' % (exePath,modName)
+                    text = '#!/bin/sh\n#startup script for %s-%s\nexec "%s" -m "%s" $*\n' % (modName,version,exePath,modName)
                 f.write(text)
             finally:
                 f.close()
@@ -40,7 +54,7 @@ if __name__=='__main__':
 
 
     setup(name='preppy',
-        version='1.0rc1',
+        version=version,
         description='preppy - a Preprocessor for Python',
         author='Robin Becker, Andy Robinson, Aaron Watters',
         author_email='andy@reportlab.com',
