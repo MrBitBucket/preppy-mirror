@@ -10,18 +10,8 @@ if __name__=='__main__':
     sys.path.insert(0,pkgDir)
     os.chdir(pkgDir)
 
-    def getVERSION(fn):
-        f = open(fn,'r')
-        try:
-            for l in f.readlines():
-                if l.startswith('VERSION'):
-                    exec l
-                    return VERSION
-        finally:
-            f.close()
-        return 'unknown'
-
-    version = getVERSION(os.path.join(pkgDir,'preppy.py'))
+    import preppy
+    version = preppy.VERSION
     scriptsPath=os.path.join(pkgDir,'build','scripts')
 
     def makeScript(modName):
