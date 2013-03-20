@@ -37,7 +37,7 @@ no need to invent a new one.  Preppy has met all of our needs well, with minimal
 changes.
 
 Our main product is a markup-based system for creating PDF documents, Report
-Markup Language &trade;.  When we create reports for people, we use a template
+Markup Language.  When we create reports for people, we use a template
 to generate an RML file, in the same way that most people make web pages. We
 need a templating system for our own demos and tutorials, as well as solutions
 we build, which is 'in the box' and easy to understand.  We also build web
@@ -67,13 +67,15 @@ Quick Start
 
 If you're too busy to read the whole page, the next few lines should get you going.
 
-Place your template code in a file which, by convention, ends in .prep.  Here is an example::
+Place your template code in a file which, by convention, ends in .prep.  Here is an example:
 
+.. code-block:: django
+ 
     <html><head><title>{{name}}</title></head><body>
     hello my name is {{name}} and I am
     {{if sex=="f":}} a gal
     {{elif sex=="m":}} a guy
-    {{else:}} neuter {{endif}}
+    {{else}} neuter {{endif}}
     </body></html>
 
 If this is in a file called, say, ``template.prep``, you can invoke it like this::
@@ -96,7 +98,9 @@ Preppy has a small number of tags, enclosed in pairs of curly braces:
 
 
 
-Any Python expression will be evaluated in the current namespace, and thence converted to a string representation.  Examples::
+Any Python expression will be evaluated in the current namespace, and thence converted to a string representation.  Examples:
+
+.. code-block:: django
 
     The total is {{2+2}}
 
@@ -156,7 +160,7 @@ those functions in one line.
 
 .. describe:: {{if EXPR}}...{{elif EXPR}}...{{else}}...{{endif}}
 
-The *{{if}}*` statement does exactly what Python's *if* statement does.  You may optionally use multiple *elif* clauses and one *else* clause.
+The *{{if}}*` statement does exactly what Python's *if* statement does.  You may optionally use multiple *elif* clauses and one *else* clause.  The final colon after each clause ("*else:*") is optional.
 
     
 
@@ -199,7 +203,7 @@ There are two ways to load a preppy module into memory.  We refer to these as 'f
 File system semantics
 ---------------------
 
-The file system method is implemented by `getModule`
+The file system method is implemented by :func:`getModule`:
 
 .. function:: getModule(name, directory=".", source_extension=".prep", verbose=0, savefile=None, sourcetext=None, savePy=0, force=0, savePyc=1, importModule=1,_globals=None)
 
@@ -209,7 +213,7 @@ There is no predefined search path or list of template directories.  *name* can 
 
     m = getModule(os.path.join(PROJECT_DIR, 'myapp/templates/template.prep'))
 
-Alternatively, you can pass the module name and directory separately if you prefer.  
+Alternatively, you can pass the module name and directory separately if you prefer::  
 
     m = getModule('template', directory='TEMPLATE_DIR'))
 
@@ -231,11 +235,11 @@ Let's say you have a template called 'mytemplate.prep', on the current Python pa
     import mytemplate
     html = mytemplate.getOutput(namespace)
 
-``installImporter`` only needs to be called once in your program.
+:func:`installImporter` only needs to be called once in your program.
 
 .. function:: uninstallImporter()
 
-This does what it says.  You don't need to call it.
+This does what it says.  You don't need to call it, unless you have a reason to remove import hooks.
 
 Executing the template
 ======================
@@ -251,11 +255,11 @@ This accepts a dictionary, which will be used as the namespace within the templa
 
 The *quoteFunc* argument lets you control how non-text variables are displayed.  This is covered in detail below.
 
-If you prefer a streaming or file-based approach, you can use
+If you prefer a streaming or file-based approach, you can use :func:`run`:
 
 .. function:: run(dictionary, __write__=None, quoteFunc=str, outputfile=None,code=__code__)
 
-You may either supply a function callback to __write__, which will be called repeatedly with the generated text; or a file-like object to *outputfile*.
+You may either supply a function callback to *__write__*, which will be called repeatedly with the generated text; or a file-like object to *outputfile*.
 
 The second technique involves passing explicit arguments to the template.  This is covered below under *templates with declarations*.  It requires that you place a declaration at the top of the .prep file to give it a function signature.
 
@@ -298,7 +302,7 @@ considering changing the default quoting function to one which encodes as utf8.
 
 
 Templates with declarations - ``def`` and ``get``
-================================================
+==================================================
 In an attempt to make preppy even more like a Python function, we introduced explicit declarations.  
 In a large system, it can get quite hard to keep track of what variables are being passed into the template; you have to look in another module (such as the *view*, in a Django project).  If you believe that *explicit is better than implicit*, you may prefer to have your declarations at the top of the module you are working on - just as the argument signature is at the top of any function.
 
@@ -314,12 +318,12 @@ This is a declaration that the template will be called with two arguments, 'data
 A programmer asked to do maintenance on the template will generally find this helpful because
 they know immediately what is being passed in.
 
-The template must then be called with the shorter *get* function instead of *getOutput*:
+The template must then be called with the shorter :func:`get` function instead of :func:`getOutput`:
 
 
 .. function:: get(*args, **kwds)
 
-For example, let's say you have a template named ``mytemplate.prep`` beginning like this::
+For example, let's say you have a template named `mytemplate.prep` beginning like this::
 
     {{def(data, options)}}
     <html>
