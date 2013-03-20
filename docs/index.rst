@@ -46,7 +46,7 @@ applications, and when we want something strict and minimal, we use preppy.
 Moving on, most major web frameworks have settled on a templating system. The
 most popular ones, such as Django or Jinja, are very full-featured.  They have
 focused on creating a new language for web designers.  They are getting fairly
-big and complex and they impose their own learning curve.  THey also result in
+big and complex and they impose their own learning curve.  They also result in
 template programming becoming a different skill to the main application, and
 sometimes with a different philosophy.  For example, in the Django world,
 templates are supposed to be coded by designers who lack programming skills,
@@ -312,10 +312,7 @@ In a large system, it can get quite hard to keep track of what variables are bei
 
 To use explicit declarations, add a line with ``{{def(MY_ARGUMENT_LIST}}`` at the top of your template.  This is
 supposed to look like a Python function declaration, but without the function name.  It supports
-positional and keyword arguments.
-
-This is a declaration that the template will be called with two arguments, 'data' and 'options'.
-A programmer asked to do maintenance on the template will generally find this helpful because
+positional and keyword arguments.  A programmer asked to do maintenance on the template will generally find this helpful because
 they know immediately what is being passed in.
 
 The template must then be called with the shorter :func:`get` function instead of :func:`getOutput`:
@@ -331,7 +328,7 @@ For example, let's say you have a template named `mytemplate.prep` beginning lik
         <title>My masterpiece</title>
 
 
-This tells the person reading the template that these are the ONLY two variables in the namespace.  You have to execute the template as follows::
+This tells the person reading the template that *data* and *options* are the ONLY two variables in the namespace.  You have to execute the template as follows::
 
     html = mytemplate.get(data, options)
 
