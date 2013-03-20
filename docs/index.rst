@@ -11,7 +11,7 @@ been in continual production use since then.  It is open source (BSD-license).
 
 The key features are:
 
-* *single Python module*.  It's easy to include it in your project
+* *small*.  Preppy is a single Python module.  If you want a templating system 'in the box', it's easy to include it in your project
 * *easy to learn*.  It takes about one minute to scan all the features
 * *just Python*.  We have not invented another language, and if you want to do something - includes, quoting, filters - you just use Python
 * *compiled to bytecode*: a .prep file gets compiled to a Python function in a .pyc file
@@ -50,13 +50,14 @@ big and complex and they impose their own learning curve.  They also result in
 template programming becoming a different skill to the main application, and
 sometimes with a different philosophy.  For example, in the Django world,
 templates are supposed to be coded by designers who lack programming skills,
-and are forgiving of errors.
+and the system is deliberately forgiving of errors.  In our experience, this 
+laxity leads to more subtle problems a few days later on in development.
 
 Within ReportLab we take the view that a template is code; it is expected to
 be correct, and to raise errors when misspelled or nonexistent variables are
 used.  It is far easier to create a robust system when the templates use
-the same language, and are debugged in exactly the same way, as the application
-code.  
+the same language as the rest of the application, and are debugged in exactly 
+the same way, as the application code.  
 
 Later on, we'll show how many features of high-end templating systems are handled
 with short Python expressions.
@@ -65,12 +66,16 @@ with short Python expressions.
 Quick Start
 ===========
 
-If you're too busy to read the whole page, the next few lines should get you going.
+Preppy can be installed from ``easy_install``, ``pip``, by downloading and using ``setup.py install`, by cloning from bitbucket.  Or, because it's just a single Python module, you can grab it and put it on your path, or check it into your application.
+
+
+If you're too busy to read the whole page, the next few lines should get you going. First, get preppy on your path through one of the above methods.
 
 Place your template code in a file which, by convention, ends in .prep.  Here is an example:
 
 .. code-block:: django
- 
+
+    {{def(name, sex)}} 
     <html><head><title>{{name}}</title></head><body>
     hello my name is {{name}} and I am
     {{if sex=="f":}} a gal
@@ -81,11 +86,11 @@ Place your template code in a file which, by convention, ends in .prep.  Here is
 If this is in a file called, say, ``template.prep``, you can invoke it like this::
 
     mymodule = preppy.getModule('template.prep')
-    
-    namespace = dict('name':'fred','sex':'m')
-    html = mymodule.getOutput(namespace)
+    name = 'fred'
+    sex = 'm'
+    html = mymodule.get(name, sex)
 
-``getModule`` returns a Python module object. On first call, or when templates are edited, this will generate a .pyc file, just as a Python module does (assuming you have write access to the disk). This module contains a function, ``getOutput``, which implements your template.  The function accepts parameters and returns a big (non-Unicode, 8-bit) string.
+``getModule`` returns a Python module object. On first call, or when templates are edited, this will generate a .pyc file, just as a Python module does (assuming you have write access to the disk). This module contains a function, ``get``, which implements your template.  The function accepts the parameters which you specified at the top of the prep file, and returns a (non-Unicode, 8-bit) string.  
 
 This is preppy's key design idea:  we try to make a preppy template as much like a python function as possible.
 
@@ -94,8 +99,16 @@ Template syntax
 ===============
 Preppy has a small number of tags, enclosed in pairs of curly braces:
 
-.. describe:: {{expression}}
+.. describe:: {{def(YOUR_ARGUMENT_LIST}}
 
+This is a special construct which must be placed near the top of a .prep file.  If used, it should be the first preppy directive.  It allows you to explicitly declare the parameters which will be passed in.  You can do most of the things you can do with a Python function:  positional arguments, keyword arguments, and ``\*args`` and ``\*\*kwds``.  The only difference is that there is no function name.  We compile this into a Python function named :func:`get`.
+
+There is an older way of using preppy, which omits this declaration, and lets you pass an arbitrary dictionary of arguments to the template, like most other templating systems.  This should be regarded as deprecated and will be omitted in version 2, both for usability reasons, and for technical reasons to do with bytecode generation as we move to Python 3.x.  I
+
+We do it this way because, in over a decade working with preppy, we have found that it's very valuable to have an explicit declaration at the top of a .prep file telling you what variables are in the namespace.  Otherwise, on large projects, one ends up constantly referring to the calling code in another module.  
+  
+
+.. describe:: {{expression}}
 
 
 Any Python expression will be evaluated in the current namespace, and thence converted to a string representation.  Examples:
@@ -107,6 +120,9 @@ Any Python expression will be evaluated in the current namespace, and thence con
     {{range(10)}}
 
     Dear {{client.name}},
+
+By default, the expression is converted by Python's ``str()`` function.  So the python value ``None`` will appear as the text ``None`` in the output, and any non-ascii characters in a string will trigger an exception.  In each application, you have the option to define your own **quoting functions** to use instead, which we discuss below.
+
 
 
 .. describe:: {{eval}}
@@ -191,9 +207,6 @@ a python expression.  The resulting python code is roughly::
         interpretation_of(block)
 
 
-.. describe:: {{def(YOUR_ARGUMENT_LIST}}
-
-This is a special construct which can be placed only on the first line of a .prep file.  It allows you to explicitly declare the parameters which will be passed in.  It is covered under 'templates with declarations' below.
 
 
 Module import options
@@ -209,7 +222,9 @@ The file system method is implemented by :func:`getModule`:
 
 This loads your template, which is a Python module object.  
 
-There is no predefined search path or list of template directories.  *name* can be a relative or full path. Commonly in web applications we work out the full path to the template directory and do everything with the *name* argument::
+There is no predefined search path or list of template directories; if you want to implement your own template search path, you're free to write a function of your own which wraps :func:`getModule`.
+
+*name* can be a relative or full path. Commonly in web applications we work out the full path to the template directory and do everything with the *name* argument::
 
     m = getModule(os.path.join(PROJECT_DIR, 'myapp/templates/template.prep'))
 
@@ -217,7 +232,7 @@ Alternatively, you can pass the module name and directory separately if you pref
 
     m = getModule('template', directory='TEMPLATE_DIR'))
 
-Finally, you can supply literal source if desired.  Although if you are constructing templates on the fly.
+Finally, you can supply literal source if desired.  This is primarily to help us in writing test cases; if you're doing it for real,  you are probably either doing something brilliant or stupid ;-)  
 
 The resulting module should be treated just like a Python module:  import it, keep it around, and call it many times.  
 
@@ -227,7 +242,7 @@ In an attempt to make preppy templates even more like Python code, we have also 
 
 .. function:: installImporter()
 
-Let's say you have a template called 'mytemplate.prep', on the current Python path.  You can do this::
+Let's say you have a template called 'mytemplate.prep', on the current Python path.  With the import hook, you can import your template instead of loading it with :func:`getModule`::
 
     import preppy
     preppy.installImporter()
@@ -239,31 +254,45 @@ Let's say you have a template called 'mytemplate.prep', on the current Python pa
 
 .. function:: uninstallImporter()
 
-This does what it says.  You don't need to call it, unless you have a reason to remove import hooks.
+This does what it says.  You probably don't need to call it, unless you have a reason to remove import hooks, or you're working on preppy's test suite.
 
 Executing the template
 ======================
 
-We provide two ways to execute a template and generate output.  The most common approach is
+We provide two ways to execute a template and generate output.  The preferred, new approach is as we demonstrated at the top of the page: you pass the same arguments through that are specified at the top of the .prep file.
+
+
+.. function:: get(arg1, arg2, etc, key1=value1, key2=value2, etc=etc, quoteFunc=str)
+
+For example, if the template starts with this::
+
+    {{def(name, sex)}}
+
+then you would call it with::
+
+    output = mymodule.get(name, sex)
+
+The return value is always an 8-bit string (which will become a *bytes* object in Python 3.x).
+
+
+The older approach is to pass in an arbitrary-sized dictionary, as done by most other templating systems (e.g. django, jinja).  In this case, you must NOT define a *def* declaration at the top of the module.  This uses a function :func:`getOutput` defined as follows:
+
 
 .. function:: getOutput(dictionary, quoteFunc=str)
 
-This accepts a dictionary, which will be used as the namespace within the template, and returns the output. For example::
+This would be used as follows:
 
     namespace = {'name':'fred','age':42, 'sex':'m'}
     html = template.getOutput(namespace) 
 
-The *quoteFunc* argument lets you control how non-text variables are displayed.  This is covered in detail below.
+In both cases, the *quoteFunc* argument lets you control how non-text variables are displayed.  In a typical web project, you will want to supply your own quoting function.  This is covered in detail below.
 
-If you prefer a streaming or file-based approach, you can use :func:`run`:
+If you prefer a streaming or file-based approach, you can use the :func:`run` function in the old style approach:
 
 .. function:: run(dictionary, __write__=None, quoteFunc=str, outputfile=None,code=__code__)
 
 You may either supply a function callback to *__write__*, which will be called repeatedly with the generated text; or a file-like object to *outputfile*.
 
-The second technique involves passing explicit arguments to the template.  This is covered below under *templates with declarations*.  It requires that you place a declaration at the top of the .prep file to give it a function signature.
-
-.. function:: get(*args, **keywords)
 
 
 Quoting functions
@@ -279,64 +308,35 @@ because Python can't convert this to ASCII::
       <p>{{client.surname}}</p>
 
 Another common use for a quote function is to escape '&' signs, which may well
-appear in database fields, and will produce illegal markup.
+appear in database fields, and will produce illegal markup. In most cases, when generating
+HTML or XML, you need to escape the characters '&','&lt;' and '&gt;'.
 
 A third use is to identify and remove javascript or SQL snippets, which might
 have been passed in by a hacker.
 
 In general, you should decide on the quoting function you need, and pass it
-in when templates are called.  Here is a minimal one::
+in when templates are called.  Here is a minimal one which does a few useful things
+when the target is utf8-encoded HTML:
+
+ * 8 bit strings will be xml-escaped
+ * Any null value will produce no output.  This might be useful if you are displaying a lot of numbers in table cells and don't want the word 'None' appearing everywhere.
+ * anything else will be converted to a Unicode string representation (just in case the string representation contains non-ascii characters), and then encoded as utf8, then escaped.  
 
     from xml.sax.saxutils import escape  #this escapes '&','<' and '>'
-    def quote(stuff):
-        utf8 = unicode(stuff).encode('utf-8')
-        return escape(utf8)
+    def myQuoteFunc(stuff):
+        if stuff is None:
+            return ''
+        if isinstance(stuff, str):
+            return escape(str)
+        else:
+            return escape(unicode(stuff).encode('utf-8'))
 
 
+You would use this as follows::
 
-Preppy has been around for a long time - since before Python had unicode.  We are
-considering changing the default quoting function to one which encodes as utf8.
-
-
+    output = mymodule.get(name, sex, quoteFunc=myQuoteFunc)
 
 
-
-Templates with declarations - ``def`` and ``get``
-==================================================
-In an attempt to make preppy even more like a Python function, we introduced explicit declarations.  
-In a large system, it can get quite hard to keep track of what variables are being passed into the template; you have to look in another module (such as the *view*, in a Django project).  If you believe that *explicit is better than implicit*, you may prefer to have your declarations at the top of the module you are working on - just as the argument signature is at the top of any function.
-
-
-.. function:: def(*args, **kwds)
-
-
-To use explicit declarations, add a line with ``{{def(MY_ARGUMENT_LIST}}`` at the top of your template.  This is
-supposed to look like a Python function declaration, but without the function name.  It supports
-positional and keyword arguments.  A programmer asked to do maintenance on the template will generally find this helpful because
-they know immediately what is being passed in.
-
-The template must then be called with the shorter :func:`get` function instead of :func:`getOutput`:
-
-
-.. function:: get(*args, **kwds)
-
-For example, let's say you have a template named `mytemplate.prep` beginning like this::
-
-    {{def(data, options)}}
-    <html>
-      <head>
-        <title>My masterpiece</title>
-
-
-This tells the person reading the template that *data* and *options* are the ONLY two variables in the namespace.  You have to execute the template as follows::
-
-    html = mytemplate.get(data, options)
-
-
-This is particularly helpful when nesting templates.  In an outer template, you can call another one with a single line, and be clear about what is being passed in::
-
-    <h1>Terms and conditions</h1>
-    {{terms_template.get(data, options)}}
 
 
 
@@ -411,9 +411,7 @@ a script tag, and call them inline::
     <h1>Appendix</h1>
     {{appendix.get(data, options)}}
 
-or:: 
-
-    {{appendix.getOutpu(namespace)}}
+Being able to see what is passed in when you are editing the outer template, as well as what is expected in the inner template, turns out to be a huge advantage in maintenance when you are dealing with large systems of nested templates. 
 
 
 Automatic escaping
@@ -421,7 +419,7 @@ Automatic escaping
 Many systems can escape all expressions output into HTML as a security measure.  Some go further and try to remove Javascript. Preppy solves this by letting you pass in your own quote function.  
 
 
-In systems which do this, they commonly require an extra construct to mark some expressions as 'safe', and not to be escaped.  This can be accomplished by having a string subclass, and having your quote function recognise and pass it through.
+In systems which do this, they commonly require an extra construct to mark some expressions as 'safe', and not to be escaped.  This can be accomplished by having a string subclass, and having your quote function recognise and pass it through.  
 
 
 
@@ -433,18 +431,22 @@ Django has a nice syntax for filters - functions which tidy up output::
 
     {{number | floatformat}}
 
-Our approach is to have functions with short names.  For example, if a template had to
+Our approach is to have functions with short names, and avoid introducing extra syntax.  
+This is very slightly more verbose.  For example, if a template had to
 display many values in pounds sterling, we could write a function *fmtPounds* which
 adds the pound sign, formats with commas every thousand and two decimal places.  
-These functions can also be set to output an empty string for None or missing values.
+These functions can also be set to output an empty string for None or missing values,
+to set a class on the output for negative number display, or whatever you require.
 
-We then display like this::
+We then display a value like this::
     
     <td>{{fmtPounds(total)}}</td>
 
 This approach requires a couple of extra parentheses, but is easy to understand and
 saves us from having to write a ton of filters.  It also encourages consistency in
-your formatting. It is common
+your formatting. 
+
+It is common
 and useful to define these once per application in a helper module and import them.
 For example with our own Report Markup Language (used for PDF generation), we will
 commonly have a large template called 'rmltemplate.prep', and a helper Python module
@@ -468,13 +470,25 @@ can be done with a master template and included sub-templates.
 
 
 
+Support
+=======
+
+We suggest using the ``reportlab-users`` mailing list for any support issues, or raising a bug report on bitbucket.  ReportLab's commercial customers can also email our support address; others will be blocked by a whitelist.
+
+
+Future Plans
+============
+
+It is likely that, in 2013, we will rewrite preppy from the ground up using the compiler support in Python 2.7 and 3.3.  We'll be ensuring there is 'only one way to do it'.  If you follow the guidelines above, minimal changes should be needed to templates.
+
+We hope there is still a place for a lightweight, minimal, fast templating system in the Python world, and welcome feedback and experiences if you embed this system in your project.
+
+Credits
+=======
+The initial implementation was done by Aaron Watters, to a broad design by Andy Robinson.  This worked by actual code generation, creating a python module with the :func:`getOutput` function, which was optionally save to disk.
+
+Robin Becker than optimised this by generating bytecodes directly, and later implemented the newer *function declaration* style.
 
 
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 
