@@ -17,7 +17,7 @@ if __name__=='__main__':
     def makeScript(modName):
         try:
             bat=sys.platform in ('win32','amd64')
-            scriptPath=os.path.join(scriptsPath+(bat and '.bat' or ''),modName)
+            scriptPath=os.path.join(scriptsPath,modName+(bat and '.bat' or ''))
             exePath=sys.executable
             f = open(scriptPath,'w')
             try:
