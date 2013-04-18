@@ -154,6 +154,15 @@ class GeneratedCodeTestCase(unittest.TestCase):
         out = self.getRunTimeOutput(source, clientName='Smith & Jones', quoteFunc=myQuote)
         self.assertEquals(out, "A&B<p>Smith and Jones</p><p>Smith and Jones\n</p>")
 
+        #Andy's standard quote for django
+        source = '<a>{{A}}</a>'
+        self.assertEquals(self.getRunTimeOutput(source, A=1.2, quoteFunc=preppy.stdQuote), "<a>1.2</a>")
+        self.assertEquals(self.getRunTimeOutput(source, A='<&>', quoteFunc=preppy.stdQuote), "<a>&lt;&amp;&gt;</a>")
+        self.assertEquals(self.getRunTimeOutput(source, A=preppy.SafeString('<&>'), quoteFunc=preppy.stdQuote), "<a><&></a>")
+        self.assertEquals(self.getRunTimeOutput(source, A=preppy.SafeUnicode('<&>'), quoteFunc=preppy.stdQuote), "<a><&></a>")
+        self.assertEquals(self.getRunTimeOutput(source, A=u'\xae', quoteFunc=preppy.stdQuote), "<a>\xc2\xae</a>")
+        
+
 class NewGeneratedCodeTestCase(unittest.TestCase):
     """Maybe the simplest and most all-encompassing:
     take a little prep file, compile, exec, and verify that
@@ -263,113 +272,6 @@ class NewGeneratedCodeTestCase(unittest.TestCase):
                 __quoteFunc__=self.brace, __lquoteFunc__=self.bracket),
                 "[Hello World]{14}")
 
-#   def checkExpr1(self):
-#       prepCode = "Hello {{2+2}} World"
-#       out = self.getRunTimeOutput(prepCode)
-#       self.assertEquals(out, "Hello 4 World")
-#
-#   def checkWhitespaceRespected1(self):
-#       prepCode = "{{2+2}} " # 1 trailing space
-#       out = self.getRunTimeOutput(prepCode)
-#       self.assertEquals(out, "4 ")
-#
-#   def checkWhitespaceRespected2(self):
-#       prepCode = "  \t \r{{2+3}}\n " # 1 trailing space
-#       out = self.getRunTimeOutput(prepCode)
-#       self.assertEquals(out, "  \t \r5\n ")
-#
-#   def checkIfStatement1(self):
-#       prepCode = "Hello, my name is {{name}} and I am a " \
-#                  "{{if sex=='m'}}guy{{elif sex=='f'}}gal{{else}}neuter{{endif}}."
-#
-#       out = self.getRunTimeOutput(prepCode, name='fred',sex='m')
-#       self.assertEquals(out, "Hello, my name is fred and I am a guy.")
-#
-#       out = self.getRunTimeOutput(prepCode, name='fred',sex='m')
-#       self.assertEquals(out, "Hello, my name is fred and I am a guy.")
-#
-#       out = self.getRunTimeOutput(prepCode, name='fred',sex='m')
-#       self.assertEquals(out, "Hello, my name is fred and I am a guy.")
-#
-#   def checkFuncWithSideEffects(self):
-#       prepLines = []
-#       prepLines.append('{{script}}l = [1, 2]{{endscript}}')
-#       prepLines.append('{{l.pop()}},')
-#       prepLines.append('{{l.pop()}},')
-#       prepLines.append('{{len(l)}}')
-#       prepCode = ''.join(prepLines)
-#       out = self.getRunTimeOutput(prepCode)
-#       self.assertEquals(out, "2,1,0")
-#
-#   def checkWhileColon(self):
-#       self.assertEquals(self.getRunTimeOutput('{{script}}i=2{{endscript}}{{while i>=0:}}{{i}}{{if i}},{{endif}}{{script}}i-=1{{endscript}}{{endwhile}}'), "2,1,0")
-#
-#   def checkWhileNoColon(self):
-#       self.assertEquals(self.getRunTimeOutput('{{script}}i=2{{endscript}}{{while i>=0}}{{i}}{{if i}},{{endif}}{{script}}i-=1{{endscript}}{{endwhile}}'), "2,1,0")
-#
-#   def checkForColon(self):
-#       self.assertEquals(self.getRunTimeOutput('{{for i in (1,2,3):}}{{i}}{{if i!=3}},{{endif}}{{endfor}}'), "1,2,3")
-#
-#   def checkForNoColon(self):
-#       self.assertEquals(self.getRunTimeOutput('{{for i in (1,2,3)}}{{i}}{{if i!=3}},{{endif}}{{endfor}}'), "1,2,3")
-#
-#   def checkIfColon(self):
-#       self.assertEquals(self.getRunTimeOutput('{{if 1:}}1{{endif}}'), "1")
-#
-#   def checkIfNoColon(self):
-#       self.assertEquals(self.getRunTimeOutput('{{if 1}}1{{endif}}'), "1")
-#
-#   def checkIndentingWithComments(self):
-#       self.assertEquals(self.getRunTimeOutput('''{{script}}
-#       #
-#           i=0
-#               #
-#           i=1
-#   #
-#       {{endscript}}{{i}}'''),"1")
-#
-#   def checkForVars(self):
-#       self.assertEquals(self.getRunTimeOutput('{{i}}{{for i in (1,2,3)}}{{i}}{{if i!=3}},{{endif}}{{endfor}}',i='A'), "A1,2,3")
-#
-#   def checkLoopVars(self):
-#       self.assertEquals(self.getRunTimeOutput('{{i}}{{"".join([str(i) for i in (1,2,3)])}}',i='A'), "A123")
-#
-#   def checkClosingBraces(self):
-#       self.assertEquals(self.getRunTimeOutput('i}}'), "i}}")
-#
-#   def checkBackSlashes(self):
-#       self.assertEquals(self.getRunTimeOutput('{{script}}i=1+2+\\\n\t3{{endscript}}{{i}}'), "6")
-#
-#   def checkCatchesUnterminated(self):
-#       self.assertRaises((ValueError,SyntaxError),self.getRunTimeOutput,'{{script}}i=1+2+\\\n\t3{{endscript}}{{i}')
-#
-#   def checkCatchesIllegalBackSlash(self):
-#       self.assertRaises((SyntaxError,ValueError),self.getRunTimeOutput,'{{script}}i=1+2+\\ \n\t3{{endscript}}{{i}}')
-#
-#   def checkQuoting(self):
-#
-#       #preppy by default does nothing
-#       source = "<p>{{clientName}}</p>"
-#       out = self.getRunTimeOutput(source, clientName='Smith & Jones')
-#       self.assertEquals(out, "<p>Smith & Jones</p>")
-#
-#
-#       #a quoting function should work on output
-#       source = "A&B<p>{{clientName}}</p><p>{{script}}print clientName{{endscript}}</p>"
-#       out = self.getRunTimeOutput(source, clientName='Smith & Jones')
-#       self.assertEquals(out, "A&B<p>Smith & Jones</p><p>Smith & Jones\n</p>")
-#       #self.assertEquals(self.getRunTimeOutput('{{script}}v="{{"{{endscript}}{{v}}'), "{{")
-#
-#       from rlextra.utils.cgisupport import quoteValue
-#       out = self.getRunTimeOutput(source, clientName='Smith & Jones', quoteFunc=quoteValue)
-#       #print out
-#       self.assertEquals(out, "A&B<p>Smith &amp; Jones</p><p>Smith &amp; Jones\n</p>")
-#
-#
-#       def myQuote(x):
-#           return x.replace("&", "and")
-#       out = self.getRunTimeOutput(source, clientName='Smith & Jones', quoteFunc=myQuote)
-#       self.assertEquals(out, "A&B<p>Smith and Jones</p><p>Smith and Jones\n</p>")
 
 class OutputModeTestCase(unittest.TestCase):
     """Checks all ways of generating output return identical

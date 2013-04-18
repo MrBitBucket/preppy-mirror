@@ -72,7 +72,15 @@ try:
     from hashlib import md5
 except ImportError:
     from md5 import md5
-from compiler import pycodegen, pyassem, future, consts
+
+import warnings
+try:
+     warnings.simplefilter("ignore")
+     from compiler import pycodegen, pyassem, future, consts
+     del warnings.filters[0]
+except:
+    from compiler import pycodegen, pyassem, future, consts
+del warnings
 
 try:
     consts_SC_GLOBAL = (consts.SC_GLOBAL_IMPLICIT, consts.SC_GLOBAL_EXPLICT)
@@ -83,6 +91,29 @@ except AttributeError:
     except AttributeError:
         #assume we must be very old style python
         consts_SC_GLOBAL = (consts.SC_GLOBAL,)
+
+#Andy's standard quote for django
+class SafeBase(basestring):
+    pass
+class SafeString(SafeBase,str):
+    pass
+class SafeUnicode(SafeBase,unicode):
+    pass
+
+from xml.sax.saxutils import escape as xmlEscape
+def stdQuote(s):
+    if not isinstance(s,basestring):
+        cnv = getattr(s,'__unicode__',None)
+        if not cnv:
+            cnv = getattr(s,'__str__',None)
+        s = cnv() if cnv else str(s)
+    if isinstance(s,SafeBase):
+        if isinstance(s,SafeUnicode):
+            s = s.encode('utf8')
+        return s
+    elif isinstance(s,unicode):
+        s = s.encode('utf8')
+    return xmlEscape(s)
 
 def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
     L = []
