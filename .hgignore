@@ -35,3 +35,6 @@ syntax: glob
 build
 __pycache__
 *.pyd
+test/loadsample*.*
+test/*TestFile.txt
+test/sample*.html
