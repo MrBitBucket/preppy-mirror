@@ -285,7 +285,7 @@ This would be used as follows:
     namespace = {'name':'fred','age':42, 'sex':'m'}
     html = template.getOutput(namespace) 
 
-In both cases, the *quoteFunc* argument lets you control how non-text variables are displayed.  In a typical web project, you will want to supply your own quoting function.  This is covered in detail below.
+In both cases, the *quoteFunc* argument lets you control how non-text variables are displayed.  In a typical web project, you will want to supply your own quoting function, to do things like escaping '&' as '&amp;'.  This is covered in detail below.
 
 If you prefer a streaming or file-based approach, you can use the :func:`run` function in the old style approach:
 
@@ -302,40 +302,46 @@ This causes a problem in the markup world, where output us usually utf-8 encoded
 The *quoteFunc* argument lets you pass in an alternative function which will be used
 to quote any output.
 
-An expression like the one below will fail on the first foreign accent in a name,
-because Python can't convert this to ASCII::
+If you are generating XML or HTML (which most people are), and you have a database field or variable containing one of the characters '<', '>' or '&', then it is easy to generate invalid markup.::
+
+   <p>{{companyName}}</p>   -->  <p>Johnson & Johnson</p>
+
+An expression like the one below will fail on the first foreign accent in a name, raising
+a traceback, because Python can't convert this to ASCII::
 
       <p>{{client.surname}}</p>
-
-Another common use for a quote function is to escape '&' signs, which may well
-appear in database fields, and will produce illegal markup. In most cases, when generating
-HTML or XML, you need to escape the characters '&','&lt;' and '&gt;'.
 
 A third use is to identify and remove javascript or SQL snippets, which might
 have been passed in by a hacker.
 
 In general, you should decide on the quoting function you need, and pass it
-in when templates are called.  Here is a minimal one which does a few useful things
-when the target is utf8-encoded HTML:
+in when templates are called.  
 
+
+xmlQuote and SafeString
+-----------------------
+We have provided one such function inside preppy.py, *stdQuote*, which is useful for XML and HTML generation. It behaves as follows:
+
+ * Any tontent you
  * 8 bit strings will be xml-escaped
  * Any null value will produce no output.  This might be useful if you are displaying a lot of numbers in table cells and don't want the word 'None' appearing everywhere.
+ * Anything you DON'T want to be quoted can be wrapped in a special SafeString or SafeUnicode class, and it won't be quoted
  * anything else will be converted to a Unicode string representation (just in case the string representation contains non-ascii characters), and then encoded as utf8, then escaped.  
-
-    from xml.sax.saxutils import escape  #this escapes '&','<' and '>'
-    def myQuoteFunc(stuff):
-        if stuff is None:
-            return ''
-        if isinstance(stuff, str):
-            return escape(str)
-        else:
-            return escape(unicode(stuff).encode('utf-8'))
+ 
 
 
 You would use this as follows::
 
-    output = mymodule.get(name, sex, quoteFunc=myQuoteFunc)
+    output = mymodule.get(name, sex, quoteFunc=preppy.stdQuote)
 
+If you are using this and you want to output a string which preppy should NOT quote (perhaps because it comes from some utility which already generates correct, escaped HTML), wrap it in the *SafeString* or *SafeUnicode* class, and it will not be escaped::
+
+    <h1>My markup</h1>
+    {{script}}from preppy import SafeString{{endscript}}}}
+    
+    <p>{{SafeString(my_already_escaped_text)}}</p>
+
+Note that SafeString and SafeUnicode are string wrappers designed to work with the *stdQuote* function, and have no useful behaviour in other contexts.
 
 
 
@@ -418,8 +424,7 @@ Automatic escaping
 ------------------
 Many systems can escape all expressions output into HTML as a security measure.  Some go further and try to remove Javascript. Preppy solves this by letting you pass in your own quote function.  
 
-
-In systems which do this, they commonly require an extra construct to mark some expressions as 'safe', and not to be escaped.  This can be accomplished by having a string subclass, and having your quote function recognise and pass it through.  
+In systems which do this, they commonly require an extra construct to mark some expressions as 'safe', and not to be escaped.  This can be accomplished by having a string subclass, and having your quote function recognise and pass it through.  See the *stdQuote* function above
 
 
 

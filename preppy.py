@@ -102,6 +102,7 @@ class SafeUnicode(SafeBase,unicode):
 
 from xml.sax.saxutils import escape as xmlEscape
 def stdQuote(s):
+    if s is None: return '' #we usually don't want output
     if not isinstance(s,basestring):
         cnv = getattr(s,'__unicode__',None)
         if not cnv:
