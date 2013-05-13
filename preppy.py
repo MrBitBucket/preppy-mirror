@@ -710,25 +710,22 @@ def testgetmodule(name="testoutput"):
     print "load successful! running result"
     print "=" * 100
     result.run({})
-try:
-    from reportlab.lib.utils import rl_get_module
-except:
-    def rl_get_module(name,dir):
-        f, p, desc= imp.find_module(name,[dir])
-        if sys.modules.has_key(name):
-            om = sys.modules[name]
-            del sys.modules[name]
-        else:
-            om = None
+def rl_get_module(name,dir):
+    f, p, desc= imp.find_module(name,[dir])
+    if sys.modules.has_key(name):
+        om = sys.modules[name]
+        del sys.modules[name]
+    else:
+        om = None
+    try:
         try:
-            try:
-                return imp.load_module(name,f,p,desc)
-            except:
-                raise ImportError('%s[%s]' % (name,dir))
-        finally:
-            if om: sys.modules[name] = om
-            del om
-            if f: f.close()
+            return imp.load_module(name,f,p,desc)
+        except:
+            raise ImportError('%s[%s]' % (name,dir))
+    finally:
+        if om: sys.modules[name] = om
+        del om
+        if f: f.close()
 
 # cache found modules by source file name
 FILE_MODULES = {}

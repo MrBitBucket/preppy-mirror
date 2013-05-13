@@ -296,8 +296,11 @@ class OutputModeTestCase(unittest.TestCase):
         output1 = string.join(collector,'')
 
         #use file-like object
-        from reportlab.lib.utils import getStringIO
-        buf = getStringIO()
+        try:
+            from cStringIO import StringIO
+        except ImportError, e:
+            from StringIO import StringIO
+        buf = StringIO()
         mod.run(params, outputfile=buf)
         output2 = buf.getvalue()
         assert output1 == output2, '__write__ and outputfile results differ'
