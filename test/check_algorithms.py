@@ -175,6 +175,10 @@ class NewGeneratedCodeTestCase(unittest.TestCase):
         mod=preppy.getModule('test_preppy',savePyc=0,sourcetext=prepCode)
         return mod.get(*args,**kwds)
 
+    def checkSpuriousError(self):
+        self.assertEquals(2+2, 5)
+
+
     def checkNoGet(self):
         self.assertRaises(AttributeError,self.getRunTimeOutput,"Hello World")
 
