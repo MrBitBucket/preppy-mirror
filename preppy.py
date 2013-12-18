@@ -67,147 +67,97 @@ QUOTEQUOTE = "$$"
 # SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
 UNESCAPES = ((QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE))
 
-import re, sys, os, imp, struct, tokenize, StringIO, token
-try:
-    from hashlib import md5
-except ImportError:
-    from md5 import md5
+import re, sys, os, imp, struct, tokenize, token
+from hashlib import md5
+isPy3 = sys.version_info.major == 3
+from xml.sax.saxutils import escape as xmlEscape
 
-import warnings
-try:
-     warnings.simplefilter("ignore")
-     from compiler import pycodegen, pyassem, future, consts
-     del warnings.filters[0]
-except:
-    from compiler import pycodegen, pyassem, future, consts
-del warnings
+if isPy3:
+    from io import BytesIO
+    def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
+        try:
+            L = tokenize.tokenize(BytesIO(s.strip().encode('utf8')).readline)
+        except:
+            return False
+        return len(L)<=3 and L[-2][0]==NAME and L[-1][0]==ENDMARKER
 
-try:
-    consts_SC_GLOBAL = (consts.SC_GLOBAL_IMPLICIT, consts.SC_GLOBAL_EXPLICT)
-except AttributeError:
-    try:
-        #cope with idiots who fix the spelling
-        consts_SC_GLOBAL = (consts.SC_GLOBAL_IMPLICIT, consts.SC_GLOBAL_EXPLICIT)
-    except AttributeError:
-        #assume we must be very old style python
-        consts_SC_GLOBAL = (consts.SC_GLOBAL,)
+    class SafeString(bytes):
+        pass
+    class SafeUnicode(str):
+        pass
+    _ucvn = '__str__'   #unicode conversion
+    _bcvn = '__bytes__' #bytes conversion
+    _ncvt = str         #native converter
+    bytesT = bytes
+    unicodeT = str
+    strTypes = (str,bytes)
+    import builtins
+    rl_exec = getattr(builtins,'exec')
+    del builtins
+else:
+    from StringIO import StringIO
+    def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
+        L = []
+        try:
+            tokenize.tokenize(StringIO(s.strip()).readline,lambda *a: L.append(a))
+        except:
+            return False
+        return len(L)==2 and L[0][0]==NAME and L[1][0]==ENDMARKER
+
+    class SafeString(str):
+        pass
+    class SafeUnicode(unicode):
+        pass
+    _ucvn = '__unicode__'
+    _bcvn = '__str__'
+    _ncvt = unicode
+    bytesT = str
+    unicodeT = unicode
+    strTypes = basestring
+    def rl_exec(obj, G=None, L=None):
+        if G is None:
+            frame = sys._getframe(1)
+            G = frame.f_globals
+            if L is None:
+                L = frame.f_locals
+            del frame
+        elif L is None:
+            L = G
+        exec("""exec obj in G, L""")
 
 #Andy's standard quote for django
-class SafeBase(basestring):
-    pass
-class SafeString(SafeBase,str):
-    pass
-class SafeUnicode(SafeBase,unicode):
-    pass
-
-from xml.sax.saxutils import escape as xmlEscape
+_safeBase = SafeString, SafeUnicode
 def stdQuote(s):
     if not isinstance(s,basestring):
         if s is None: return '' #we usually don't want output
-        cnv = getattr(s,'__unicode__',None)
+        cnv = getattr(s,_ucvn,None)
         if not cnv:
-            cnv = getattr(s,'__str__',None)
+            cnv = getattr(s,_bcvn,None)
         s = cnv() if cnv else str(s)
-    if isinstance(s,SafeBase):
-        if isinstance(s,SafeUnicode):
-            s = s.encode('utf8')
+    if isinstance(s,_safeBase):
+        if isinstance(s,SafeString):
+            s = s.decode('utf8')
         return s
-    elif isinstance(s,unicode):
-        s = s.encode('utf8')
+    elif not isinstance(s,_ncvt):
+        s = s.decode('utf8')
     return xmlEscape(s)
 
-def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
-    L = []
-    try:
-        tokenize.tokenize(StringIO.StringIO(s.strip()).readline,lambda *a: L.append(a))
-    except:
-        return False
-    return len(L)==2 and L[0][0]==NAME and L[1][0]==ENDMARKER
+def pnl(s):
+    '''print without a lineend'''
+    if isinstance(s,unicodeT):
+        s = s.encode(sys.stdout.encoding,'replace')
+    sys.stdout.write(s)
 
-class _preppy_FunctionCodeGenerator(pycodegen.FunctionCodeGenerator):
-    def __init__(self, func, scopes, isLambda, class_name, mod):
-        self.scopes = scopes
-        self.scope = scopes[func]
-        self.class_name = class_name
-        self.module = mod
-        if isLambda:
-            klass = pycodegen.FunctionCodeGenerator
-            name = "<lambda.%d>" % klass.lambdaCount
-            klass.lambdaCount += 1
-        else:
-            name = func.name
-        args, hasTupleArg = pycodegen.generateArgList(func.argnames)
-        self.optimized = int(name!='__code__')
-        self._special_locals = name=='__code__'
-        self.graph = pyassem.PyFlowGraph(name, func.filename, args,
-                                         optimized=self.optimized)
-        if name=='__code__': self.graph.setFlag(consts.CO_NEWLOCALS)
-        self.isLambda = isLambda
-        self.super_init()
-
-        if not isLambda and func.doc:
-            self.setDocstring(func.doc)
-
-        lnf = pycodegen.walk(func.code, self.NameFinder(args), verbose=0)
-        self.locals.push(lnf.getLocals())
-        if func.varargs:
-            self.graph.setFlag(consts.CO_VARARGS)
-        if func.kwargs:
-            self.graph.setFlag(consts.CO_VARKEYWORDS)
-        self.set_lineno(func)
-        if hasTupleArg:
-            self.generateArgUnpack(func.argnames)
-        self.graph.setFreeVars(self.scope.get_free_vars())
-        self.graph.setCellVars(self.scope.get_cell_vars())
-        if self.scope.generator is not None:
-            self.graph.setFlag(pycodegen.CO_GENERATOR)
-
-    def _nameOp(self, prefix, name):
-        name = self.mangle(name)
-        scope = self.scope.check_name(name)
-        if self._special_locals and name=='locals': name = 'globals'
-        if scope == consts.SC_LOCAL:
-            if not (self.optimized or name in ['dictionary','__write__','__swrite__','outputfile', '__save_sys_stdout__', '__preppy__d__']):
-                self.emit(prefix + '_NAME', name)
-            else:
-                self.emit(prefix + '_FAST', name)
-        elif scope in consts_SC_GLOBAL:
-            if not self.optimized:
-                self.emit(prefix + '_NAME', name)
-            else:
-                self.emit(prefix + '_GLOBAL', name)
-        elif scope == consts.SC_FREE or scope == consts.SC_CELL:
-            self.emit(prefix + '_DEREF', name)
-        else:
-            raise RuntimeError, "unsupported scope for var %s: %d" % \
-                  (name, scope)
-
-class _preppy_ModuleCodeGenerator(pycodegen.ModuleCodeGenerator):
-    def __init__(self, tree):
-        self.graph = pyassem.PyFlowGraph("<module>", tree.filename)
-        self.futures = future.find_futures(tree)
-        pycodegen.ModuleCodeGenerator._ModuleCodeGenerator__super_init(self)
-        self.__class__.FunctionGen = _preppy_FunctionCodeGenerator
-        pycodegen.walk(tree, self)
+def pel(s):
+    '''print with a line ending'''
+    pnl(s)
+    pnl('\n')
 
 def unescape(s, unescapes=UNESCAPES):
     for (old, new) in unescapes:
         s = s.replace(old, new)
     return s
 
-
-"""
-{{if x:}} this text $(endif}} that
-
-becomes
-
-if x:
-    print (" this text"),
-print (that\n")
-
-note that extra spaces may be introduced compliments of print.
-could change this to a file.write for more exact control...
-"""
 
 teststring = """
 this test script should produce a runnable program
@@ -309,7 +259,7 @@ def dedent(text):
             continue
         lindent = l[:findfirstword]
         if lindent!=indent:
-            raise ValueError, "inconsistent indent expected %s got %s in %s" % (repr(indent), repr(lindent), l)
+            raise ValueError("inconsistent indent expected %s got %s in %s" % (repr(indent), repr(lindent), l))
         linesout.append(l[findfirstword:])
     return '\n'.join(lempty*['']+linesout)
 
@@ -325,24 +275,23 @@ def _denumber(node,lineno=-1):
     if node.lineno!=lineno: node.lineno = lineno
     for child in node.getChildNodes(): _denumber(child,lineno)
 
-class PreppyParser(pycodegen.Module):
-    from compiler import parse as _cparse
-    _cparse = staticmethod(_cparse)
-    def __init__(self,*args,**kw):
-        pycodegen.Module.__init__(self,*args,**kw)
+class PreppyParser:
+    def __init__(self,source,filename):
         self._defSeen = 0
+        self.source = source
+        self.filename = filename
 
     def compile(self, display=0):
         tree = self._get_tree()
         gen = _preppy_ModuleCodeGenerator(tree)
         if display:
             import pprint
-            print pprint.pprint(tree)
+            pprint.pprint(tree)
         self.code = gen.getCode()
 
     def getPycHeader(self):
         try:
-            if getattr(self,'nosourcefile',0): raise ValueError
+            if getattr(self,'nosourcefile',0): raise ValueError('no source file')
             mtime = os.path.getmtime(self.filename)
         except:
             import time
@@ -351,7 +300,6 @@ class PreppyParser(pycodegen.Module):
         return self.MAGIC + mtime
 
     def _get_tree(self):
-        from compiler import misc, syntax
         tree = self.__get_ast()
         misc.set_filename(self.filename, tree)
         syntax.check(tree)
@@ -701,14 +649,14 @@ if __name__=='__main__':
 
 def testgetOutput(name="testoutput"):
     mod = getModule(name,'.',savePyc=1,sourcetext=teststring,importModule=1)
-    print mod.getOutput({})
+    pel(mod.getOutput({}))
 
 def testgetmodule(name="testoutput"):
     #name = "testpreppy"
-    print "trying to load", name
+    pel("trying to load", name)
     result = getPreppyModule(name, verbose=1)
-    print "load successful! running result"
-    print "=" * 100
+    pel( "load successful! running result")
+    pel("=" * 100)
     result.run({})
 def rl_get_module(name,dir):
     f, p, desc= imp.find_module(name,[dir])
@@ -770,7 +718,7 @@ def getModule(name,
         # any extension
         name = os.path.splitext(name)[0]
         if verbose:
-            print 'checking %s...' % os.path.join(dir, name),
+            pnl('checking %s...' % os.path.join(dir, name))
         # savefile is deprecated but kept for safety.  savePy and savePyc are more
         # explicit and are the preferred.  By default it generates a pyc and no .py
         # file to reduce clutter.
@@ -780,7 +728,7 @@ def getModule(name,
     if sourcetext is not None:
         # they fed us the source explicitly
         if not name: name = '_preppy_'+md5(sourcetext+repr(VERSION)).digest()
-        if verbose: print "sourcetext provided...",
+        if verbose: pnl("sourcetext provided...")
         sourcefilename = "<input text %s>" % name
         sourcechecksum = md5(sourcetext + repr(VERSION)).digest()
         nosourcefile = 1
@@ -802,17 +750,17 @@ def getModule(name,
             if _globals:
                 module.__dict__.update(_globals)
             checksum = module.__checksum__
-            if verbose: print "found...",
+            if verbose: pnl("found...")
         except: # ImportError:  #catch ALL Errors importing the module (eg name="")
             module = checksum = None
-            if verbose: print " py/pyc not found...",
+            if verbose: pnl(" py/pyc not found...")
             # check against source file
         try:
             sourcefile = open(sourcefilename, "r")
         except:
-            if verbose: print "no source file, reuse...",
+            if verbose: pnl("no source file, reuse...")
             if module is None:
-                raise ValueError, "couldn't find source %s or module %s" % (sourcefilename, name)
+                raise ValueError("couldn't find source %s or module %s" % (sourcefilename, name))
             # use the existing module??? (NO SOURCE PRESENT)
             FILE_MODULES[sourcefilename] = module
             return module
@@ -824,17 +772,17 @@ def getModule(name,
                 if force==0:
                     # use the existing module. it matches
                     if verbose:
-                        print "up to date."
+                        pnl("up to date.")
                     FILE_MODULES[sourcefilename] = module
                     return module
                 else:
                     # always recompile
-                    if verbose: print 'forced recompile,',
+                    if verbose: pnl('forced recompile,')
             elif verbose:
-                print "changed,",
+                pnl("changed,")
 
     # if we got here we need to rebuild the module from source
-    if verbose: print "recompiling"
+    if verbose: pel("recompiling")
     global DIAGNOSTIC_FUNCTION
     DIAGNOSTIC_FUNCTION = None
     P = PreppyParser(sourcetext,sourcefilename)
@@ -855,7 +803,7 @@ def getModule(name,
     module.__dict__['__preppy__vlhs__'] = __preppy__vlhs__
     if _globals:
         module.__dict__.update(_globals)
-    exec P.code in module.__dict__
+    rl_exec(P.code,module.__dict__)
     if importModule:
         if nosourcefile:
             SOURCE_MODULES[sourcetext] = module
@@ -884,7 +832,6 @@ def installImporter():
             ModuleLoader = self.__class__.__bases__[0]
             stuff = ModuleLoader.find_module_in_dir(self, name, dir, allow_packages)
             if stuff:
-                #print 'standard module loader worked'
                 return stuff
             else:
                 if dir:
@@ -926,7 +873,7 @@ def compileModules(pattern, savePy=0, force=0, verbose=1):
 from fnmatch import fnmatch
 def compileDir(dirName, pattern="*.prep", recursive=1, savePy=0, force=0, verbose=1):
     "Compile all prep files in directory, recursively if asked"
-    if verbose: print 'compiling directory %s' % dirName
+    if verbose: pel('compiling directory %s' % dirName)
     if recursive:
         def _visit(A,D,N,pattern=pattern,savePy=savePy, verbose=verbose,force=force):
             for filename in filter(lambda fn,pattern=pattern: fnmatch(fn,pattern),
@@ -939,25 +886,25 @@ def compileDir(dirName, pattern="*.prep", recursive=1, savePy=0, force=0, verbos
 def _cleanFiles(filenames,verbose):
     for filename in filenames:
         if verbose:
-            print '  found ' + filename + '; ',
+            pnl('  found ' + filename + '; ')
         root, ext = os.path.splitext(os.path.abspath(filename))
         done = 0
         if os.path.isfile(root + '.py'):
             os.remove(root + '.py')
             done = done + 1
-            if verbose: print ' removed .py ',
+            if verbose: pnl(' removed .py ')
         if os.path.isfile(root + '.pyc'):
             os.remove(root + '.pyc')
             done = done + 1
-            if verbose: print ' removed .pyc ',
+            if verbose: pnl(' removed .pyc ')
         if done == 0:
             if verbose:
-                print 'nothing to remove',
-        print
+                pnl('nothing to remove')
+        pel('')
 
 def cleanDir(dirName, pattern="*.prep", recursive=1, verbose=1):
     "Removes all py and pyc files matching any prep files found"
-    if verbose: print 'cleaning directory %s' % dirName
+    if verbose: pel('cleaning directory %s' % dirName)
     if recursive:
         def _visit(A,D,N,pattern=pattern,verbose=verbose):
             _cleanFiles(filter(lambda fn,pattern=pattern: fnmatch(fn,pattern),
@@ -969,7 +916,6 @@ def cleanDir(dirName, pattern="*.prep", recursive=1, verbose=1):
 
 def compileStuff(stuff, savePy=0, force=0, verbose=0):
     "Figures out what needs compiling"
-    #print 'compileStuff...savePy=%d, force=%d, verbose=%d' % (savePy, force, verbose)
     if os.path.isfile(stuff):
         compileModule(stuff, savePy=savePy, force=force, verbose=verbose)
     elif os.path.isdir(stuff):
@@ -1104,14 +1050,14 @@ def main():
             moduleName = sys.argv[1]
             module = getPreppyModule(moduleName, verbose=0)
             if hasattr(module,'get'):
-                print module.get()
+                pel(module.get())
             else:
                 params = extractKeywords(sys.argv)
                 module.run(params)
     else:
-        print "no argument: running tests"
+        pel("no argument: running tests")
         testgetOutput()
-        print; print "PAUSING.  To continue hit return"
+        pel(''); pel("PAUSING.  To continue hit return")
         raw_input("now: ")
         testgetmodule()
 
