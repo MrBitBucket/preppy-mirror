@@ -67,7 +67,7 @@ QUOTEQUOTE = "$$"
 # SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
 UNESCAPES = ((QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE))
 
-import re, sys, os, imp, struct, tokenize, token, ast
+import re, sys, os, imp, struct, tokenize, token, ast, traceback
 from hashlib import md5
 isPy3 = sys.version_info.major == 3
 from xml.sax.saxutils import escape as xmlEscape
@@ -383,10 +383,14 @@ class PreppyParser:
         '''obtain the column offset corresponding to a specific token'''
         return t.start-max(self.source.rfind('\n',0,t.start),0)-1
 
-    def __cparse(self,text):
-        '''parse a start fragment of code'''
-        tf = ast.parse(text,filename=self.filename,mode='exec').body[0]
+    def __rparse(self,text):
+        '''parse a raw fragment of code'''
+        tf = ast.parse(text,filename=self.filename,mode='exec').body
         return tf
+
+    def __iparse(self,text):
+        '''parse a start fragment of code'''
+        return self.__rparse(text)[0]
 
     def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval','def'],followers=['eof']):
         C = []
@@ -418,36 +422,39 @@ class PreppyParser:
         return None
 
     def __renumber(self,node,t):
+        if isinstance(node,list):
+            for f in node:
+                self.__renumber(f,t)
+            return
         if isinstance(t,Token):
             lineno_offset = t.lineno-1
             col_offset = self.__colOffset(t)-1
         else:
             lineno_offset, col_offset = t
-        if 'col_offset' in node._attributes and getattr(node,'lineno',1)==1:
-            node.col_offset = getattr(node,'col_offset',0)+col_offset
+        if 'col_offset' in node._attributes:
+            if getattr(node,'lineno',1)==1:
+                node.col_offset = getattr(node,'col_offset',0)+col_offset
+            elif not hasattr(node,'col_offset'):
+                node.col_offset = 0
         if 'lineno' in node._attributes:
             node.lineno = getattr(node,'lineno',1)+lineno_offset
         t = lineno_offset,col_offset
-        for field in ast.iter_child_nodes(node):
-            if isinstance(field,list):
-                for f in field:
-                    self.__renumber(f,t)
-            else:
-                self.__renumber(field,t)
+        for f in ast.iter_child_nodes(node):
+            self.__renumber(f,t)
 
     def __while(self,followers=['endwhile']):
         try:
-            n = self.__cparse('while '+self.__tokenText(forceColonPass=1))
+            n = self.__iparse('while '+self.__tokenText(forceColonPass=1))
         except:
             self.__error()
         t = self.__tokenPop()
         self.__renumber(n,t)
         n.body = self.__preppy(followers=followers)
-        return r
+        return n
 
     def __for(self,followers=['endfor']):
         try:
-            n = self.__cparse('for '+self.__tokenText(forceColonPass=1))
+            n = self.__iparse('for '+self.__tokenText(forceColonPass=1))
         except:
             self.__error()
         t = self.__tokenPop()
@@ -457,11 +464,11 @@ class PreppyParser:
 
     def __script(self,mode='script'):
         self.__tokenPop()
-        text = dedent(self.__tokenText(strip=0))
+        text = dedent(self.__tokenText(strip=0,colonRemove=False))
         scriptMode = 'script'==mode
         if text:
             try:
-                stmt = self.__cparse(text,scriptMode and 'exec' or 'eval').node
+                n = self.__rparse(text)
             except:
                 self.__error()
         t = self.__tokenPop()
@@ -472,10 +479,9 @@ class PreppyParser:
         except:
             self.__error(end+' expected')
         if not text: return []
-        self.__renumber(stmt,t)
-
-        if scriptMode: return stmt.nodes
-        return Discard(CallFunc(Name('__swrite__'), [stmt.getChildren()[0]],None,None))
+        if mode=='eval': n = ast.Expr(value=ast.Call(func=ast.Name(id='__swrite__',ctx=ast.Load()),args=n,keywords=[],starargs=None,kwargs=None))
+        self.__renumber(n,t)
+        return n
 
     def __eval(self):
         return self.__script(mode='eval')
@@ -486,7 +492,7 @@ class PreppyParser:
         t = 'elif'
         while t=='elif':
             try:
-                cond = self.__cparse(self.__tokenText(colonRemove=1),'eval').node
+                cond = self.__iparse(self.__tokenText(colonRemove=1))
             except:
                 self.__error()
             t = self.__tokenPop()
@@ -544,8 +550,8 @@ class PreppyParser:
         return self.__preppy()
 
     @staticmethod
-    def dump(node):
-        return ast.dump(node,annotate_fields=False,include_attributes=True)
+    def dump(node,include_attributes=True):
+        return ast.dump(node,annotate_fields=False,include_attributes=include_attributes)
 
     def __get_ast(self):
         preppyNodes = self.__parse()
