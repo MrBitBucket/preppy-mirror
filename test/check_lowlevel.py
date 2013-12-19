@@ -31,6 +31,12 @@ class PreppyParserTestCase(unittest.TestCase):
     def check_for(self):
         self.assertEqual(P__preppy('{{for i in 1,2,3}}abcdef{{endfor}}'), "For(Name('i', Store(), lineno=1, col_offset=7), Tuple([Num(1, lineno=1, col_offset=12), Num(2, lineno=1, col_offset=14), Num(3, lineno=1, col_offset=16)], Load(), lineno=1, col_offset=12), [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=16), [Str('abcdef', lineno=1, col_offset=16)], [], None, None, lineno=1, col_offset=16), lineno=1, col_offset=16)], [], lineno=1, col_offset=3)")
 
+    def check_while(self):
+        self.assertEqual(P__preppy('{{while i<10}}abcdef{{endwhile}}'), "While(Compare(Name('i', Load(), lineno=1, col_offset=11), [Lt()], [Num(10, lineno=1, col_offset=13)], lineno=1, col_offset=11), [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=12), [Str('abcdef', lineno=1, col_offset=12)], [], None, None, lineno=1, col_offset=12), lineno=1, col_offset=12)], [], lineno=1, col_offset=5)")
+
+    def check_eval(self):
+        self.assertEqual(P__preppy('{{eval}}str.split(\n     "this should show a list of strings")\n{{endeval}}'), "Expr(Call(Name('__swrite__', Load(), lineno=1, col_offset=6), [Expr(Call(Attribute(Name('str', Load(), lineno=1, col_offset=6), 'split', Load(), lineno=1, col_offset=6), [Str('this should show a list of strings', lineno=2, col_offset=5)], [], None, None, lineno=1, col_offset=6), lineno=1, col_offset=6)], [], None, None, lineno=1, col_offset=6), lineno=1, col_offset=6)")
+
 def makeSuite():
     return unittest.TestSuite((unittest.makeSuite(PreppyParserTestCase,'check'),))
 
