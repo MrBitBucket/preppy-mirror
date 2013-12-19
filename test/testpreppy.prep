@@ -10,7 +10,7 @@ this test script should produce a runnable program
   x = X()
   x.a = "THE A VALUE OF X"
   yislonger = "y is longer!"
-  import math, string
+  import math
   a = dictionary = {"key": "value", "key2": "value2", "10%": "TEN PERCENT"}
   loop = "LOOP"
 {{endscript}}
@@ -18,7 +18,7 @@ this line has a percent in it 10%
 here is the a value in x: {{x.a}}
 
 here is a test of the eval tag: 
-{{eval}}string.split(
+{{eval}}str.split(
 		"this should show a list of strings")
 {{endeval}}
 
