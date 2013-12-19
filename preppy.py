@@ -67,10 +67,12 @@ QUOTEQUOTE = "$$"
 # SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
 UNESCAPES = ((QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE))
 
-import re, sys, os, imp, struct, tokenize, token
+import re, sys, os, imp, struct, tokenize, token, ast
 from hashlib import md5
 isPy3 = sys.version_info.major == 3
 from xml.sax.saxutils import escape as xmlEscape
+from collections import namedtuple
+Token = namedtuple('Token','token lineno start end')
 
 if isPy3:
     from io import BytesIO
@@ -95,11 +97,11 @@ if isPy3:
     rl_exec = getattr(builtins,'exec')
     del builtins
 else:
-    from StringIO import StringIO
+    from StringIO import StringIO as BytesIO
     def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
         L = []
         try:
-            tokenize.tokenize(StringIO(s.strip()).readline,lambda *a: L.append(a))
+            tokenize.tokenize(BytesIO(s.strip()).readline,lambda *a: L.append(a))
         except:
             return False
         return len(L)==2 and L[0][0]==NAME and L[1][0]==ENDMARKER
@@ -267,27 +269,19 @@ def dedent(text):
 _pat = re.compile('{{\\s*|}}',re.M)
 _s = re.compile(r'^(?P<start>while|if|elif|for)(?P<startend>\s+|$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
 
-def _renumber(node,lineno_offset):
-    if node.lineno: node.lineno += lineno_offset
-    for child in node.getChildNodes(): _renumber(child,lineno_offset)
-
 def _denumber(node,lineno=-1):
     if node.lineno!=lineno: node.lineno = lineno
     for child in node.getChildNodes(): _denumber(child,lineno)
 
 class PreppyParser:
     def __init__(self,source,filename):
+        self.__mangle = '_%s__'%self.__class__.__name__
         self._defSeen = 0
         self.source = source
         self.filename = filename
 
     def compile(self, display=0):
         tree = self._get_tree()
-        gen = _preppy_ModuleCodeGenerator(tree)
-        if display:
-            import pprint
-            pprint.pprint(tree)
-        self.code = gen.getCode()
 
     def getPycHeader(self):
         try:
@@ -327,7 +321,7 @@ class PreppyParser:
                     self.__lexerror('Unexpected {{', i0)
                 else:
                     state = 1
-                    if i0!=ix: a(('const',lineno,ix,i0))
+                    if i0!=ix: a(Token('const',lineno,ix,i0))
                     ix = i1
             elif state:
                     state = 0
@@ -358,7 +352,7 @@ class PreppyParser:
                     else:
                         t = 'expr'  #expression
                     if not self._defSeen: self._defSeen = -1
-                    if i0!=ix: a((t,lineno,ix,i0))
+                    if i0!=ix: a(Token(t,lineno,ix,i0))
                     ix = i1
         else:
             lineno = 0
@@ -366,16 +360,18 @@ class PreppyParser:
         textLen = len(text)
         if ix!=textLen:
             lineno = text.count('\n',0,ix)+1
-            a(('const',lineno,ix,textLen))
-        a(('eof',lineno+1,textLen,textLen))
+            a(Token('const',lineno,ix,textLen))
+        a(Token('eof',lineno+1,textLen,textLen))
         self._tokenX = 0
         return tokens
 
-    def __tokenText(self,colonRemove=0, strip=1):
+    def __tokenText(self, colonRemove=False, strip=True, forceColonPass=False):
         t = self._tokens[self._tokenX]
-        text = self.source[t[2]:t[3]]
+        text = self.source[t.start:t.end]
         if strip: text = text.strip()
-        if colonRemove and text.endswith(':'): text = text[:-1]
+        if colonRemove or forceColonPass:
+            if text.endswith(':'): text = text[:-1]
+            if forceColonPass: text += ':\tpass\n'
         return unescape(text)
 
     def __tokenPop(self):
@@ -383,26 +379,33 @@ class PreppyParser:
         self._tokenX += 1
         return t
 
+    def __colOffset(self,t):
+        '''obtain the column offset corresponding to a specific token'''
+        return t.start-max(self.source.rfind('\n',0,t.start),0)-1
+
+    def __cparse(self,text):
+        '''parse a start fragment of code'''
+        tf = ast.parse(text,filename=self.filename,mode='exec').body[0]
+        return tf
+
     def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval','def'],followers=['eof']):
-        from compiler.ast import Stmt
         C = []
         a = C.append
-        mangle = '_%s__'%self.__class__.__name__
+        mangle = self.__mangle
         tokens = self._tokens
         while 1:
-            t = tokens[self._tokenX][0]
+            t = tokens[self._tokenX].token
             if t in followers: break
             p = t in funcs and getattr(self,mangle+t) or self.__serror
             r = p()
-            if type(r) is list: C += r
+            if isinstance(r,list): C += r
             elif r is not None: a(r)
         self.__tokenPop()
-        return Stmt(C)
-        
+        return C
+
     def __def(self,followers=['endwhile']):
-        from compiler.ast import While
         try:
-            F = self._cparse('def X%s: pass' % self.__tokenText(colonRemove=1).strip()).node.nodes[0]
+            F = self.__cparse('def X%s: pass' % self.__tokenText(colonRemove=1).strip()).node.nodes[0]
             self._fnc_argnames = F.argnames
             self._fnc_defaults = F.defaults
             self._fnc_varargs = F.varargs
@@ -414,27 +417,43 @@ class PreppyParser:
         self._fnc_lineno = t[1]
         return None
 
+    def __renumber(self,node,t):
+        if isinstance(t,Token):
+            lineno_offset = t.lineno-1
+            col_offset = self.__colOffset(t)-1
+        else:
+            lineno_offset, col_offset = t
+        if 'col_offset' in node._attributes and getattr(node,'lineno',1)==1:
+            node.col_offset = getattr(node,'col_offset',0)+col_offset
+        if 'lineno' in node._attributes:
+            node.lineno = getattr(node,'lineno',1)+lineno_offset
+        t = lineno_offset,col_offset
+        for field in ast.iter_child_nodes(node):
+            if isinstance(field,list):
+                for f in field:
+                    self.__renumber(f,t)
+            else:
+                self.__renumber(field,t)
+
     def __while(self,followers=['endwhile']):
-        from compiler.ast import While
         try:
-            cond = self._cparse(self.__tokenText(colonRemove=1),'eval').node
+            n = self.__cparse('while '+self.__tokenText(forceColonPass=1))
         except:
             self.__error()
         t = self.__tokenPop()
-        _renumber(cond,t[1]-1)
-        r = While(cond,self.__preppy(followers=followers),None)
+        self.__renumber(n,t)
+        n.body = self.__preppy(followers=followers)
         return r
 
     def __for(self,followers=['endfor']):
-        from compiler.ast import For
         try:
-            f = self._cparse('for %s:\n pass\n'%self.__tokenText(colonRemove=1),'exec').node.nodes[0]
+            n = self.__cparse('for '+self.__tokenText(forceColonPass=1))
         except:
             self.__error()
         t = self.__tokenPop()
-        _renumber(f,t[1]-1)
-        f.body = self.__preppy(followers=followers)
-        return f
+        self.__renumber(n,t)
+        n.body = self.__preppy(followers=followers)
+        return n
 
     def __script(self,mode='script'):
         self.__tokenPop()
@@ -442,40 +461,38 @@ class PreppyParser:
         scriptMode = 'script'==mode
         if text:
             try:
-                stmt = self._cparse(text,scriptMode and 'exec' or 'eval').node
+                stmt = self.__cparse(text,scriptMode and 'exec' or 'eval').node
             except:
                 self.__error()
         t = self.__tokenPop()
         end = 'end'+mode
         try:
-            assert self._tokens[self._tokenX][0]==end
+            assert self._tokens[self._tokenX].token==end
             self.__tokenPop()
         except:
             self.__error(end+' expected')
         if not text: return []
-        _renumber(stmt,t[1]-1)
+        self.__renumber(stmt,t)
 
         if scriptMode: return stmt.nodes
-        from compiler.ast import Discard, CallFunc, Name, Const
         return Discard(CallFunc(Name('__swrite__'), [stmt.getChildren()[0]],None,None))
 
     def __eval(self):
         return self.__script(mode='eval')
 
     def __if(self,followers=['endif','elif','else']):
-        from compiler.ast import If
         tokens = self._tokens
         CS = []
         t = 'elif'
         while t=='elif':
             try:
-                cond = self._cparse(self.__tokenText(colonRemove=1),'eval').node
+                cond = self.__cparse(self.__tokenText(colonRemove=1),'eval').node
             except:
                 self.__error()
             t = self.__tokenPop()
-            _renumber(cond,t[1]-1)
+            self.__renumber(cond,t)
             CS.append((cond,self.__preppy(followers=followers)))
-            t = tokens[self._tokenX-1][0]   #we consumed the terminal in __preppy
+            t = tokens[self._tokenX-1].token    #we consumed the terminal in __preppy
             if t=='elif': self._tokenX -= 1
         if t=='else':
             stmt = self.__preppy(followers=['endif'])
@@ -484,30 +501,27 @@ class PreppyParser:
         return If(CS,stmt)
 
     def __const(self):
-        from compiler.ast import Discard, CallFunc, Name, Const
         try:
-            n = Discard(CallFunc(Name('__write__'), [Const(self.__tokenText(strip=0))], None, None))
+            n = ast.Expr(value=ast.Call(func=ast.Name(id='__write__',ctx=ast.Load()),args=[ast.Str(s=self.__tokenText(strip=0))],keywords=[],starargs=None,kwargs=None))
             t = self.__tokenPop()
-            _renumber(n,t[1]-1)
+            self.__renumber(n,t)
             return n
         except:
             self.__error('bad constant')
 
     def __expr(self):
-        from compiler.ast import Discard, CallFunc, Name
         t = self.__tokenText()
         try:
-            n= Discard(CallFunc(Name('__swrite__'), [self._cparse(t,'eval').getChildren()[0]],None,None))
+            n= Discard(CallFunc(Name('__swrite__'), [self.__cparse(t,'eval').getChildren()[0]],None,None))
             t = self.__tokenPop()
-            _renumber(n,t[1]-1)
+            self.__renumber(n,t)
             return n
         except:
             self.__error('bad expression')
 
     def __error(self,msg='invalid syntax'):
-        pos = self._tokens[self._tokenX][2]
-        import traceback, StringIO
-        f = StringIO.StringIO()
+        pos = self._tokens[self._tokenX].start
+        f = BytesIO()
         traceback.print_exc(file=f)
         f = f.getvalue()
         m = 'File "<string>", line '
@@ -522,21 +536,18 @@ class PreppyParser:
             raise SyntaxError('  File %s, line %d\n%s' % (self.filename,n,'\n'.join(f[1:])))
 
     def __serror(self,msg='invalid syntax'):
-        self.__lexerror(msg,self._tokens[self._tokenX][2])
+        self.__lexerror(msg,self._tokens[self._tokenX].start)
 
     def __parse(self,text=None):
-        from compiler.ast import Stmt
         if text: self.source = text
         self.__tokenize()
-        return self.__preppy().nodes
+        return self.__preppy()
+
+    @staticmethod
+    def dump(node):
+        return ast.dump(node,annotate_fields=False,include_attributes=True)
 
     def __get_ast(self):
-        from compiler.ast import    Module, Stmt, Assign, AssName, Const, Function, For, Getattr,\
-                                    TryFinally, TryExcept, If, Import, AssAttr, Name, CallFunc,\
-                                    Class, Compare, Raise, And, Mod, Tuple, Pass, Not, Exec, List,\
-                                    Discard, Keyword, Return, Dict, Break, AssTuple, Subscript,\
-                                    Printnl, From, Lambda
-
         preppyNodes = self.__parse()
         if self._defSeen==1:
             fixargs = self._fnc_argnames
@@ -569,13 +580,13 @@ class PreppyParser:
             FA = ('get',argnames, defaults,flags|consts.CO_VARKEYWORDS,None,Stmt(preppyNodes))
             global _newPreambleAst
             if not _newPreambleAst:
-                _newPreambleAst = self._cparse(_newPreamble).node.nodes
+                _newPreambleAst = self.__cparse(_newPreamble).node.nodes
                 map(_denumber,_newPreambleAst)
             extraAst = _newPreambleAst
         else:
             global _preambleAst, _localizer
             if not _preambleAst:
-                _preambleAst = self._cparse(_preamble).node.nodes
+                _preambleAst = self.__cparse(_preamble).node.nodes
                 map(_denumber,_preambleAst)
                 _localizer = [Assign([AssName('__d__', 'OP_ASSIGN')], Name('dictionary')), Discard(CallFunc(Getattr(CallFunc(Name('locals'), [], None, None), 'update'), [Name('__d__')], None, None))]
                 #_localizer = [Assign([AssName('__preppy__d__', 'OP_ASSIGN')], Name('dictionary')), For(AssName('__preppy__x__', 'OP_ASSIGN'), Name('__preppy__d__'), Stmt([If([(CallFunc(Name('__preppy__vlhs__'), [Name('__preppy__x__')], None, None), Stmt([Exec(Mod((Const('%s=__preppy__d__[%r]'), Tuple([Name('__preppy__x__'), Name('__preppy__x__')]))), None, None)]))], None)]), None), AssName('__preppy__x__', 'OP_DELETE')]
