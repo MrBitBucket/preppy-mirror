@@ -409,16 +409,11 @@ class PreppyParser:
 
     def __def(self,followers=['endwhile']):
         try:
-            F = self.__cparse('def X%s: pass' % self.__tokenText(colonRemove=1).strip()).node.nodes[0]
-            self._fnc_argnames = F.argnames
-            self._fnc_defaults = F.defaults
-            self._fnc_varargs = F.varargs
-            self._fnc_kwargs = F.kwargs
-            self._fnc_flags = F.flags
+            n = self.__iparse('def get' + self.__tokenText(forceColonPass=1))
         except:
             self.__error()
         t = self.__tokenPop()
-        self._fnc_lineno = t[1]
+        self._fnc_defn = t,n
         return None
 
     def __renumber(self,node,t):
@@ -551,7 +546,9 @@ class PreppyParser:
 
     @staticmethod
     def dump(node,include_attributes=True):
-        return ast.dump(node,annotate_fields=False,include_attributes=include_attributes)
+        return ('[%s]' % ', '.join(PreppyParser.dump(x,include_attributes=include_attributes) for x in node)
+                if isinstance(node,list)
+                else ast.dump(node,annotate_fields=False,include_attributes=include_attributes))
 
     def __get_ast(self):
         preppyNodes = self.__parse()
