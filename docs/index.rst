@@ -187,7 +187,7 @@ This implements a for loop in preppy source.  The EXPR should follow
 normal python conventions for python for loops.  The resulting python 
 code is roughly::
 
-    for for_target:
+    for EXPR:
         interpretation_of(block)
     else:
         no break exit
@@ -204,7 +204,7 @@ An example::
 This implements a *while* loop in preppy source.  The condition should be
 a python expression.  The resulting python code is roughly::
 
-    while condition:
+    while CONDITION:
         interpretation_of(block)
     else:
         ....
@@ -343,11 +343,10 @@ xmlQuote and SafeString
 -----------------------
 We have provided one such function inside preppy.py, *stdQuote*, which is useful for XML and HTML generation. It behaves as follows:
 
- * Any tontent you
- * 8 bit strings will be xml-escaped
+ * 8 bit strings will be xml-escaped.
  * Any null value will produce no output.  This might be useful if you are displaying a lot of numbers in table cells and don't want the word 'None' appearing everywhere.
- * Anything you DON'T want to be quoted can be wrapped in a special SafeString or SafeUnicode class, and it won't be quoted
- * anything else will be converted to a Unicode string representation (just in case the string representation contains non-ascii characters), and then encoded as utf8, then escaped.  
+ * Anything you DON'T want to be quoted can be wrapped in a special SafeString or SafeUnicode class, and it won't be quoted.
+ * Anything else will be converted to a Unicode string representation (just in case the string representation contains non-ascii characters), and then encoded as utf8, then escaped.
  
 
 
@@ -426,7 +425,7 @@ How do you include other content?  With a Python function or method call.
 If you want to include totally static content, it's as easy as this::
 
     <h1>Appendix</h1>
-    {{open('templates/appendix.html'.read())}}
+    {{open('templates/appendix.html').read()}}
 
 If you want to call other templates, then import them at the top of the module in
 a script tag, and call them inline::
