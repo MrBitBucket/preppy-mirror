@@ -591,38 +591,32 @@ class PreppyParser:
     def __get_ast(self):
         preppyNodes = self.__parse()
         if self._defSeen==1:
-            fixargs = self._fnc_argnames
-            defaults = list(self._fnc_defaults)
-            if self._fnc_kwargs:
-                spargs = [fixargs[-1]]
-                fixargs = fixargs[:-1]
+            t, func = self._fnc_defn
+            argNames = [a.arg for a in func.args.args]
+            if func.args.kwarg:
+                kwargName = func.args.kwarg
             else:
-                spargs = ['__kwds__']
-            if self._fnc_varargs:
-                spargs.insert(0,fixargs[-1])
-                fixargs = fixargs[:-1]
-            kwargs = fixargs[-len(defaults):]
-            fixargs = fixargs[:-len(defaults)]
-            flags = self._fnc_flags
+                func.args.kwarg = kwargName = '__kwds__'
 
-            #construct the getOutput function
-            nodes = [Assign([AssName('__lquoteFunc__', 'OP_ASSIGN')], CallFunc(Getattr(Name(spargs[-1]), 'setdefault'), [Const('__lquoteFunc__'), Name('str')], None, None)),
-                    Discard(CallFunc(Getattr(Name(spargs[-1]), 'pop'),[Const('__lquoteFunc__')], None, None)),
-                    Assign([AssName('__quoteFunc__', 'OP_ASSIGN')], CallFunc(Getattr(Name(spargs[-1]), 'setdefault'), [Const('__quoteFunc__'), Name('str')], None, None)),
-                    Discard(CallFunc(Getattr(Name(spargs[-1]), 'pop'), [Const('__quoteFunc__')], None, None))]
-            if not self._fnc_kwargs:
-                nodes += [If([(Name(spargs[-1]), Stmt([Raise(CallFunc(Name('TypeError'), [Const('get: unexpected keyword arguments')], None, None), None, None)]))], None)]
-            nodes += [Assign([AssName('__append__', 'OP_ASSIGN')], Getattr(List(()), 'append')),
-                    Assign([AssName('__write__', 'OP_ASSIGN')], Lambda(['x'], [], 0, CallFunc(Name('__append__'), [CallFunc(Name('__lquoteFunc__'), [Name('x')], None, None)], None, None))),
-                    Assign([AssName('__swrite__', 'OP_ASSIGN')], Lambda(['x'], [], 0, CallFunc(Name('__append__'), [CallFunc(Name('__quoteFunc__'), [Name('x')], None, None)], None, None)))]
-            for n in nodes: _denumber(n,self._fnc_lineno)
-            preppyNodes = nodes + preppyNodes + [Return(CallFunc(Getattr(Const(''), 'join'), [Getattr(Name('__append__'), '__self__')], None, None))]
-            argnames = list(fixargs)+list(kwargs)+list(spargs)
-            FA = ('get',argnames, defaults,flags|consts.CO_VARKEYWORDS,None,Stmt(preppyNodes))
+            leadNodes=self.__rparse('\n'.join([
+                "__lquoteFunc__=%s.setdefault('__lquoteFunc__',str)" % kwargName,
+                "%s.pop('__lquoteFunc__')" % kwargName,
+                "__quoteFunc__=%s.setdefault('__quoteFunc__',str)" % kwargName,
+                "%s.pop('__quoteFunc__')" % kwargName,
+                ] + ["if %s: raise TypeError('get: unexpected keyword arguments %%r' %% %s)" % (kwargName,kwargName)] + [
+                "__append__=[].append",
+                "__write__=lambda x:__append__(__lquoteFunc__(x))",
+                "__swrite__=lambda x:__append__(__quoteFunc__(x))",
+                ]))
+            trailNodes = self.__rparse("return ''.join(__append__.__self__")
+
+            self.__renumber(func,t)
+            self.__renumber(leadNodes,(0,0))
+            self.__renumber(trailNodes,self._tokens[-1])
+            preppyNodes = leadNodes + preppyNodes + trailNodes
             global _newPreambleAst
             if not _newPreambleAst:
-                _newPreambleAst = self.__cparse(_newPreamble).node.nodes
-                map(_denumber,_newPreambleAst)
+                _newPreambleAst = self.__rparse(_newPreamble)
             extraAst = _newPreambleAst
         else:
             global _preambleAst, _localizer
@@ -634,7 +628,8 @@ class PreppyParser:
             preppyNodes = _localizer+preppyNodes
             FA = ('__code__', ['dictionary', 'outputfile', '__write__','__swrite__','__save_sys_stdout__'], (), 0, None, Stmt(preppyNodes))
             extraAst = _preambleAst
-        if sys.hexversion >=0x2040000: FA = (None,)+FA
+        self.__renumber(newPreambleAst,self._tokens[-1])
+        
         return Module(self.filename,
                 Stmt([Assign([AssName('__checksum__', 'OP_ASSIGN')], Const(getattr(self,'sourcechecksum'))),
                         Function(*FA),
