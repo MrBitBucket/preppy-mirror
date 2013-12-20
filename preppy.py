@@ -72,7 +72,7 @@ from hashlib import md5
 isPy3 = sys.version_info.major == 3
 from xml.sax.saxutils import escape as xmlEscape
 from collections import namedtuple
-Token = namedtuple('Token','token lineno start end')
+Token = namedtuple('Token','kind lineno start end')
 
 if isPy3:
     from io import BytesIO
@@ -263,11 +263,11 @@ def dedent(text):
         if lindent!=indent:
             raise ValueError("inconsistent indent expected %s got %s in %s" % (repr(indent), repr(lindent), l))
         linesout.append(l[findfirstword:])
-    return '\n'.join(lempty*['']+linesout)
+    return len(indent),'\n'.join(lempty*['']+linesout)
 
 
 _pat = re.compile('{{\\s*|}}',re.M)
-_s = re.compile(r'^(?P<start>while|if|elif|for)(?P<startend>\s+|$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
+_s = re.compile(r'^(?P<start>while|if|elif|for|continue|break|try|except)(?P<startend>\s+|$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
 
 def _denumber(node,lineno=-1):
     if node.lineno!=lineno: node.lineno = lineno
@@ -279,6 +279,7 @@ class PreppyParser:
         self._defSeen = 0
         self.source = source
         self.filename = filename
+        self.__inFor = self.__inWhile = 0
 
     def compile(self, display=0):
         tree = self._get_tree()
@@ -330,8 +331,9 @@ class PreppyParser:
                     if m:
                         t = m.group('start')
                         if t:
-                            if not m.group('startend'): self.__lexerror('Bad %s' % t, i0)
-                            ix += len(t)    #skip over the 'while ' or 'for ' etc
+                            if not m.group('startend'):
+                                if t not in ('continue','break','try','except'):
+                                    self.__lexerror('Bad %s' % t, i0)
                         else:
                             t = m.group('end')
                             if t:
@@ -348,7 +350,6 @@ class PreppyParser:
                                             self.__lexerror('def must come first',i0)
                                     else:
                                         self._defSeen = 1
-                                ix += len(t)    #skip over the 'while ' or 'for ' etc
                     else:
                         t = 'expr'  #expression
                     if not self._defSeen: self._defSeen = -1
@@ -381,7 +382,7 @@ class PreppyParser:
 
     def __colOffset(self,t):
         '''obtain the column offset corresponding to a specific token'''
-        return t.start-max(self.source.rfind('\n',0,t.start),0)-1
+        return t.start-max(self.source.rfind('\n',0,t.start),0)
 
     def __rparse(self,text):
         '''parse a raw fragment of code'''
@@ -392,13 +393,13 @@ class PreppyParser:
         '''parse a start fragment of code'''
         return self.__rparse(text)[0]
 
-    def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval','def'],followers=['eof']):
+    def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval','def', 'continue', 'break', 'try'],followers=['eof']):
         C = []
         a = C.append
         mangle = self.__mangle
         tokens = self._tokens
         while 1:
-            t = tokens[self._tokenX].token
+            t = tokens[self._tokenX].kind
             if t in followers: break
             p = t in funcs and getattr(self,mangle+t) or self.__serror
             r = p()
@@ -416,50 +417,82 @@ class PreppyParser:
         self._fnc_defn = t,n
         return None
 
-    def __renumber(self,node,t):
+    def __break(self,stmt='break'):
+        text = self.__tokenText()
+        if text!=stmt:
+            self.__serror(msg='invalid %s statement' % stmt)
+        elif not self.__inWhile and not self.__inFor:
+            self.__serror(msg='%s statement outside while or for loop' % stmt)
+        t = self.__tokenPop()
+        n = getattr(ast,stmt.capitalize())(lineno=1,col_offset=0)
+        self.__renumber(n,t)
+        return n
+
+    def __continue(self):
+        return self.__break(stmt='continue')
+
+    def __renumber(self,node,t,dcoffs=0):
         if isinstance(node,list):
             for f in node:
-                self.__renumber(f,t)
+                self.__renumber(f,t,dcoffs=dcoffs)
             return
         if isinstance(t,Token):
             lineno_offset = t.lineno-1
-            col_offset = self.__colOffset(t)-1
+            col_offset = self.__colOffset(t)
         else:
             lineno_offset, col_offset = t
         if 'col_offset' in node._attributes:
             if getattr(node,'lineno',1)==1:
-                node.col_offset = getattr(node,'col_offset',0)+col_offset
+                node.col_offset = getattr(node,'col_offset',0)+col_offset+dcoffs
             elif not hasattr(node,'col_offset'):
-                node.col_offset = 0
+                node.col_offset = dcoffs
+            else:
+                node.col_offset += dcoffs
         if 'lineno' in node._attributes:
             node.lineno = getattr(node,'lineno',1)+lineno_offset
         t = lineno_offset,col_offset
         for f in ast.iter_child_nodes(node):
-            self.__renumber(f,t)
+            self.__renumber(f,t,dcoffs=dcoffs)
 
-    def __while(self,followers=['endwhile']):
+    def __while(self,followers=['endwhile','else']):
+        self.__inWhile += 1
         try:
-            n = self.__iparse('while '+self.__tokenText(forceColonPass=1))
+            n = self.__iparse(self.__tokenText(forceColonPass=1))
         except:
             self.__error()
         t = self.__tokenPop()
         self.__renumber(n,t)
         n.body = self.__preppy(followers=followers)
+        if self._tokens[self._tokenX-1].kind=='else':
+            n.orelse = self.__preppy(followers='endfor')
+        self.__inWhile -= 1
         return n
 
-    def __for(self,followers=['endfor']):
+    def __for(self,followers=['endfor','else']):
+        self.__inFor += 1
         try:
-            n = self.__iparse('for '+self.__tokenText(forceColonPass=1))
+            n = self.__iparse(self.__tokenText(forceColonPass=1))
         except:
             self.__error()
         t = self.__tokenPop()
         self.__renumber(n,t)
         n.body = self.__preppy(followers=followers)
+        if self._tokens[self._tokenX-1].kind=='else':
+            n.orelse = self.__preppy(followers='endfor')
+        self.__inFor -= 1
         return n
+
+    def __try(self,followers=['except','finally']):
+        text = self.__tokenText(colonRemove=1)
+        if text!='try':
+            self.__serror(msg='invalid try statement')
+        t = self.__tokenPop()
+        ntry = ast.Try(lineno=1,col_offset=0)
+        self.__renumber(ntry,t)
 
     def __script(self,mode='script'):
         self.__tokenPop()
-        text = dedent(self.__tokenText(strip=0,colonRemove=False))
+        dcoffs, text = dedent(self.__tokenText(strip=0,colonRemove=False))
         scriptMode = 'script'==mode
         if text:
             try:
@@ -469,13 +502,13 @@ class PreppyParser:
         t = self.__tokenPop()
         end = 'end'+mode
         try:
-            assert self._tokens[self._tokenX].token==end
+            assert self._tokens[self._tokenX].kind==end
             self.__tokenPop()
         except:
             self.__error(end+' expected')
         if not text: return []
         if mode=='eval': n = ast.Expr(value=ast.Call(func=ast.Name(id='__swrite__',ctx=ast.Load()),args=n,keywords=[],starargs=None,kwargs=None))
-        self.__renumber(n,t)
+        self.__renumber(n,t,dcoffs=dcoffs)
         return n
 
     def __eval(self):
@@ -483,23 +516,28 @@ class PreppyParser:
 
     def __if(self,followers=['endif','elif','else']):
         tokens = self._tokens
-        CS = []
         t = 'elif'
+        I = None
         while t=='elif':
             try:
-                cond = self.__iparse(self.__tokenText(colonRemove=1))
+                text = self.__tokenText(forceColonPass=1)
+                if text.startswith('elif'): text = 'if  '+text[4:]
+                n = self.__iparse(text)
             except:
                 self.__error()
             t = self.__tokenPop()
-            self.__renumber(cond,t)
-            CS.append((cond,self.__preppy(followers=followers)))
-            t = tokens[self._tokenX-1].token    #we consumed the terminal in __preppy
+            n.body = self.__preppy(followers=followers)
+            self.__renumber(n,t)
+            if I:
+                p.orelse = n
+            else:
+                I = n
+            p = n
+            t = tokens[self._tokenX-1].kind #we consumed the terminal in __preppy
             if t=='elif': self._tokenX -= 1
         if t=='else':
-            stmt = self.__preppy(followers=['endif'])
-        else:
-            stmt = None
-        return If(CS,stmt)
+            p.orelse = self.__preppy(followers=['endif'])
+        return I
 
     def __const(self):
         try:
