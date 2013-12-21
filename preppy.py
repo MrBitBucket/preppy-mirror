@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '1.0'
+VERSION = '2.0'
 __version__ = VERSION
 
 USAGE = """
@@ -67,7 +67,7 @@ QUOTEQUOTE = "$$"
 # SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
 UNESCAPES = ((QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE))
 
-import re, sys, os, imp, struct, tokenize, token, ast, traceback
+import re, sys, os, imp, struct, tokenize, token, ast, traceback, time, marshal, py_compile
 from hashlib import md5
 isPy3 = sys.version_info.major == 3
 from xml.sax.saxutils import escape as xmlEscape
@@ -274,15 +274,16 @@ def _denumber(node,lineno=-1):
     for child in node.getChildNodes(): _denumber(child,lineno)
 
 class PreppyParser:
-    def __init__(self,source,filename):
+    def __init__(self,source,filename='[unknown]',sourcechecksum=None):
         self.__mangle = '_%s__'%self.__class__.__name__
         self._defSeen = 0
         self.source = source
         self.filename = filename
+        self.sourcechecksum = sourcechecksum
         self.__inFor = self.__inWhile = 0
 
     def compile(self, display=0):
-        tree = self._get_tree()
+        self.code = compile(self.__get_ast(),self.filename,'exec')
 
     def getPycHeader(self):
         try:
@@ -293,12 +294,6 @@ class PreppyParser:
             mtime = time.time()
         mtime = struct.pack('<i', mtime)
         return self.MAGIC + mtime
-
-    def _get_tree(self):
-        tree = self.__get_ast()
-        misc.set_filename(self.filename, tree)
-        syntax.check(tree)
-        return tree
 
     def __lexerror(self, msg, pos):
         text = self.source
@@ -410,7 +405,7 @@ class PreppyParser:
 
     def __def(self,followers=['endwhile']):
         try:
-            n = self.__iparse('def get' + self.__tokenText(forceColonPass=1))
+            n = self.__iparse('def get'+(self.__tokenText(forceColonPass=1).strip()[3:]))
         except:
             self.__error()
         t = self.__tokenPop()
@@ -542,21 +537,21 @@ class PreppyParser:
     def __const(self):
         try:
             n = ast.Expr(value=ast.Call(func=ast.Name(id='__write__',ctx=ast.Load()),args=[ast.Str(s=self.__tokenText(strip=0))],keywords=[],starargs=None,kwargs=None))
-            t = self.__tokenPop()
-            self.__renumber(n,t)
-            return n
         except:
             self.__error('bad constant')
+        t = self.__tokenPop()
+        self.__renumber(n,t)
+        return n
 
     def __expr(self):
         t = self.__tokenText()
         try:
-            n= Discard(CallFunc(Name('__swrite__'), [self.__cparse(t,'eval').getChildren()[0]],None,None))
-            t = self.__tokenPop()
-            self.__renumber(n,t)
-            return n
+            n = ast.Expr(value=ast.Call(func=ast.Name(id='__swrite__',ctx=ast.Load()),args=[self.__rparse(t)[0].value],keywords=[],starargs=None,kwargs=None))
         except:
             self.__error('bad expression')
+        t = self.__tokenPop()
+        self.__renumber(n,t)
+        return n
 
     def __error(self,msg='invalid syntax'):
         pos = self._tokens[self._tokenX].start
@@ -591,12 +586,12 @@ class PreppyParser:
     def __get_ast(self):
         preppyNodes = self.__parse()
         if self._defSeen==1:
-            t, func = self._fnc_defn
-            argNames = [a.arg for a in func.args.args]
-            if func.args.kwarg:
-                kwargName = func.args.kwarg
+            t, F = self._fnc_defn
+            argNames = [a.arg for a in F.args.args]
+            if F.args.kwarg:
+                kwargName = F.args.kwarg
             else:
-                func.args.kwarg = kwargName = '__kwds__'
+                F.args.kwarg = kwargName = '__kwds__'
 
             leadNodes=self.__rparse('\n'.join([
                 "__lquoteFunc__=%s.setdefault('__lquoteFunc__',str)" % kwargName,
@@ -608,9 +603,9 @@ class PreppyParser:
                 "__write__=lambda x:__append__(__lquoteFunc__(x))",
                 "__swrite__=lambda x:__append__(__quoteFunc__(x))",
                 ]))
-            trailNodes = self.__rparse("return ''.join(__append__.__self__")
+            trailNodes = self.__rparse("return ''.join(__append__.__self__)")
 
-            self.__renumber(func,t)
+            self.__renumber(F,t)
             self.__renumber(leadNodes,(0,0))
             self.__renumber(trailNodes,self._tokens[-1])
             preppyNodes = leadNodes + preppyNodes + trailNodes
@@ -628,12 +623,11 @@ class PreppyParser:
             preppyNodes = _localizer+preppyNodes
             FA = ('__code__', ['dictionary', 'outputfile', '__write__','__swrite__','__save_sys_stdout__'], (), 0, None, Stmt(preppyNodes))
             extraAst = _preambleAst
-        self.__renumber(newPreambleAst,self._tokens[-1])
-        
-        return Module(self.filename,
-                Stmt([Assign([AssName('__checksum__', 'OP_ASSIGN')], Const(getattr(self,'sourcechecksum'))),
-                        Function(*FA),
-                    ]+extraAst))
+        self.__renumber(_newPreambleAst,self._tokens[-1])
+        F.body = preppyNodes
+        M = ast.parse('__checksum__=%r' % self.sourcechecksum,self.filename,'exec')
+        M.body += [F]+extraAst
+        return M
 
 _preambleAst=None
 _preamble='''def run(dictionary, __write__=None, quoteFunc=str, outputfile=None,code=__code__):
@@ -832,9 +826,8 @@ def getModule(name,
     if verbose: pel("recompiling")
     global DIAGNOSTIC_FUNCTION
     DIAGNOSTIC_FUNCTION = None
-    P = PreppyParser(sourcetext,sourcefilename)
+    P = PreppyParser(sourcetext,sourcefilename,sourcechecksum)
     P.nosourcefile = nosourcefile
-    P.sourcechecksum = sourcechecksum
     P.compile(0)
 
     # default is compile to bytecode and save that.
