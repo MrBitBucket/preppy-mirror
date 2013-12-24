@@ -127,6 +127,11 @@ else:
             L = G
         exec("""exec obj in G, L""")
 
+def asUtf8(s):
+    return s if isinstance(s,bytesT) else s.encode('utf8')
+def getMd5(s):
+    return md5(asUtf8(s)+asUtf8(VERSION)).hexdigest()
+
 #Andy's standard quote for django
 _safeBase = SafeString, SafeUnicode
 def stdQuote(s):
@@ -740,7 +745,7 @@ def getModule(name,
     if hasattr(name,'read'):
         sourcetext = name.read()
         name = getattr(name,'name',None)
-        if not name: name = '_preppy_'+md5(sourcetext+repr(VERSION)).digest()
+        if not name: name = '_preppy_'+getMd5(sourcetext)
     else:
         # it's possible that someone could ask for
         #  name "subdir/spam.prep" in directory "/mydir", instead of
@@ -768,10 +773,10 @@ def getModule(name,
 
     if sourcetext is not None:
         # they fed us the source explicitly
-        if not name: name = '_preppy_'+md5(sourcetext+repr(VERSION)).digest()
+        sourcechecksum = getMd5(sourcetext)
+        if not name: name = '_preppy_'+sourcechecksum
         if verbose: pnl("sourcetext provided...")
         sourcefilename = "<input text %s>" % name
-        sourcechecksum = md5(sourcetext + repr(VERSION)).digest()
         nosourcefile = 1
         module = SOURCE_MODULES.get(sourcetext,None)
         if module:
@@ -808,7 +813,7 @@ def getModule(name,
         else:
             sourcetext = sourcefile.read()
             # NOTE: force recompile on each new version of this module.
-            sourcechecksum = md5(sourcetext + repr(VERSION)).digest()
+            sourcechecksum = getMd5(sourcetext)
             if sourcechecksum==checksum:
                 if force==0:
                     # use the existing module. it matches
