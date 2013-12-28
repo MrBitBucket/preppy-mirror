@@ -620,7 +620,7 @@ class PreppyParser:
         preppyNodes = self.__parse()
         if self._defSeen==1:
             t, F = self._fnc_defn
-            argNames = [a.arg for a in F.args.args]
+            argNames = [a.arg for a in F.args.args] if isPy3 else [a.id for a in F.args.args]
             if F.args.kwarg:
                 kwargName = F.args.kwarg
             else:
@@ -766,10 +766,10 @@ def getModule(name,
 
     force: ignore up-to-date checks and always recompile.
     """
-    if isinstance(name,unicode): name = name.encode('utf8')
-    if isinstance(directory,unicode): directory = directory.encode('utf8')
-    if isinstance(source_extension,unicode): source_extension = source_extension.encode('utf8')
-    if isinstance(sourcetext,unicode): sourcetext = sourcetext.encode('utf8')
+    if isinstance(name,bytesT): name = name.decode('utf8')
+    if isinstance(directory,bytesT): directory = directory.decode('utf8')
+    if isinstance(source_extension,bytesT): source_extension = source_extension.decode('utf8')
+    if isinstance(sourcetext,bytesT): sourcetext = sourcetext.decode('utf8')
     if hasattr(name,'read'):
         sourcetext = name.read()
         name = getattr(name,'name',None)
