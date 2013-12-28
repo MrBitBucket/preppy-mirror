@@ -39,10 +39,14 @@ class PreppyParserTestCase(unittest.TestCase):
 
     def check_break(self):
         self.assertEqual(P__preppy('{{for i in 1,2,3}}abcdef{{if i==3}}{{break}}{{endif}}{{else}}eeeee{{endfor}}'), "[For(Name('i', Store(), lineno=1, col_offset=6), Tuple([Num(1, lineno=1, col_offset=11), Num(2, lineno=1, col_offset=13), Num(3, lineno=1, col_offset=15)], Load(), lineno=1, col_offset=11), [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=18), [Str('abcdef', lineno=1, col_offset=18)], [], None, None, lineno=1, col_offset=18), lineno=1, col_offset=18), If(Compare(Name('i', Load(), lineno=1, col_offset=29), [Eq()], [Num(3, lineno=1, col_offset=32)], lineno=1, col_offset=29), [Break( lineno=1, col_offset=63)], [], lineno=1, col_offset=26)], [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=61), [Str('eeeee', lineno=1, col_offset=61)], [], None, None, lineno=1, col_offset=61), lineno=1, col_offset=61)], lineno=1, col_offset=2)]")
+
+    def check_break_outside_loop_fails(self):
         self.assertRaises(SyntaxError,P__preppy,'{{if i==3}}{{break}}{{endif}}')
 
     def check_continue(self):
         self.assertEqual(P__preppy('{{for i in 1,2,3}}abcdef{{if i==3}}{{continue}}{{endif}}{{else}}eeeee{{endfor}}'), "[For(Name('i', Store(), lineno=1, col_offset=6), Tuple([Num(1, lineno=1, col_offset=11), Num(2, lineno=1, col_offset=13), Num(3, lineno=1, col_offset=15)], Load(), lineno=1, col_offset=11), [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=18), [Str('abcdef', lineno=1, col_offset=18)], [], None, None, lineno=1, col_offset=18), lineno=1, col_offset=18), If(Compare(Name('i', Load(), lineno=1, col_offset=29), [Eq()], [Num(3, lineno=1, col_offset=32)], lineno=1, col_offset=29), [Continue( lineno=1, col_offset=63)], [], lineno=1, col_offset=26)], [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=64), [Str('eeeee', lineno=1, col_offset=64)], [], None, None, lineno=1, col_offset=64), lineno=1, col_offset=64)], lineno=1, col_offset=2)]")
+
+    def check_continue_outside_loop_fails(self):
         self.assertRaises(SyntaxError,P__preppy,'{{if i==3}}{{continue}}{{endif}}')
 
     def check_while(self):
@@ -56,6 +60,24 @@ class PreppyParserTestCase(unittest.TestCase):
 
     def check_if(self):
         self.assertEqual(P__preppy('{{if i}}aaa{{elif j}}bbb{{elif k}}ccc{{else}}ddd{{endif}}'), "[If(Name('i', Load(), lineno=1, col_offset=5), [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=10), [Str('aaa', lineno=1, col_offset=10)], [], None, None, lineno=1, col_offset=10), lineno=1, col_offset=10)], If(Name('j', Load(), lineno=1, col_offset=18), [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=34), [Str('bbb', lineno=1, col_offset=34)], [], None, None, lineno=1, col_offset=34), lineno=1, col_offset=34)], If(Name('k', Load(), lineno=1, col_offset=31), [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=60), [Str('ccc', lineno=1, col_offset=60)], [], None, None, lineno=1, col_offset=60), lineno=1, col_offset=60)], [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=45), [Str('ddd', lineno=1, col_offset=45)], [], None, None, lineno=1, col_offset=45), lineno=1, col_offset=45)], lineno=1, col_offset=26), lineno=1, col_offset=13), lineno=1, col_offset=2)]")
+
+    def check_try_0(self):
+        self.assertEqual(P__preppy('aaa{{try}}bbb{{except}}ccc{{endtry}}'), "[Expr(Call(Name('__write__', Load(), lineno=1, col_offset=0), [Str('aaa', lineno=1, col_offset=0)], [], None, None, lineno=1, col_offset=0), lineno=1, col_offset=0), Try([Expr(Call(Name('__write__', Load(), lineno=1, col_offset=10), [Str('bbb', lineno=1, col_offset=10)], [], None, None, lineno=1, col_offset=10), lineno=1, col_offset=10)], [ExceptHandler(None, None, [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=23), [Str('ccc', lineno=1, col_offset=23)], [], None, None, lineno=1, col_offset=23), lineno=1, col_offset=23)], lineno=1, col_offset=15)], lineno=1, col_offset=5)]")
+
+    def check_try_1(self):
+        self.assertEqual(P__preppy('aaa{{try}}bbb{{except ValueError}}eee{{except}}ccc{{endtry}}'), "[Expr(Call(Name('__write__', Load(), lineno=1, col_offset=0), [Str('aaa', lineno=1, col_offset=0)], [], None, None, lineno=1, col_offset=0), lineno=1, col_offset=0), Try([Expr(Call(Name('__write__', Load(), lineno=1, col_offset=10), [Str('bbb', lineno=1, col_offset=10)], [], None, None, lineno=1, col_offset=10), lineno=1, col_offset=10)], [ExceptHandler(Name('ValueError', Load(), lineno=3, col_offset=7), None, [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=34), [Str('eee', lineno=1, col_offset=34)], [], None, None, lineno=1, col_offset=34), lineno=1, col_offset=34)], lineno=1, col_offset=15), ExceptHandler(None, None, [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=47), [Str('ccc', lineno=1, col_offset=47)], [], None, None, lineno=1, col_offset=47), lineno=1, col_offset=47)], lineno=1, col_offset=39)], lineno=1, col_offset=5)]")
+
+    def check_try_2(self):
+        self.assertEqual(P__preppy('aaa{{try}}bbb{{except ValueError}}eee{{except}}ccc{{else}}ddd{{endtry}}'), "[Expr(Call(Name('__write__', Load(), lineno=1, col_offset=0), [Str('aaa', lineno=1, col_offset=0)], [], None, None, lineno=1, col_offset=0), lineno=1, col_offset=0), Try([Expr(Call(Name('__write__', Load(), lineno=1, col_offset=10), [Str('bbb', lineno=1, col_offset=10)], [], None, None, lineno=1, col_offset=10), lineno=1, col_offset=10)], [ExceptHandler(Name('ValueError', Load(), lineno=3, col_offset=7), None, [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=34), [Str('eee', lineno=1, col_offset=34)], [], None, None, lineno=1, col_offset=34), lineno=1, col_offset=34)], lineno=1, col_offset=15), ExceptHandler(None, None, [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=47), [Str('ccc', lineno=1, col_offset=47)], [], None, None, lineno=1, col_offset=47), lineno=1, col_offset=47)], lineno=1, col_offset=39)], [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=58), [Str('ddd', lineno=1, col_offset=58)], [], None, None, lineno=1, col_offset=58), lineno=1, col_offset=58)], lineno=1, col_offset=5)]")
+
+    def check_try_3(self):
+        self.assertEqual(P__preppy('aaa{{try}}bbb{{except ValueError}}eee{{except}}ccc{{else}}ddd{{finally}}fff{{endtry}}'), "[Expr(Call(Name('__write__', Load(), lineno=1, col_offset=0), [Str('aaa', lineno=1, col_offset=0)], [], None, None, lineno=1, col_offset=0), lineno=1, col_offset=0), Try([Expr(Call(Name('__write__', Load(), lineno=1, col_offset=10), [Str('bbb', lineno=1, col_offset=10)], [], None, None, lineno=1, col_offset=10), lineno=1, col_offset=10)], [ExceptHandler(Name('ValueError', Load(), lineno=3, col_offset=7), None, [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=34), [Str('eee', lineno=1, col_offset=34)], [], None, None, lineno=1, col_offset=34), lineno=1, col_offset=34)], lineno=1, col_offset=15), ExceptHandler(None, None, [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=47), [Str('ccc', lineno=1, col_offset=47)], [], None, None, lineno=1, col_offset=47), lineno=1, col_offset=47)], lineno=1, col_offset=39)], [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=58), [Str('ddd', lineno=1, col_offset=58)], [], None, None, lineno=1, col_offset=58), lineno=1, col_offset=58)], [Expr(Call(Name('__write__', Load(), lineno=1, col_offset=72), [Str('fff', lineno=1, col_offset=72)], [], None, None, lineno=1, col_offset=72), lineno=1, col_offset=72)], lineno=1, col_offset=5)]")
+
+    def check_try_4(self):
+        self.assertRaises(SyntaxError,P__preppy,'{{try}}bbb{{endtry}}')
+
+    def check_try_5(self):
+        self.assertRaises(SyntaxError,P__preppy,'{{try}}bbb{{else}}ddd{{endtry}}')
 
 def makeSuite():
     return unittest.TestSuite((unittest.makeSuite(PreppyParserTestCase,'check'),))

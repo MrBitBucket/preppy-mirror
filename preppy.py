@@ -393,7 +393,7 @@ class PreppyParser:
         '''parse a start fragment of code'''
         return self.__rparse(text)[0]
 
-    def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval','def', 'continue', 'break', 'try'],followers=['eof']):
+    def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval','def', 'continue', 'break', 'try'],followers=['eof'],pop=True):
         C = []
         a = C.append
         mangle = self.__mangle
@@ -405,7 +405,8 @@ class PreppyParser:
             r = p()
             if isinstance(r,list): C += r
             elif r is not None: a(r)
-        self.__tokenPop()
+        if pop:
+            self.__tokenPop()
         return C
 
     def __def(self,followers=['endwhile']):
@@ -482,13 +483,40 @@ class PreppyParser:
         self.__inFor -= 1
         return n
 
-    def __try(self,followers=['except','finally']):
+    def __try(self):
         text = self.__tokenText(colonRemove=1)
         if text!='try':
             self.__serror(msg='invalid try statement')
         t = self.__tokenPop()
-        ntry = ast.Try(lineno=1,col_offset=0)
-        self.__renumber(ntry,t)
+        n = ast.Try(lineno=1,col_offset=0,handlers=[])
+        self.__renumber(n,t)
+        n.body = self.__preppy(followers=['except','finally'],pop=False)
+        while 1:
+            text = self.__tokenText(colonRemove=1)
+            t = self.__tokenPop()
+            if text.startswith('endtry'):
+                if text != 'endtry':
+                    self.__error('invalid endtry statement')
+                return n
+            elif text.startswith('finally'):
+                if text != 'finally':
+                    self.__error('invalid finally statement')
+                n.finalbody = self.__preppy(followers=['endtry'])
+                return n
+            elif text.startswith('else'):
+                if text != 'else':
+                    self.__error('invalid else statement')
+                n.orelse = self.__preppy(followers=['finally','endtry'],pop=False)
+            elif text.startswith('except'):
+                exh = self.__iparse('try:\n\tpass\n%s:\n\tpass\n' % text).handlers[0]
+                exh.lineno = 1
+                exh.col_offset = 0
+                self.__renumber(exh,t)
+                F = ['finally','else','endtry'] if text=='except' else ['except','finally','endtry','else']
+                exh.body = self.__preppy(followers=F,pop=False)
+                n.handlers.append(exh)
+            else:
+                self.__serr('invalid syntax in try statement')
 
     def __script(self,mode='script'):
         self.__tokenPop()
