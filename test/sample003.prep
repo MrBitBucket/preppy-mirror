@@ -37,7 +37,7 @@ The first line of each result will tell you the status of the test variable, and
 {{script}}
 testVar = 10
 printstring = "The test variable is '"+ `testVar`+"'.<BR>"
-print printstring
+print(printstring)
 {{endscript}}
 
 {{if testVar == 10}}
@@ -48,7 +48,7 @@ print printstring
 {{script}}
 testVar = 20
 printstring = "The test variable is now '"+ `testVar`+"'.<BR>"
-print printstring
+print(printstring)
 {{endscript}}
 
 {{if testVar == 10}}

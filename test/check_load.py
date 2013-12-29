@@ -29,8 +29,6 @@ class LoadTestCase(unittest.TestCase):
         # creates a 10,000 item dictionary of random numbers
         howBig = 10000
         d = makeBigDictionary(howBig)
-        # print d
-        #print "..loadsample003 creates a 10,000 item dictionary - this may take some time...\n.",
         processTest('loadsample003', d)
 
     def loadcheck04_65KbFile(self):
@@ -143,31 +141,20 @@ class LoadTestCase(unittest.TestCase):
         </BODY>
         </HTML>"""
         input = open('oneMegTestFile.txt', 'r')
-        #print "Opened file for input OK..."
         prepMiddlebit = input.read()
-        #print "Read in file OK"
         prepFile = prepFilePartOne + prepMiddlebit + prepFilePartTwo
-        #print "Done the script adding OK"
         output = open('loadsample05.prep', 'w')
-        #print "Opened file for output OK"
         output.write(prepFile)
-        #print "wrote to file OK - loadsample05.prep now contains prepFile"
         output.close()
-        #print "closed file OK"
-        #print "... about to do 'processTest'..."
         processTest('loadsample05')
-        #print "processTest finished!"
-        #print "DONE!"
            
 def processTest(filename, dictionary={}):
-    #print 'processTest:',dictionary
     root, ext = os.path.splitext(filename)
     outFileName = root + '.html'
     mod = preppy.getModule(root)
     outFile = open(outFileName, 'w')
     mod.run(dictionary, outputfile = outFile)
     outFile.close()
-    #print 'wrote',outFileName
 
 def clean(dirname='.'):
     for filename in glob.glob('loadsample*.prep')+glob.glob('sample*.prep'):
@@ -200,15 +187,13 @@ def makeBigFile(howBig, fileName):
     # testmode = prints a length count in the output file
     #testmode=1
     testmode=0
-    #print "creating", howBig,"K test file... ",
     oneK(tempString, verbose, howBig, fileName, testmode)
     outFile = open(fileName, 'a')
     outFile.write('...End')
     outFile.close()
-    printLine = `howBig`+"K test file created OK"
+    printLine = str(howBig)+"K test file created OK"
     if howBig == 1024:
         printLine = "1Mb test file created OK"
-    #print printLine 
 
 def makeBigDictionary(howBig):
     # This function creates a dictionary of howBig * random numbers  
@@ -224,11 +209,9 @@ def oneK(tempString, verbose, howBig, fileName, testmode):
         for innerCounter in range(0,1024):
             tempString = tempString + " "
         if testmode:
-            lengthString = `outerCounter`+"K"+"\n"
+            lengthString = str(outerCounter)+"K"+"\n"
             tempString = tempString[:(len(tempString)-(len(lengthString)+1))]
             tempString = tempString+lengthString
-        if verbose:
-            print outerCounter,"K,", 
         outFile = open(fileName, 'a')
         outFile.write(tempString)
         outFile.close()
@@ -243,9 +226,8 @@ if __name__=='__main__':
             clean()
             sys.exit()
         else:
-            print 'argument not recognised!'
+            print('argument not recognised!')
     else:
         runner = unittest.TextTestRunner()
         suite = unittest.makeSuite(LoadTestCase,'load')
         runner.run(suite)
-        #print '\nplease read all sample*.html files'
