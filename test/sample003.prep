@@ -36,7 +36,7 @@ The first line of each result will tell you the status of the test variable, and
 <TABLE>
 {{script}}
 testVar = 10
-printstring = "The test variable is '"+ `testVar`+"'.<BR>"
+printstring = "The test variable is '"+ str(testVar)+"'.<BR>"
 print(printstring)
 {{endscript}}
 
@@ -47,7 +47,7 @@ print(printstring)
 
 {{script}}
 testVar = 20
-printstring = "The test variable is now '"+ `testVar`+"'.<BR>"
+printstring = "The test variable is now '"+ str(testVar)+"'.<BR>"
 print(printstring)
 {{endscript}}
 

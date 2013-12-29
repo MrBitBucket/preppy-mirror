@@ -6,7 +6,7 @@
 
 # $Id$
 
-import os, glob, string
+import os, glob
 import preppy
 import unittest
 
@@ -124,7 +124,7 @@ class SimpleTestCase(unittest.TestCase):
         #this way it goes to the list and also gets printed
         mod.run(tempDict, __write__ = modDataList.append)
         #print('length of list is %d' % len(modDataList))
-        output=string.join (modDataList,'')
+        output=''.join(modDataList)
         outFile=open('sample007.html', 'w')
         outFile.write(output)
         outFile.close()
