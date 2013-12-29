@@ -67,7 +67,7 @@ QUOTEQUOTE = "$$"
 # SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
 UNESCAPES = ((QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE))
 
-import re, sys, os, imp, struct, tokenize, token, ast, traceback, time, marshal, py_compile
+import re, sys, os, imp, struct, tokenize, token, ast, traceback, time, marshal, py_compile, pickle
 from hashlib import md5
 isPy3 = sys.version_info.major == 3
 from xml.sax.saxutils import escape as xmlEscape
@@ -75,10 +75,10 @@ from collections import namedtuple
 Token = namedtuple('Token','kind lineno start end')
 
 if isPy3:
-    from io import BytesIO
+    from io import BytesIO, StringIO
     def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
         try:
-            L = tokenize.tokenize(BytesIO(s.strip().encode('utf8')).readline)
+            L = list(tokenize.tokenize(BytesIO(s.strip().encode('utf8')).readline))
         except:
             return False
         return len(L)<=3 and L[-2][0]==NAME and L[-1][0]==ENDMARKER
@@ -97,7 +97,8 @@ if isPy3:
     rl_exec = getattr(builtins,'exec')
     del builtins
 else:
-    from StringIO import StringIO as BytesIO
+    from StringIO import StringIO
+    BytesIO = StringIO
     def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
         L = []
         try:
@@ -135,7 +136,7 @@ def getMd5(s):
 #Andy's standard quote for django
 _safeBase = SafeString, SafeUnicode
 def stdQuote(s):
-    if not isinstance(s,basestring):
+    if not isinstance(s,strTypes):
         if s is None: return '' #we usually don't want output
         cnv = getattr(s,_ucvn,None)
         if not cnv:
@@ -557,7 +558,7 @@ class PreppyParser:
             n.body = self.__preppy(followers=followers)
             self.__renumber(n,t)
             if I:
-                p.orelse = n
+                p.orelse = [n]
             else:
                 I = n
             p = n
@@ -588,7 +589,7 @@ class PreppyParser:
 
     def __error(self,msg='invalid syntax'):
         pos = self._tokens[self._tokenX].start
-        f = BytesIO()
+        f = StringIO()
         traceback.print_exc(file=f)
         f = f.getvalue()
         m = 'File "<string>", line '
@@ -623,15 +624,17 @@ class PreppyParser:
             argNames = [a.arg for a in F.args.args] if isPy3 else [a.id for a in F.args.args]
             if F.args.kwarg:
                 kwargName = F.args.kwarg
+                CKWA = []
             else:
                 F.args.kwarg = kwargName = '__kwds__'
+                CKWA = ["if %s: raise TypeError('get: unexpected keyword arguments %%r' %% %s)" % (kwargName,kwargName)]
 
             leadNodes=self.__rparse('\n'.join([
                 "__lquoteFunc__=%s.setdefault('__lquoteFunc__',str)" % kwargName,
                 "%s.pop('__lquoteFunc__')" % kwargName,
                 "__quoteFunc__=%s.setdefault('__quoteFunc__',str)" % kwargName,
                 "%s.pop('__quoteFunc__')" % kwargName,
-                ] + ["if %s: raise TypeError('get: unexpected keyword arguments %%r' %% %s)" % (kwargName,kwargName)] + [
+                ] + CKWA + [
                 "__append__=[].append",
                 "__write__=lambda x:__append__(__lquoteFunc__(x))",
                 "__swrite__=lambda x:__append__(__quoteFunc__(x))",
@@ -645,25 +648,27 @@ class PreppyParser:
             global _newPreambleAst
             if not _newPreambleAst:
                 _newPreambleAst = self.__rparse(_newPreamble)
-            extraAst = _newPreambleAst
+                self.__renumber(_newPreambleAst,self._tokens[-1])
+            F.body = preppyNodes
+            extraAst = [F]+_newPreambleAst
         else:
-            global _preambleAst, _localizer
+            global _preambleAst, _preamble
             if not _preambleAst:
-                _preambleAst = self.__cparse(_preamble).node.nodes
-                map(_denumber,_preambleAst)
-                _localizer = [Assign([AssName('__d__', 'OP_ASSIGN')], Name('dictionary')), Discard(CallFunc(Getattr(CallFunc(Name('locals'), [], None, None), 'update'), [Name('__d__')], None, None))]
-                #_localizer = [Assign([AssName('__preppy__d__', 'OP_ASSIGN')], Name('dictionary')), For(AssName('__preppy__x__', 'OP_ASSIGN'), Name('__preppy__d__'), Stmt([If([(CallFunc(Name('__preppy__vlhs__'), [Name('__preppy__x__')], None, None), Stmt([Exec(Mod((Const('%s=__preppy__d__[%r]'), Tuple([Name('__preppy__x__'), Name('__preppy__x__')]))), None, None)]))], None)]), None), AssName('__preppy__x__', 'OP_DELETE')]
-            preppyNodes = _localizer+preppyNodes
-            FA = ('__code__', ['dictionary', 'outputfile', '__write__','__swrite__','__save_sys_stdout__'], (), 0, None, Stmt(preppyNodes))
-            extraAst = _preambleAst
-        self.__renumber(_newPreambleAst,self._tokens[-1])
-        F.body = preppyNodes
-        M = ast.parse('__checksum__=%r' % self.sourcechecksum,self.filename,'exec')
-        M.body += [F]+extraAst
+                #_preamble = 'from unparse import Unparser\n'+_preamble.replace('NS = {}\n','NS = {};Unparser(M,__save_sys_stdout__)\n')
+                _preambleAst = self.__rparse(_preamble)
+                self.__renumber(_preambleAst,self._tokens[-1])
+            M = ast.parse("def __code__(dictionary, outputfile, __write__,__swrite__,__save_sys_stdout__): pass",self.filename,mode='exec')
+            self.__renumber(M,(-1,0))
+            M.body[0].body = preppyNodes
+            extraAst = self.__rparse('__preppy_nodes__=%r\n__preppy_filename__=%r\n' % (pickle.dumps(M),self.filename))+_preambleAst
+        M = ast.parse('__checksum__=%r' % self.sourcechecksum,self.filename,mode='exec')
+        M.body += extraAst
         return M
 
 _preambleAst=None
-_preamble='''def run(dictionary, __write__=None, quoteFunc=str, outputfile=None,code=__code__):
+_preamble='''import ast, pickle
+from preppy import rl_exec
+def run(dictionary, __write__=None, quoteFunc=str, outputfile=None):
     ### begin standard prologue
     import sys
     __save_sys_stdout__ = sys.stdout
@@ -685,14 +690,24 @@ _preamble='''def run(dictionary, __write__=None, quoteFunc=str, outputfile=None,
             if __write__ is None:
                 raise NameError
             if outputfile and __write__:
-                raise ValueError, "do not define both outputfile (%s) and __write__ (%s)." %(outputfile, __write__)
+                raise ValueError("do not define both outputfile (%s) and __write__ (%s)." %(outputfile, __write__))
             class stdout: pass
             stdout = sys.stdout = stdout()
             stdout.write = lambda x:__write__(quoteFunc(x))
         except NameError:
             __write__ = lambda x: stdout.write(quoteFunc(x))
         __swrite__ = lambda x: __write__(quoteFunc(x))
-        code(dictionary,outputfile,__write__,__swrite__,__save_sys_stdout__)
+        M = pickle.loads(__preppy_nodes__)
+        b = M.body[0].body
+        for k in dictionary:
+            try:
+                if __preppy__vlhs__(k):
+                    b.insert(0,ast.parse('%s=dictionary[%r]' % (k,k),'???',mode='exec').body[0])
+            except:
+                pass
+        NS = {}
+        rl_exec(compile(M,__preppy_filename__,'exec'),NS)
+        NS['__code__'](dictionary,outputfile,__write__,__swrite__,__save_sys_stdout__)
     finally: #### end of compiled logic, standard cleanup
         import sys # for safety
         #print "resetting stdout", sys.stdout, "to", __save_sys_stdout__
