@@ -701,7 +701,9 @@ def run(dictionary, __write__=None, quoteFunc=str, outputfile=None):
         b = M.body[0].body
         for k in dictionary:
             try:
-                if __preppy__vlhs__(k):
+                if k not in ('dictionary','__write__',
+                        '__swrite__','outputfile','__save_sys_stdout__') and __preppy__vlhs__(k):
+                    #print('dictionary[%s] = %r' % (k,dictionary[k]),file=__save_sys_stdout__)
                     b.insert(0,ast.parse('%s=dictionary[%r]' % (k,k),'???',mode='exec').body[0])
             except:
                 pass
