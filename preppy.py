@@ -289,7 +289,7 @@ class PreppyParser:
         self.__inFor = self.__inWhile = 0
 
     def compile(self, display=0):
-        self.code = compile(self.__get_ast(),self.filename,'exec')
+        self.codeobject = compile(self.__get_ast(),self.filename,'exec')
 
     def getPycHeader(self):
         try:
@@ -706,6 +706,7 @@ def run(dictionary, __write__=None, quoteFunc=str, outputfile=None):
             except:
                 pass
         NS = {}
+        NS['include'] = include
         rl_exec(compile(M,__preppy_filename__,'exec'),NS)
         NS['__code__'](dictionary,outputfile,__write__,__swrite__,__save_sys_stdout__)
     finally: #### end of compiled logic, standard cleanup
@@ -749,7 +750,7 @@ def testgetmodule(name="testoutput"):
     result.run({})
 def rl_get_module(name,dir):
     f, p, desc= imp.find_module(name,[dir])
-    if sys.modules.has_key(name):
+    if name in sys.modules:
         om = sys.modules[name]
         del sys.modules[name]
     else:
@@ -880,9 +881,10 @@ def getModule(name,
 
     # default is compile to bytecode and save that.
     if savePyc:
-        f = open(dir + os.sep + name + '.pyc','wb')
-        P.dump(f)
-        f.close()
+        with open(dir + os.sep + name + '.pyc','wb') as f:
+            f.write(py_compile.MAGIC)
+            py_compile.wr_long(f, int(time.time()))
+            marshal.dump(P.codeobject, f)
 
     # now make a module
     from imp import new_module
@@ -891,7 +893,7 @@ def getModule(name,
     module.__dict__['__preppy__vlhs__'] = __preppy__vlhs__
     if _globals:
         module.__dict__.update(_globals)
-    rl_exec(P.code,module.__dict__)
+    rl_exec(P.codeobject,module.__dict__)
     if importModule:
         if nosourcefile:
             SOURCE_MODULES[sourcetext] = module
@@ -1029,7 +1031,7 @@ def _find_quoteValue(name,depth=2):
                 g=g.f_globals
             else:
                 g=g.f_locals
-            if g.has_key(name): return g[name]
+            if name in g: return g[name]
             depth += 1
     except:
         return None
@@ -1044,15 +1046,15 @@ def include(viewName,*args,**kwd):
     if hasattr(m,'get'):
         #newstyle
         lquoter = quoter = None
-        if kwd.has_key('__quoteFunc__'):
+        if '__quoteFunc__' in kwd:
             quoter = kwd.pop('__quoteFunc__')
-        elif kwd.has_key('quoteFunc'):
+        elif 'quoteFunc' in kwd:
             quoter = kwd.pop('quoteFunc')
         if not quoter:
             quoter = _find_quoteValue('__quoteFunc__')
             if not quoter:
                 quoter = _find_quoteValue('quoteFunc')
-        if kwd.has_key('__lquoteFunc__'):
+        if '__lquoteFunc__' in kwd:
             lquoter = kwd.pop('__lquoteFunc__')
         if not lquoter:
             lquoter = _find_quoteValue('__lquoteFunc__')
@@ -1064,17 +1066,17 @@ def include(viewName,*args,**kwd):
         if args:
             if len(args)>1:
                 raise TypeError("include for old style prep file can have only one positional argument, dictionary")
-            if kwd.has_key('dictionary'):
+            if 'dictionary' in kwd:
                 raise TypeError('include: dictionary argument specified twice')
             dictionary = args(1).copy()
-        elif kwd.has_key('dictionary'):
+        elif 'dictionary' in kwd:
             dictionary = kwd.pop('dictionary').copy()
         else:
             dictionary = {}
         quoteFunc = None
-        if kwd.has_key('quoteFunc'):
+        if 'quoteFunc' in kwd:
             quoteFunc = kwd.pop('quoteFunc')
-        elif kwd.has_key('__quoteFunc__'):
+        elif '__quoteFunc__' in kwd:
             quoteFunc = kwd.pop('__quoteFunc__')
         if not quoteFunc:
             quoteFunc = _find_quoteValue('quoteFunc')
