@@ -34,9 +34,9 @@ This should print the number 1.01: {{1.01}}
 This should print the number 2.78: {{2.78}}
 <BR>
 This should print the string in key 1.01, but is still plain daft:
-    {{__d__['1.01']}}
+    {{dictionary['1.01']}}
 This should print the string in key 2.78 and is still equally daft:
-    {{__d__['2.78']}}
+    {{dictionary['2.78']}}
 </PRE>
 </TD></TR>
 </TABLE>

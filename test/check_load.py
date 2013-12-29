@@ -200,7 +200,7 @@ def makeBigDictionary(howBig):
     dictionary = {}
     for loopCounter in range(0,howBig):
         randNumber = random.randint(1,1000)
-        key = "key"+str.zfill(loopCounter, 4)
+        key = "key"+str.zfill(str(loopCounter), 4)
         dictionary[key]=randNumber
     return dictionary
 
