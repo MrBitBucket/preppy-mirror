@@ -273,7 +273,7 @@ def dedent(text):
 
 
 _pat = re.compile('{{\\s*|}}',re.M)
-_s = re.compile(r'^(?P<start>while|if|elif|for|continue|break|try|except)(?P<startend>\s+|$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
+_s = re.compile(r'^(?P<start>while|if|elif|for|continue|break|try|except|raise)(?P<startend>\s+|$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
 
 def _denumber(node,lineno=-1):
     if node.lineno!=lineno: node.lineno = lineno
@@ -394,7 +394,7 @@ class PreppyParser:
         '''parse a start fragment of code'''
         return self.__rparse(text)[0]
 
-    def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval','def', 'continue', 'break', 'try'],followers=['eof'],pop=True):
+    def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval','def', 'continue', 'break', 'try', 'raise'],followers=['eof'],pop=True):
         C = []
         a = C.append
         mangle = self.__mangle
@@ -432,6 +432,16 @@ class PreppyParser:
 
     def __continue(self):
         return self.__break(stmt='continue')
+
+    def __raise(self):
+        text = self.__tokenText()
+        try:
+            n = self.__rparse(text)
+        except:
+            self.__error()
+        t = self.__tokenPop()
+        self.__renumber(n,t)
+        return n
 
     def __renumber(self,node,t,dcoffs=0):
         if isinstance(node,list):
@@ -489,7 +499,7 @@ class PreppyParser:
         if text!='try':
             self.__serror(msg='invalid try statement')
         t = self.__tokenPop()
-        n = ast.Try(lineno=1,col_offset=0,handlers=[])
+        n = ast.Try(lineno=1,col_offset=0,handlers=[],orelse=[],finalbody=[])
         self.__renumber(n,t)
         n.body = self.__preppy(followers=['except','finally'],pop=False)
         while 1:

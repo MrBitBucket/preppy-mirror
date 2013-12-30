@@ -161,7 +161,53 @@ class GeneratedCodeTestCase(unittest.TestCase):
         self.assertEquals(self.getRunTimeOutput(source, A=preppy.SafeUnicode('<&>'), quoteFunc=preppy.stdQuote), "<a><&></a>")
         self.assertEquals(self.getRunTimeOutput(source, A=b'\xc2\xae', quoteFunc=preppy.stdQuote), u"<a>\xae</a>")
         self.assertEquals(self.getRunTimeOutput(source, A=None, quoteFunc=preppy.stdQuote), "<a></a>")
-        
+
+    def checkForContinueElse(self):
+        source="{{for i in range(3)}}{{if i==C}}{{continue}}{{endif}}{{i}}{{endfor}}"
+        self.assertEquals(self.getRunTimeOutput(source, C=-1, quoteFunc=preppy.stdQuote), "012")
+        self.assertEquals(self.getRunTimeOutput(source, C=2, quoteFunc=preppy.stdQuote), "01")
+        self.assertEquals(self.getRunTimeOutput(source, C=0, quoteFunc=preppy.stdQuote), "12")
+        source="{{for i in range(3)}}{{if i==C}}{{continue}}{{endif}}{{i}}{{else}}FORELSE{{endfor}}"
+        self.assertEquals(self.getRunTimeOutput(source, C=-1, quoteFunc=preppy.stdQuote), "012FORELSE")
+        self.assertEquals(self.getRunTimeOutput(source, C=2, quoteFunc=preppy.stdQuote), "01FORELSE")
+        self.assertEquals(self.getRunTimeOutput(source, C=0, quoteFunc=preppy.stdQuote), "12FORELSE")
+
+    def checkForBreakElse(self):
+        source="{{for i in range(3)}}{{if i==C}}{{break}}{{endif}}{{i}}{{endfor}}"
+        self.assertEquals(self.getRunTimeOutput(source, C=-1, quoteFunc=preppy.stdQuote), "012")
+        self.assertEquals(self.getRunTimeOutput(source, C=2, quoteFunc=preppy.stdQuote), "01")
+        self.assertEquals(self.getRunTimeOutput(source, C=0, quoteFunc=preppy.stdQuote), "")
+        source="{{for i in range(3)}}{{if i==C}}{{break}}{{endif}}{{i}}{{else}}FORELSE{{endfor}}"
+        self.assertEquals(self.getRunTimeOutput(source, C=-1, quoteFunc=preppy.stdQuote), "012FORELSE")
+        self.assertEquals(self.getRunTimeOutput(source, C=2, quoteFunc=preppy.stdQuote), "01")
+        self.assertEquals(self.getRunTimeOutput(source, C=0, quoteFunc=preppy.stdQuote), "")
+
+    def checkRaises(self):
+        self.assertRaises(ValueError,self.getRunTimeOutput,"{{raise ValueError('aaa')}}")
+
+    def checkTryExcept(self):
+        source="""TRY{{try}}{{if i==1}}
+raise ValueError{{raise ValueError('bbb')}}{{elif i==2}}
+raise TypeError{{raise TypeError('ccc')}}{{elif i==3}}
+raise Exception{{raise Exception('zzz')}}{{endif}}{{except ValueError}}
+catch ValueError{{except TypeError}}
+catch TypeError{{except}}
+catch all errors{{else}}
+TRYELSE{{finally}}
+TRYFINALLY{{endtry}}"""
+        self.assertEquals(self.getRunTimeOutput(source, i=0, quoteFunc=preppy.stdQuote), "TRY\nTRYELSE\nTRYFINALLY")
+        self.assertEquals(self.getRunTimeOutput(source, i=1, quoteFunc=preppy.stdQuote), "TRY\nraise ValueError\ncatch ValueError\nTRYFINALLY")
+        self.assertEquals(self.getRunTimeOutput(source, i=2, quoteFunc=preppy.stdQuote), "TRY\nraise TypeError\ncatch TypeError\nTRYFINALLY")
+        self.assertEquals(self.getRunTimeOutput(source, i=3, quoteFunc=preppy.stdQuote), "TRY\nraise Exception\ncatch all errors\nTRYFINALLY")
+
+    def checkTryFinally(self):
+        source="""TRY{{try}}
+FTRY{{try}}{{if i==1}}
+raise Exception{{raise Exception('zzz')}}{{endif}}
+FTRYBODY{{finally}}
+FTRYFINALLY{{endtry}}{{except}}
+catch all errors{{endtry}}"""
+        self.assertEquals(self.getRunTimeOutput(source, i=0, quoteFunc=preppy.stdQuote), "TRY\nFTRY\nFTRYBODY\nFTRYFINALLY")
 
 class NewGeneratedCodeTestCase(unittest.TestCase):
     """Maybe the simplest and most all-encompassing:
