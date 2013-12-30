@@ -159,7 +159,7 @@ class GeneratedCodeTestCase(unittest.TestCase):
         self.assertEquals(self.getRunTimeOutput(source, A='<&>', quoteFunc=preppy.stdQuote), "<a>&lt;&amp;&gt;</a>")
         self.assertEquals(self.getRunTimeOutput(source, A=preppy.SafeUnicode('<&>'), quoteFunc=preppy.stdQuote), "<a><&></a>")
         self.assertEquals(self.getRunTimeOutput(source, A=preppy.SafeUnicode('<&>'), quoteFunc=preppy.stdQuote), "<a><&></a>")
-        self.assertEquals(self.getRunTimeOutput(source, A=b'\xc2\xae', quoteFunc=preppy.stdQuote), "<a>\xae</a>")
+        self.assertEquals(self.getRunTimeOutput(source, A=b'\xc2\xae', quoteFunc=preppy.stdQuote), u"<a>\xae</a>")
         self.assertEquals(self.getRunTimeOutput(source, A=None, quoteFunc=preppy.stdQuote), "<a></a>")
         
 
