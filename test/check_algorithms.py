@@ -187,6 +187,14 @@ class GeneratedCodeTestCase(unittest.TestCase):
 
     def checkTryExcept(self):
         source="""TRY{{try}}{{if i==1}}
+RAISE{{raise Exception('zzz')}}{{endif}}
+TRYBODY{{except}}
+EXCEPT{{endtry}}"""
+        self.assertEquals(self.getRunTimeOutput(source, i=0, quoteFunc=preppy.stdQuote), "TRY\nTRYBODY")
+        self.assertEquals(self.getRunTimeOutput(source, i=1, quoteFunc=preppy.stdQuote), "TRY\nRAISE\nEXCEPT")
+
+    def checkTryExceptElseFinally(self):
+        source="""TRY{{try}}{{if i==1}}
 raise ValueError{{raise ValueError('bbb')}}{{elif i==2}}
 raise TypeError{{raise TypeError('ccc')}}{{elif i==3}}
 raise Exception{{raise Exception('zzz')}}{{endif}}{{except ValueError}}
