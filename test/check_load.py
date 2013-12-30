@@ -8,25 +8,25 @@
 # $Date$
 
 
-import os, glob, random
+import os, glob
 import preppy
 import unittest
 
 class LoadTestCase(unittest.TestCase):
     def lc01(self):
-        # creates a 500 item dictionary of random numbers
+        # creates a 500 item dictionary
         howBig = 500
         d = makeBigDictionary(howBig)
         processTest('loadsample001', d)
     
     def lc02(self):
-        # creates a 1,000 item dictionary of random numbers
+        # creates a 1,000 item dictionary
         howBig = 1000
         d = makeBigDictionary(howBig)
         processTest('loadsample002', d)
 
     def loadcheck03HugeDictionary10000(self):
-        # creates a 10,000 item dictionary of random numbers
+        # creates a 10,000 item dictionary
         howBig = 10000
         d = makeBigDictionary(howBig)
         processTest('loadsample003', d)
@@ -196,12 +196,12 @@ def makeBigFile(howBig, fileName):
         printLine = "1Mb test file created OK"
 
 def makeBigDictionary(howBig):
-    # This function creates a dictionary of howBig * random numbers  
-    dictionary = {}
+    # This function creates a dictionary of howBig * numbers  
+    from collections import OrderedDict
+    dictionary = OrderedDict()
     for loopCounter in range(0,howBig):
-        randNumber = random.randint(1,1000)
         key = "key"+str.zfill(str(loopCounter), 4)
-        dictionary[key]=randNumber
+        dictionary[key]=(((loopCounter*13)%17) * ((loopCounter*19)%23) * 7) % 1000
     return dictionary
 
 def oneK(tempString, verbose, howBig, fileName, testmode):

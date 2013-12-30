@@ -36,8 +36,8 @@ You should see 10,000 variables listed below under the dictionary 'dictionary', 
 Here are the local variables available to this page:
 <BR><PRE>
 {{script}}
-import pprint
-pprint.pprint(locals())
+for i in sorted(locals().items()):
+	print('%s=%r' % i)
 {{endscript}}
 </PRE>
 </TD></TR>
