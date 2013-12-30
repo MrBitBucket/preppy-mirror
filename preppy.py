@@ -127,6 +127,22 @@ else:
         elif L is None:
             L = G
         exec("""exec obj in G, L""")
+    class AstTry:
+        _attributes = ('lineno','col_offset')
+        _fields = ('body','handlers','orelse','finalbody')
+        def __init__(self,**kwds):
+            self.lineno = 1
+            self.col_offset = 0
+            self.__dict__.update(kwds)
+        def convertTry(self):
+            if not self.handlers:
+                return ast.TryFinally(lineno=self.lineno,col_offset=self.col_offset,body=self.body,finalbody=self.finalbody)
+            elif not self.finalbody:
+                return ast.TryExcept(lineno=self.lineno,col_offset=self.col_offset,body=self.body,handlers=self.handlers,orelse=self.orelse)
+            else:
+                return ast.TryFinally(lineno=self.lineno,col_offset=self.col_offset,
+                        body=[ast.TryExcept(lineno=self.lineno,col_offset=self.col_offset,body=self.body,handlers=self.handlers,orelse=self.orelse)],
+                        finalbody=self.finalbody)
 
 def asUtf8(s):
     return s if isinstance(s,bytesT) else s.encode('utf8')
@@ -499,21 +515,21 @@ class PreppyParser:
         if text!='try':
             self.__serror(msg='invalid try statement')
         t = self.__tokenPop()
-        n = ast.Try(lineno=1,col_offset=0,handlers=[],orelse=[],finalbody=[])
-        self.__renumber(n,t)
+        n = (ast.Try if isPy3 else AstTry)(lineno=1,col_offset=0,handlers=[],orelse=[],finalbody=[])
         n.body = self.__preppy(followers=['except','finally'],pop=False)
+        self.__renumber(n,t)
         while 1:
             text = self.__tokenText(colonRemove=1)
             t = self.__tokenPop()
             if text.startswith('endtry'):
                 if text != 'endtry':
                     self.__error('invalid endtry statement')
-                return n
+                return n if isPy3 else n.convertTry()
             elif text.startswith('finally'):
                 if text != 'finally':
                     self.__error('invalid finally statement')
                 n.finalbody = self.__preppy(followers=['endtry'])
-                return n
+                return n if isPy3 else n.convertTry()
             elif text.startswith('else'):
                 if text != 'else':
                     self.__error('invalid else statement')
