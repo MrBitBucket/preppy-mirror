@@ -208,6 +208,7 @@ FTRYBODY{{finally}}
 FTRYFINALLY{{endtry}}{{except}}
 catch all errors{{endtry}}"""
         self.assertEquals(self.getRunTimeOutput(source, i=0, quoteFunc=preppy.stdQuote), "TRY\nFTRY\nFTRYBODY\nFTRYFINALLY")
+        self.assertEquals(self.getRunTimeOutput(source, i=1, quoteFunc=preppy.stdQuote), "TRY\nFTRY\nraise Exception\nFTRYFINALLY\ncatch all errors")
 
 class NewGeneratedCodeTestCase(unittest.TestCase):
     """Maybe the simplest and most all-encompassing:
