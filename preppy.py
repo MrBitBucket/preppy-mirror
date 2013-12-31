@@ -515,9 +515,9 @@ class PreppyParser:
         if text!='try':
             self.__serror(msg='invalid try statement')
         t = self.__tokenPop()
-        n = (ast.Try if isPy3 else AstTry)(lineno=1,col_offset=0,handlers=[],orelse=[],finalbody=[])
-        n.body = self.__preppy(followers=['except','finally'],pop=False)
+        n = (ast.Try if isPy3 else AstTry)(lineno=1,col_offset=0,body=[],handlers=[],orelse=[],finalbody=[])
         self.__renumber(n,t)
+        n.body = self.__preppy(followers=['except','finally'],pop=False)
         while 1:
             text = self.__tokenText(colonRemove=1)
             t = self.__tokenPop()
