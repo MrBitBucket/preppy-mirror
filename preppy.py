@@ -289,7 +289,7 @@ def dedent(text):
 
 
 _pat = re.compile('{{\\s*|}}',re.M)
-_s = re.compile(r'^(?P<start>while|if|elif|for|continue|break|try|except|raise)(?P<startend>\s+|$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
+_s = re.compile(r'^(?P<start>while|if|elif|for|continue|break|try|except|raise|with)(?P<startend>\s+|$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry|endwith)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
 
 def _denumber(node,lineno=-1):
     if node.lineno!=lineno: node.lineno = lineno
@@ -410,7 +410,7 @@ class PreppyParser:
         '''parse a start fragment of code'''
         return self.__rparse(text)[0]
 
-    def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval','def', 'continue', 'break', 'try', 'raise'],followers=['eof'],pop=True):
+    def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval','def', 'continue', 'break', 'try', 'raise', 'with'],followers=['eof'],pop=True):
         C = []
         a = C.append
         mangle = self.__mangle
@@ -426,7 +426,7 @@ class PreppyParser:
             self.__tokenPop()
         return C
 
-    def __def(self,followers=['endwhile']):
+    def __def(self):
         try:
             n = self.__iparse('def get'+(self.__tokenText(forceColonPass=1).strip()[3:]))
         except:
@@ -482,7 +482,7 @@ class PreppyParser:
         for f in ast.iter_child_nodes(node):
             self.__renumber(f,t,dcoffs=dcoffs)
 
-    def __while(self,followers=['endwhile','else']):
+    def __while(self):
         self.__inWhile += 1
         try:
             n = self.__iparse(self.__tokenText(forceColonPass=1))
@@ -490,13 +490,13 @@ class PreppyParser:
             self.__error()
         t = self.__tokenPop()
         self.__renumber(n,t)
-        n.body = self.__preppy(followers=followers)
+        n.body = self.__preppy(followers=['endwhile','else'])
         if self._tokens[self._tokenX-1].kind=='else':
-            n.orelse = self.__preppy(followers='endfor')
+            n.orelse = self.__preppy(followers=['endwhile'])
         self.__inWhile -= 1
         return n
 
-    def __for(self,followers=['endfor','else']):
+    def __for(self):
         self.__inFor += 1
         try:
             n = self.__iparse(self.__tokenText(forceColonPass=1))
@@ -504,9 +504,9 @@ class PreppyParser:
             self.__error()
         t = self.__tokenPop()
         self.__renumber(n,t)
-        n.body = self.__preppy(followers=followers)
+        n.body = self.__preppy(followers=['endfor','else'])
         if self._tokens[self._tokenX-1].kind=='else':
-            n.orelse = self.__preppy(followers='endfor')
+            n.orelse = self.__preppy(followers=['endfor'])
         self.__inFor -= 1
         return n
 
@@ -545,6 +545,17 @@ class PreppyParser:
             else:
                 self.__serr('invalid syntax in try statement')
 
+    def __with(self):
+        self.__inWhile += 1
+        try:
+            n = self.__iparse(self.__tokenText(forceColonPass=1))
+        except:
+            self.__error()
+        t = self.__tokenPop()
+        self.__renumber(n,t)
+        n.body = self.__preppy(followers=['endwith'])
+        return n
+
     def __script(self,mode='script'):
         self.__tokenPop()
         dcoffs, text = dedent(self.__tokenText(strip=0,colonRemove=False))
@@ -569,7 +580,7 @@ class PreppyParser:
     def __eval(self):
         return self.__script(mode='eval')
 
-    def __if(self,followers=['endif','elif','else']):
+    def __if(self):
         tokens = self._tokens
         t = 'elif'
         I = None
@@ -581,7 +592,7 @@ class PreppyParser:
             except:
                 self.__error()
             t = self.__tokenPop()
-            n.body = self.__preppy(followers=followers)
+            n.body = self.__preppy(followers=['endif','elif','else'])
             self.__renumber(n,t)
             if I:
                 p.orelse = [n]

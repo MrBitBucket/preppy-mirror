@@ -218,6 +218,10 @@ catch all errors{{endtry}}"""
         self.assertEquals(self.getRunTimeOutput(source, i=0, quoteFunc=preppy.stdQuote), "TRY\nFTRY\nFTRYBODY\nFTRYFINALLY")
         self.assertEquals(self.getRunTimeOutput(source, i=1, quoteFunc=preppy.stdQuote), "TRY\nFTRY\nraise Exception\nFTRYFINALLY\ncatch all errors")
 
+    def checkWith(self):
+        fn = preppy.__file__
+        self.assertEquals(self.getRunTimeOutput('{{with open(fn,'r') as f}}{{f.name}}{{endwith}}',fn=fn, quoteFunc=preppy.stdQuote),fn)
+
 class NewGeneratedCodeTestCase(unittest.TestCase):
     """Maybe the simplest and most all-encompassing:
     take a little prep file, compile, exec, and verify that
