@@ -29,11 +29,11 @@ if __name__=='__main__':
             finally:
                 f.close()
         except:
-            print 'script for %s not created or erroneous' % modName
+            print('script for %s not created or erroneous' % modName)
             import traceback
             traceback.print_exc(file=sys.stdout)
             return None
-        print 'Created "%s"' % scriptPath
+        print('Created "%s"' % scriptPath)
         return scriptPath
 
     scripts = []
