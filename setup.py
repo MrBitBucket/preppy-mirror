@@ -42,7 +42,6 @@ if __name__=='__main__':
             makeScript('preppy'),
         ]))
 
-
     setup(name='preppy',
         version=version,
         description='preppy - a Preprocessor for Python',
@@ -51,4 +50,4 @@ if __name__=='__main__':
         url='http://bitbucket.org/rptlab/preppy',
         py_modules=['preppy'],
         scripts=scripts,
-     )
+        )
