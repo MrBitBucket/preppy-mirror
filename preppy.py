@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.0'
+VERSION = '2.1'
 __version__ = VERSION
 
 USAGE = """
@@ -289,7 +289,7 @@ def dedent(text):
 
 
 _pat = re.compile('{{\\s*|}}',re.M)
-_s = re.compile(r'^(?P<start>while|if|elif|for|continue|break|try|except|raise|with)(?P<startend>\s+|$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry|endwith)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
+_s = re.compile(r'^(?P<start>while|if|elif|for|continue|break|try|except|raise|with|import|from|assert)(?P<startend>\s+|$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry|endwith)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
 
 def _denumber(node,lineno=-1):
     if node.lineno!=lineno: node.lineno = lineno
@@ -410,7 +410,9 @@ class PreppyParser:
         '''parse a start fragment of code'''
         return self.__rparse(text)[0]
 
-    def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval','def', 'continue', 'break', 'try', 'raise', 'with'],followers=['eof'],pop=True):
+    def __preppy(self,
+            funcs='const expr while if for script eval def continue break try raise with import from assert'.split(),
+            followers=['eof'],pop=True):
         C = []
         a = C.append
         mangle = self.__mangle
@@ -555,6 +557,22 @@ class PreppyParser:
         n.body = self.__preppy(followers=['endwith'])
         return n
 
+    def __import(self,stmt='import'):
+        text = self.__tokenText()
+        try:
+            n = self.__iparse(text)
+        except:
+            self.__error()
+        t = self.__tokenPop()
+        self.__renumber(n,t)
+        return n
+
+    def __from(self):
+        return self.__import(stmt='from')
+
+    def __assert(self):
+        return self.__import(stmt='assert')
+
     def __script(self,mode='script'):
         self.__tokenPop()
         dcoffs, text = dedent(self.__tokenText(strip=0,colonRemove=False))
@@ -648,10 +666,10 @@ class PreppyParser:
         return self.__preppy()
 
     @staticmethod
-    def dump(node,include_attributes=True):
-        return ('[%s]' % ', '.join(PreppyParser.dump(x,include_attributes=include_attributes) for x in node)
+    def dump(node,annotate_fields=False,include_attributes=True):
+        return ('[%s]' % ', '.join(PreppyParser.dump(x,annotate_fields=annotate_fields,include_attributes=include_attributes) for x in node)
                 if isinstance(node,list)
-                else ast.dump(node,annotate_fields=False,include_attributes=include_attributes))
+                else ast.dump(node,annotate_fields=annotate_fields, include_attributes=include_attributes))
 
     def __get_ast(self):
         preppyNodes = self.__parse()

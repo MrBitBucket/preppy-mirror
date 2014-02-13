@@ -230,6 +230,14 @@ Continues to next iteration without requiring {{script}} {{endscript}}. Only all
 
 Breaks from a loop without requiring {{script}} {{endscript}}. Only allowed inside a loop.
 
+.. describe:: {{import module}} or {{import module as x}} or {{from module import x}} etc.
+
+The normal python import statements.
+
+.. describe:: {{assert condition, "....message"}}
+
+The python assert statement.
+
 Module import options
 =====================
 There are two ways to load a preppy module into memory.  We refer to these as 'file system semantics' and 'import semantics'.

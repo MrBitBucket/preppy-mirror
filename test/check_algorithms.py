@@ -220,7 +220,20 @@ catch all errors{{endtry}}"""
 
     def checkWith(self):
         fn = preppy.__file__
-        self.assertEquals(self.getRunTimeOutput('{{with open(fn,'r') as f}}{{f.name}}{{endwith}}',fn=fn, quoteFunc=preppy.stdQuote),fn)
+        self.assertEquals(self.getRunTimeOutput("{{with open(fn,'r') as f}}{{f.name}}{{endwith}}",fn=fn, quoteFunc=preppy.stdQuote),fn)
+
+    def checkImport(self):
+        self.assertEquals(self.getRunTimeOutput('{{import token}}{{token.__name__}}',quoteFunc=preppy.stdQuote),'token')
+        self.assertEquals(self.getRunTimeOutput('{{import token as x}}{{x.__name__}}',quoteFunc=preppy.stdQuote),'token')
+
+    def checkFrom(self):
+        self.assertEquals(self.getRunTimeOutput('{{from distutils import cmd}}{{cmd.__name__}}',quoteFunc=preppy.stdQuote),'distutils.cmd')
+        self.assertEquals(self.getRunTimeOutput('{{from distutils import cmd as x}}{{x.__name__}}',quoteFunc=preppy.stdQuote),'distutils.cmd')
+
+    def checkAssert(self):
+        source="{{assert i==1}}{{i}}"
+        self.assertRaises(AssertionError,self.getRunTimeOutput,source, i=0, quoteFunc=preppy.stdQuote)
+        self.assertEquals(self.getRunTimeOutput(source, i=1, quoteFunc=preppy.stdQuote), "1")
 
 class NewGeneratedCodeTestCase(unittest.TestCase):
     """Maybe the simplest and most all-encompassing:
