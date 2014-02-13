@@ -42,23 +42,23 @@ Set 4: Preppy 'while' loop<BR>
 <TABLE>
 <TR><TD>
 {{script}}
-print "FOR loop between script..endscript:", 
-print "</TD><TD>"
+print("FOR loop between script..endscript:")
+print("</TD><TD>")
 for loopCounter in range(1,11):
-	print loopCounter, 
-print "</TD><TD>"
-print "Python FOR loop works OK\n<BR>\n"
-print "</TD>"
-print "</TR><TR>"
-print "<TD>"
-print "WHILE loop between script..endscript:",
-print "</TD><TD>"
+	print(loopCounter)
+print("</TD><TD>")
+print("Python FOR loop works OK\n<BR>\n")
+print("</TD>")
+print("</TR><TR>")
+print("<TD>")
+print("WHILE loop between script..endscript:")
+print("</TD><TD>")
 loopCounter = 1
 while loopCounter<11:
-	print loopCounter,
+	print(loopCounter)
 	loopCounter =  loopCounter+1
-print "</TD><TD>"
-print "Python WHILE loop works OK\n<BR>\n"
+print("</TD><TD>")
+print("Python WHILE loop works OK\n<BR>\n")
 {{endscript}}
 </TD></TR>
 <TR><TD>

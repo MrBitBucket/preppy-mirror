@@ -17,8 +17,7 @@ The key features are:
 * *compiled to bytecode*: a .prep file gets compiled to a Python function in a .pyc file
 * *easy to debug*: preppy generates proper Python exceptions, with the correct line numbers for the .prep file.  You can follow tracebacks from Python script to Preppy template and back, through multiple includes
 * *easy to type and read*.  We've been using ``{{this}}`` syntax since well before Django was thought of
-* *8-bit safe*:  it makes no assumption that you are generating markup and does nothing unexpected with whitespace; you could use it to generate images or binary files if you wanted to.  
-
+* *8-bit safe*:  it makes no assumption that you are generating markup and does nothing unexpected with whitespace; you could use it to generate images or binary files if you wanted to.
 
 Why another templating system?
 ==============================
@@ -181,7 +180,7 @@ The *{{if}}*` statement does exactly what Python's *if* statement does.  You may
     
 
 
-.. describe:: {{for EXPR}}...{{endfor}}
+.. describe:: {{for EXPR}}...{{else}}...{{endfor}}
 
 
 This implements a for loop in preppy source.  The EXPR should follow
@@ -190,6 +189,8 @@ code is roughly::
 
     for EXPR:
         interpretation_of(block)
+    else:
+        no break exit
 
 An example::
 
@@ -198,16 +199,36 @@ An example::
     {{endfor}}
 
 
-.. describe:: {{while CONDITION}}...{{endwhile}}
+.. describe:: {{while CONDITION}}...{{else}}...{{endwhile}}
 
 This implements a *while* loop in preppy source.  The condition should be
 a python expression.  The resulting python code is roughly::
 
     while CONDITION:
         interpretation_of(block)
+    else:
+        ....
 
+.. describe:: {{try}}...{{except X}}...{{else}}...{{finally}}...{{endtry}}
 
+The normal python *try* in preppy form. The the else clause is accepted only if
+an except clause is seen. 
 
+.. describe:: {{with open('aaa') as x}}...{{endwith}}
+
+As in python the contained block knows about x and handles finalization etc etc.
+
+.. describe:: {{raise Exception}}
+
+This allows raising an exception without  using {{script}} {{endscript}}.
+
+.. describe:: {{continue}}
+
+Continues to next iteration without requiring {{script}} {{endscript}}. Only allowed inside a loop.
+
+.. describe:: {{break}}
+
+Breaks from a loop without requiring {{script}} {{endscript}}. Only allowed inside a loop.
 
 Module import options
 =====================

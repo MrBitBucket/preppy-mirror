@@ -29,11 +29,11 @@ if __name__=='__main__':
             finally:
                 f.close()
         except:
-            print 'script for %s not created or erroneous' % modName
+            print('script for %s not created or erroneous' % modName)
             import traceback
             traceback.print_exc(file=sys.stdout)
             return None
-        print 'Created "%s"' % scriptPath
+        print('Created "%s"' % scriptPath)
         return scriptPath
 
     scripts = []
@@ -41,7 +41,6 @@ if __name__=='__main__':
     scripts.extend(filter(None,[
             makeScript('preppy'),
         ]))
-
 
     setup(name='preppy',
         version=version,
@@ -51,4 +50,4 @@ if __name__=='__main__':
         url='http://bitbucket.org/rptlab/preppy',
         py_modules=['preppy'],
         scripts=scripts,
-     )
+        )

@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '1.0'
+VERSION = '2.0'
 __version__ = VERSION
 
 USAGE = """
@@ -67,147 +67,121 @@ QUOTEQUOTE = "$$"
 # SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
 UNESCAPES = ((QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE))
 
-import re, sys, os, imp, struct, tokenize, StringIO, token
-try:
-    from hashlib import md5
-except ImportError:
-    from md5 import md5
+import re, sys, os, imp, struct, tokenize, token, ast, traceback, time, marshal, py_compile, pickle
+from hashlib import md5
+isPy3 = sys.version_info.major == 3
+from xml.sax.saxutils import escape as xmlEscape
+from collections import namedtuple
+Token = namedtuple('Token','kind lineno start end')
 
-import warnings
-try:
-     warnings.simplefilter("ignore")
-     from compiler import pycodegen, pyassem, future, consts
-     del warnings.filters[0]
-except:
-    from compiler import pycodegen, pyassem, future, consts
-del warnings
+if isPy3:
+    from io import BytesIO, StringIO
+    def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
+        try:
+            L = list(tokenize.tokenize(BytesIO(s.strip().encode('utf8')).readline))
+        except:
+            return False
+        return len(L)<=3 and L[-2][0]==NAME and L[-1][0]==ENDMARKER
 
-try:
-    consts_SC_GLOBAL = (consts.SC_GLOBAL_IMPLICIT, consts.SC_GLOBAL_EXPLICT)
-except AttributeError:
-    try:
-        #cope with idiots who fix the spelling
-        consts_SC_GLOBAL = (consts.SC_GLOBAL_IMPLICIT, consts.SC_GLOBAL_EXPLICIT)
-    except AttributeError:
-        #assume we must be very old style python
-        consts_SC_GLOBAL = (consts.SC_GLOBAL,)
+    class SafeString(bytes):
+        pass
+    class SafeUnicode(str):
+        pass
+    _ucvn = '__str__'   #unicode conversion
+    _bcvn = '__bytes__' #bytes conversion
+    _ncvt = str         #native converter
+    bytesT = bytes
+    unicodeT = str
+    strTypes = (str,bytes)
+    import builtins
+    rl_exec = getattr(builtins,'exec')
+    del builtins
+else:
+    from StringIO import StringIO
+    BytesIO = StringIO
+    def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
+        L = []
+        try:
+            tokenize.tokenize(BytesIO(s.strip()).readline,lambda *a: L.append(a))
+        except:
+            return False
+        return len(L)==2 and L[0][0]==NAME and L[1][0]==ENDMARKER
+
+    class SafeString(str):
+        pass
+    class SafeUnicode(unicode):
+        pass
+    _ucvn = '__unicode__'
+    _bcvn = '__str__'
+    _ncvt = unicode
+    bytesT = str
+    unicodeT = unicode
+    strTypes = basestring
+    def rl_exec(obj, G=None, L=None):
+        if G is None:
+            frame = sys._getframe(1)
+            G = frame.f_globals
+            if L is None:
+                L = frame.f_locals
+            del frame
+        elif L is None:
+            L = G
+        exec("""exec obj in G, L""")
+    class AstTry:
+        _attributes = ('lineno','col_offset')
+        _fields = ('body','handlers','orelse','finalbody')
+        def __init__(self,**kwds):
+            self.lineno = 1
+            self.col_offset = 0
+            self.__dict__.update(kwds)
+        def convertTry(self):
+            if not self.handlers:
+                return ast.TryFinally(lineno=self.lineno,col_offset=self.col_offset,body=self.body,finalbody=self.finalbody)
+            elif not self.finalbody:
+                return ast.TryExcept(lineno=self.lineno,col_offset=self.col_offset,body=self.body,handlers=self.handlers,orelse=self.orelse)
+            else:
+                return ast.TryFinally(lineno=self.lineno,col_offset=self.col_offset,
+                        body=[ast.TryExcept(lineno=self.lineno,col_offset=self.col_offset,body=self.body,handlers=self.handlers,orelse=self.orelse)],
+                        finalbody=self.finalbody)
+
+def asUtf8(s):
+    return s if isinstance(s,bytesT) else s.encode('utf8')
+def getMd5(s):
+    return md5(asUtf8(s)+asUtf8(VERSION)).hexdigest()
 
 #Andy's standard quote for django
-class SafeBase(basestring):
-    pass
-class SafeString(SafeBase,str):
-    pass
-class SafeUnicode(SafeBase,unicode):
-    pass
-
-from xml.sax.saxutils import escape as xmlEscape
+_safeBase = SafeString, SafeUnicode
 def stdQuote(s):
-    if not isinstance(s,basestring):
+    if not isinstance(s,strTypes):
         if s is None: return '' #we usually don't want output
-        cnv = getattr(s,'__unicode__',None)
+        cnv = getattr(s,_ucvn,None)
         if not cnv:
-            cnv = getattr(s,'__str__',None)
+            cnv = getattr(s,_bcvn,None)
         s = cnv() if cnv else str(s)
-    if isinstance(s,SafeBase):
-        if isinstance(s,SafeUnicode):
-            s = s.encode('utf8')
+    if isinstance(s,_safeBase):
+        if isinstance(s,SafeString):
+            s = s.decode('utf8')
         return s
-    elif isinstance(s,unicode):
-        s = s.encode('utf8')
+    elif not isinstance(s,_ncvt):
+        s = s.decode('utf8')
     return xmlEscape(s)
 
-def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
-    L = []
-    try:
-        tokenize.tokenize(StringIO.StringIO(s.strip()).readline,lambda *a: L.append(a))
-    except:
-        return False
-    return len(L)==2 and L[0][0]==NAME and L[1][0]==ENDMARKER
+def pnl(s):
+    '''print without a lineend'''
+    if isinstance(s,unicodeT):
+        s = s.encode(sys.stdout.encoding,'replace')
+    sys.stdout.write(s)
 
-class _preppy_FunctionCodeGenerator(pycodegen.FunctionCodeGenerator):
-    def __init__(self, func, scopes, isLambda, class_name, mod):
-        self.scopes = scopes
-        self.scope = scopes[func]
-        self.class_name = class_name
-        self.module = mod
-        if isLambda:
-            klass = pycodegen.FunctionCodeGenerator
-            name = "<lambda.%d>" % klass.lambdaCount
-            klass.lambdaCount += 1
-        else:
-            name = func.name
-        args, hasTupleArg = pycodegen.generateArgList(func.argnames)
-        self.optimized = int(name!='__code__')
-        self._special_locals = name=='__code__'
-        self.graph = pyassem.PyFlowGraph(name, func.filename, args,
-                                         optimized=self.optimized)
-        if name=='__code__': self.graph.setFlag(consts.CO_NEWLOCALS)
-        self.isLambda = isLambda
-        self.super_init()
-
-        if not isLambda and func.doc:
-            self.setDocstring(func.doc)
-
-        lnf = pycodegen.walk(func.code, self.NameFinder(args), verbose=0)
-        self.locals.push(lnf.getLocals())
-        if func.varargs:
-            self.graph.setFlag(consts.CO_VARARGS)
-        if func.kwargs:
-            self.graph.setFlag(consts.CO_VARKEYWORDS)
-        self.set_lineno(func)
-        if hasTupleArg:
-            self.generateArgUnpack(func.argnames)
-        self.graph.setFreeVars(self.scope.get_free_vars())
-        self.graph.setCellVars(self.scope.get_cell_vars())
-        if self.scope.generator is not None:
-            self.graph.setFlag(pycodegen.CO_GENERATOR)
-
-    def _nameOp(self, prefix, name):
-        name = self.mangle(name)
-        scope = self.scope.check_name(name)
-        if self._special_locals and name=='locals': name = 'globals'
-        if scope == consts.SC_LOCAL:
-            if not (self.optimized or name in ['dictionary','__write__','__swrite__','outputfile', '__save_sys_stdout__', '__preppy__d__']):
-                self.emit(prefix + '_NAME', name)
-            else:
-                self.emit(prefix + '_FAST', name)
-        elif scope in consts_SC_GLOBAL:
-            if not self.optimized:
-                self.emit(prefix + '_NAME', name)
-            else:
-                self.emit(prefix + '_GLOBAL', name)
-        elif scope == consts.SC_FREE or scope == consts.SC_CELL:
-            self.emit(prefix + '_DEREF', name)
-        else:
-            raise RuntimeError, "unsupported scope for var %s: %d" % \
-                  (name, scope)
-
-class _preppy_ModuleCodeGenerator(pycodegen.ModuleCodeGenerator):
-    def __init__(self, tree):
-        self.graph = pyassem.PyFlowGraph("<module>", tree.filename)
-        self.futures = future.find_futures(tree)
-        pycodegen.ModuleCodeGenerator._ModuleCodeGenerator__super_init(self)
-        self.__class__.FunctionGen = _preppy_FunctionCodeGenerator
-        pycodegen.walk(tree, self)
+def pel(s):
+    '''print with a line ending'''
+    pnl(s)
+    pnl('\n')
 
 def unescape(s, unescapes=UNESCAPES):
     for (old, new) in unescapes:
         s = s.replace(old, new)
     return s
 
-
-"""
-{{if x:}} this text $(endif}} that
-
-becomes
-
-if x:
-    print (" this text"),
-print (that\n")
-
-note that extra spaces may be introduced compliments of print.
-could change this to a file.write for more exact control...
-"""
 
 teststring = """
 this test script should produce a runnable program
@@ -309,53 +283,39 @@ def dedent(text):
             continue
         lindent = l[:findfirstword]
         if lindent!=indent:
-            raise ValueError, "inconsistent indent expected %s got %s in %s" % (repr(indent), repr(lindent), l)
+            raise ValueError("inconsistent indent expected %s got %s in %s" % (repr(indent), repr(lindent), l))
         linesout.append(l[findfirstword:])
-    return '\n'.join(lempty*['']+linesout)
+    return len(indent),'\n'.join(lempty*['']+linesout)
 
 
 _pat = re.compile('{{\\s*|}}',re.M)
-_s = re.compile(r'^(?P<start>while|if|elif|for)(?P<startend>\s+|$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
-
-def _renumber(node,lineno_offset):
-    if node.lineno: node.lineno += lineno_offset
-    for child in node.getChildNodes(): _renumber(child,lineno_offset)
+_s = re.compile(r'^(?P<start>while|if|elif|for|continue|break|try|except|raise|with)(?P<startend>\s+|$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry|endwith)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
 
 def _denumber(node,lineno=-1):
     if node.lineno!=lineno: node.lineno = lineno
     for child in node.getChildNodes(): _denumber(child,lineno)
 
-class PreppyParser(pycodegen.Module):
-    from compiler import parse as _cparse
-    _cparse = staticmethod(_cparse)
-    def __init__(self,*args,**kw):
-        pycodegen.Module.__init__(self,*args,**kw)
+class PreppyParser:
+    def __init__(self,source,filename='[unknown]',sourcechecksum=None):
+        self.__mangle = '_%s__'%self.__class__.__name__
         self._defSeen = 0
+        self.source = source
+        self.filename = filename
+        self.sourcechecksum = sourcechecksum
+        self.__inFor = self.__inWhile = 0
 
     def compile(self, display=0):
-        tree = self._get_tree()
-        gen = _preppy_ModuleCodeGenerator(tree)
-        if display:
-            import pprint
-            print pprint.pprint(tree)
-        self.code = gen.getCode()
+        self.codeobject = compile(self.__get_ast(),self.filename,'exec')
 
     def getPycHeader(self):
         try:
-            if getattr(self,'nosourcefile',0): raise ValueError
+            if getattr(self,'nosourcefile',0): raise ValueError('no source file')
             mtime = os.path.getmtime(self.filename)
         except:
             import time
             mtime = time.time()
         mtime = struct.pack('<i', mtime)
         return self.MAGIC + mtime
-
-    def _get_tree(self):
-        from compiler import misc, syntax
-        tree = self.__get_ast()
-        misc.set_filename(self.filename, tree)
-        syntax.check(tree)
-        return tree
 
     def __lexerror(self, msg, pos):
         text = self.source
@@ -379,7 +339,7 @@ class PreppyParser(pycodegen.Module):
                     self.__lexerror('Unexpected {{', i0)
                 else:
                     state = 1
-                    if i0!=ix: a(('const',lineno,ix,i0))
+                    if i0!=ix: a(Token('const',lineno,ix,i0))
                     ix = i1
             elif state:
                     state = 0
@@ -388,8 +348,9 @@ class PreppyParser(pycodegen.Module):
                     if m:
                         t = m.group('start')
                         if t:
-                            if not m.group('startend'): self.__lexerror('Bad %s' % t, i0)
-                            ix += len(t)    #skip over the 'while ' or 'for ' etc
+                            if not m.group('startend'):
+                                if t not in ('continue','break','try','except'):
+                                    self.__lexerror('Bad %s' % t, i0)
                         else:
                             t = m.group('end')
                             if t:
@@ -406,11 +367,10 @@ class PreppyParser(pycodegen.Module):
                                             self.__lexerror('def must come first',i0)
                                     else:
                                         self._defSeen = 1
-                                ix += len(t)    #skip over the 'while ' or 'for ' etc
                     else:
                         t = 'expr'  #expression
                     if not self._defSeen: self._defSeen = -1
-                    if i0!=ix: a((t,lineno,ix,i0))
+                    if i0!=ix: a(Token(t,lineno,ix,i0))
                     ix = i1
         else:
             lineno = 0
@@ -418,16 +378,18 @@ class PreppyParser(pycodegen.Module):
         textLen = len(text)
         if ix!=textLen:
             lineno = text.count('\n',0,ix)+1
-            a(('const',lineno,ix,textLen))
-        a(('eof',lineno+1,textLen,textLen))
+            a(Token('const',lineno,ix,textLen))
+        a(Token('eof',lineno+1,textLen,textLen))
         self._tokenX = 0
         return tokens
 
-    def __tokenText(self,colonRemove=0, strip=1):
+    def __tokenText(self, colonRemove=False, strip=True, forceColonPass=False):
         t = self._tokens[self._tokenX]
-        text = self.source[t[2]:t[3]]
+        text = self.source[t.start:t.end]
         if strip: text = text.strip()
-        if colonRemove and text.endswith(':'): text = text[:-1]
+        if colonRemove or forceColonPass:
+            if text.endswith(':'): text = text[:-1]
+            if forceColonPass: text += ':\tpass\n'
         return unescape(text)
 
     def __tokenPop(self):
@@ -435,131 +397,236 @@ class PreppyParser(pycodegen.Module):
         self._tokenX += 1
         return t
 
-    def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval','def'],followers=['eof']):
-        from compiler.ast import Stmt
+    def __colOffset(self,t):
+        '''obtain the column offset corresponding to a specific token'''
+        return t.start-max(self.source.rfind('\n',0,t.start),0)
+
+    def __rparse(self,text):
+        '''parse a raw fragment of code'''
+        tf = ast.parse(text,filename=self.filename,mode='exec').body
+        return tf
+
+    def __iparse(self,text):
+        '''parse a start fragment of code'''
+        return self.__rparse(text)[0]
+
+    def __preppy(self,funcs=['const','expr','while','if','for','script', 'eval','def', 'continue', 'break', 'try', 'raise', 'with'],followers=['eof'],pop=True):
         C = []
         a = C.append
-        mangle = '_%s__'%self.__class__.__name__
+        mangle = self.__mangle
         tokens = self._tokens
         while 1:
-            t = tokens[self._tokenX][0]
+            t = tokens[self._tokenX].kind
             if t in followers: break
             p = t in funcs and getattr(self,mangle+t) or self.__serror
             r = p()
-            if type(r) is list: C += r
+            if isinstance(r,list): C += r
             elif r is not None: a(r)
-        self.__tokenPop()
-        return Stmt(C)
-        
-    def __def(self,followers=['endwhile']):
-        from compiler.ast import While
+        if pop:
+            self.__tokenPop()
+        return C
+
+    def __def(self):
         try:
-            F = self._cparse('def X%s: pass' % self.__tokenText(colonRemove=1).strip()).node.nodes[0]
-            self._fnc_argnames = F.argnames
-            self._fnc_defaults = F.defaults
-            self._fnc_varargs = F.varargs
-            self._fnc_kwargs = F.kwargs
-            self._fnc_flags = F.flags
+            n = self.__iparse('def get'+(self.__tokenText(forceColonPass=1).strip()[3:]))
         except:
             self.__error()
         t = self.__tokenPop()
-        self._fnc_lineno = t[1]
+        self._fnc_defn = t,n
         return None
 
-    def __while(self,followers=['endwhile']):
-        from compiler.ast import While
-        try:
-            cond = self._cparse(self.__tokenText(colonRemove=1),'eval').node
-        except:
-            self.__error()
+    def __break(self,stmt='break'):
+        text = self.__tokenText()
+        if text!=stmt:
+            self.__serror(msg='invalid %s statement' % stmt)
+        elif not self.__inWhile and not self.__inFor:
+            self.__serror(msg='%s statement outside while or for loop' % stmt)
         t = self.__tokenPop()
-        _renumber(cond,t[1]-1)
-        r = While(cond,self.__preppy(followers=followers),None)
-        return r
+        n = getattr(ast,stmt.capitalize())(lineno=1,col_offset=0)
+        self.__renumber(n,t)
+        return n
 
-    def __for(self,followers=['endfor']):
-        from compiler.ast import For
+    def __continue(self):
+        return self.__break(stmt='continue')
+
+    def __raise(self):
+        text = self.__tokenText()
         try:
-            f = self._cparse('for %s:\n pass\n'%self.__tokenText(colonRemove=1),'exec').node.nodes[0]
+            n = self.__rparse(text)
         except:
             self.__error()
         t = self.__tokenPop()
-        _renumber(f,t[1]-1)
-        f.body = self.__preppy(followers=followers)
-        return f
+        self.__renumber(n,t)
+        return n
+
+    def __renumber(self,node,t,dcoffs=0):
+        if isinstance(node,list):
+            for f in node:
+                self.__renumber(f,t,dcoffs=dcoffs)
+            return
+        if isinstance(t,Token):
+            lineno_offset = t.lineno-1
+            col_offset = self.__colOffset(t)
+        else:
+            lineno_offset, col_offset = t
+        if 'col_offset' in node._attributes:
+            if getattr(node,'lineno',1)==1:
+                node.col_offset = getattr(node,'col_offset',0)+col_offset+dcoffs
+            elif not hasattr(node,'col_offset'):
+                node.col_offset = dcoffs
+            else:
+                node.col_offset += dcoffs
+        if 'lineno' in node._attributes:
+            node.lineno = getattr(node,'lineno',1)+lineno_offset
+        t = lineno_offset,col_offset
+        for f in ast.iter_child_nodes(node):
+            self.__renumber(f,t,dcoffs=dcoffs)
+
+    def __while(self):
+        self.__inWhile += 1
+        try:
+            n = self.__iparse(self.__tokenText(forceColonPass=1))
+        except:
+            self.__error()
+        t = self.__tokenPop()
+        self.__renumber(n,t)
+        n.body = self.__preppy(followers=['endwhile','else'])
+        if self._tokens[self._tokenX-1].kind=='else':
+            n.orelse = self.__preppy(followers=['endwhile'])
+        self.__inWhile -= 1
+        return n
+
+    def __for(self):
+        self.__inFor += 1
+        try:
+            n = self.__iparse(self.__tokenText(forceColonPass=1))
+        except:
+            self.__error()
+        t = self.__tokenPop()
+        self.__renumber(n,t)
+        n.body = self.__preppy(followers=['endfor','else'])
+        if self._tokens[self._tokenX-1].kind=='else':
+            n.orelse = self.__preppy(followers=['endfor'])
+        self.__inFor -= 1
+        return n
+
+    def __try(self):
+        text = self.__tokenText(colonRemove=1)
+        if text!='try':
+            self.__serror(msg='invalid try statement')
+        t = self.__tokenPop()
+        n = (ast.Try if isPy3 else AstTry)(lineno=1,col_offset=0,body=[],handlers=[],orelse=[],finalbody=[])
+        self.__renumber(n,t)
+        n.body = self.__preppy(followers=['except','finally'],pop=False)
+        while 1:
+            text = self.__tokenText(colonRemove=1)
+            t = self.__tokenPop()
+            if text.startswith('endtry'):
+                if text != 'endtry':
+                    self.__error('invalid endtry statement')
+                return n if isPy3 else n.convertTry()
+            elif text.startswith('finally'):
+                if text != 'finally':
+                    self.__error('invalid finally statement')
+                n.finalbody = self.__preppy(followers=['endtry'])
+                return n if isPy3 else n.convertTry()
+            elif text.startswith('else'):
+                if text != 'else':
+                    self.__error('invalid else statement')
+                n.orelse = self.__preppy(followers=['finally','endtry'],pop=False)
+            elif text.startswith('except'):
+                exh = self.__iparse('try:\n\tpass\n%s:\n\tpass\n' % text).handlers[0]
+                exh.lineno = 1
+                exh.col_offset = 0
+                self.__renumber(exh,t)
+                F = ['finally','else','endtry'] if text=='except' else ['except','finally','endtry','else']
+                exh.body = self.__preppy(followers=F,pop=False)
+                n.handlers.append(exh)
+            else:
+                self.__serr('invalid syntax in try statement')
+
+    def __with(self):
+        self.__inWhile += 1
+        try:
+            n = self.__iparse(self.__tokenText(forceColonPass=1))
+        except:
+            self.__error()
+        t = self.__tokenPop()
+        self.__renumber(n,t)
+        n.body = self.__preppy(followers=['endwith'])
+        return n
 
     def __script(self,mode='script'):
         self.__tokenPop()
-        text = dedent(self.__tokenText(strip=0))
+        dcoffs, text = dedent(self.__tokenText(strip=0,colonRemove=False))
         scriptMode = 'script'==mode
         if text:
             try:
-                stmt = self._cparse(text,scriptMode and 'exec' or 'eval').node
+                n = self.__rparse(text)
             except:
                 self.__error()
         t = self.__tokenPop()
         end = 'end'+mode
         try:
-            assert self._tokens[self._tokenX][0]==end
+            assert self._tokens[self._tokenX].kind==end
             self.__tokenPop()
         except:
             self.__error(end+' expected')
         if not text: return []
-        _renumber(stmt,t[1]-1)
-
-        if scriptMode: return stmt.nodes
-        from compiler.ast import Discard, CallFunc, Name, Const
-        return Discard(CallFunc(Name('__swrite__'), [stmt.getChildren()[0]],None,None))
+        if mode=='eval': n = ast.Expr(value=ast.Call(func=ast.Name(id='__swrite__',ctx=ast.Load()),args=n,keywords=[],starargs=None,kwargs=None))
+        self.__renumber(n,t,dcoffs=dcoffs)
+        return n
 
     def __eval(self):
         return self.__script(mode='eval')
 
-    def __if(self,followers=['endif','elif','else']):
-        from compiler.ast import If
+    def __if(self):
         tokens = self._tokens
-        CS = []
         t = 'elif'
+        I = None
         while t=='elif':
             try:
-                cond = self._cparse(self.__tokenText(colonRemove=1),'eval').node
+                text = self.__tokenText(forceColonPass=1)
+                if text.startswith('elif'): text = 'if  '+text[4:]
+                n = self.__iparse(text)
             except:
                 self.__error()
             t = self.__tokenPop()
-            _renumber(cond,t[1]-1)
-            CS.append((cond,self.__preppy(followers=followers)))
-            t = tokens[self._tokenX-1][0]   #we consumed the terminal in __preppy
+            n.body = self.__preppy(followers=['endif','elif','else'])
+            self.__renumber(n,t)
+            if I:
+                p.orelse = [n]
+            else:
+                I = n
+            p = n
+            t = tokens[self._tokenX-1].kind #we consumed the terminal in __preppy
             if t=='elif': self._tokenX -= 1
         if t=='else':
-            stmt = self.__preppy(followers=['endif'])
-        else:
-            stmt = None
-        return If(CS,stmt)
+            p.orelse = self.__preppy(followers=['endif'])
+        return I
 
     def __const(self):
-        from compiler.ast import Discard, CallFunc, Name, Const
         try:
-            n = Discard(CallFunc(Name('__write__'), [Const(self.__tokenText(strip=0))], None, None))
-            t = self.__tokenPop()
-            _renumber(n,t[1]-1)
-            return n
+            n = ast.Expr(value=ast.Call(func=ast.Name(id='__write__',ctx=ast.Load()),args=[ast.Str(s=self.__tokenText(strip=0))],keywords=[],starargs=None,kwargs=None))
         except:
             self.__error('bad constant')
+        t = self.__tokenPop()
+        self.__renumber(n,t)
+        return n
 
     def __expr(self):
-        from compiler.ast import Discard, CallFunc, Name
         t = self.__tokenText()
         try:
-            n= Discard(CallFunc(Name('__swrite__'), [self._cparse(t,'eval').getChildren()[0]],None,None))
-            t = self.__tokenPop()
-            _renumber(n,t[1]-1)
-            return n
+            n = ast.Expr(value=ast.Call(func=ast.Name(id='__swrite__',ctx=ast.Load()),args=[self.__rparse(t)[0].value],keywords=[],starargs=None,kwargs=None))
         except:
             self.__error('bad expression')
+        t = self.__tokenPop()
+        self.__renumber(n,t)
+        return n
 
     def __error(self,msg='invalid syntax'):
-        pos = self._tokens[self._tokenX][2]
-        import traceback, StringIO
-        f = StringIO.StringIO()
+        pos = self._tokens[self._tokenX].start
+        f = StringIO()
         traceback.print_exc(file=f)
         f = f.getvalue()
         m = 'File "<string>", line '
@@ -574,74 +641,71 @@ class PreppyParser(pycodegen.Module):
             raise SyntaxError('  File %s, line %d\n%s' % (self.filename,n,'\n'.join(f[1:])))
 
     def __serror(self,msg='invalid syntax'):
-        self.__lexerror(msg,self._tokens[self._tokenX][2])
+        self.__lexerror(msg,self._tokens[self._tokenX].start)
 
     def __parse(self,text=None):
-        from compiler.ast import Stmt
         if text: self.source = text
         self.__tokenize()
-        return self.__preppy().nodes
+        return self.__preppy()
+
+    @staticmethod
+    def dump(node,include_attributes=True):
+        return ('[%s]' % ', '.join(PreppyParser.dump(x,include_attributes=include_attributes) for x in node)
+                if isinstance(node,list)
+                else ast.dump(node,annotate_fields=False,include_attributes=include_attributes))
 
     def __get_ast(self):
-        from compiler.ast import    Module, Stmt, Assign, AssName, Const, Function, For, Getattr,\
-                                    TryFinally, TryExcept, If, Import, AssAttr, Name, CallFunc,\
-                                    Class, Compare, Raise, And, Mod, Tuple, Pass, Not, Exec, List,\
-                                    Discard, Keyword, Return, Dict, Break, AssTuple, Subscript,\
-                                    Printnl, From, Lambda
-
         preppyNodes = self.__parse()
         if self._defSeen==1:
-            fixargs = self._fnc_argnames
-            defaults = list(self._fnc_defaults)
-            if self._fnc_kwargs:
-                spargs = [fixargs[-1]]
-                fixargs = fixargs[:-1]
+            t, F = self._fnc_defn
+            argNames = [a.arg for a in F.args.args] if isPy3 else [a.id for a in F.args.args]
+            if F.args.kwarg:
+                kwargName = F.args.kwarg
+                CKWA = []
             else:
-                spargs = ['__kwds__']
-            if self._fnc_varargs:
-                spargs.insert(0,fixargs[-1])
-                fixargs = fixargs[:-1]
-            kwargs = fixargs[-len(defaults):]
-            fixargs = fixargs[:-len(defaults)]
-            flags = self._fnc_flags
+                F.args.kwarg = kwargName = '__kwds__'
+                CKWA = ["if %s: raise TypeError('get: unexpected keyword arguments %%r' %% %s)" % (kwargName,kwargName)]
 
-            #construct the getOutput function
-            nodes = [Assign([AssName('__lquoteFunc__', 'OP_ASSIGN')], CallFunc(Getattr(Name(spargs[-1]), 'setdefault'), [Const('__lquoteFunc__'), Name('str')], None, None)),
-                    Discard(CallFunc(Getattr(Name(spargs[-1]), 'pop'),[Const('__lquoteFunc__')], None, None)),
-                    Assign([AssName('__quoteFunc__', 'OP_ASSIGN')], CallFunc(Getattr(Name(spargs[-1]), 'setdefault'), [Const('__quoteFunc__'), Name('str')], None, None)),
-                    Discard(CallFunc(Getattr(Name(spargs[-1]), 'pop'), [Const('__quoteFunc__')], None, None))]
-            if not self._fnc_kwargs:
-                nodes += [If([(Name(spargs[-1]), Stmt([Raise(CallFunc(Name('TypeError'), [Const('get: unexpected keyword arguments')], None, None), None, None)]))], None)]
-            nodes += [Assign([AssName('__append__', 'OP_ASSIGN')], Getattr(List(()), 'append')),
-                    Assign([AssName('__write__', 'OP_ASSIGN')], Lambda(['x'], [], 0, CallFunc(Name('__append__'), [CallFunc(Name('__lquoteFunc__'), [Name('x')], None, None)], None, None))),
-                    Assign([AssName('__swrite__', 'OP_ASSIGN')], Lambda(['x'], [], 0, CallFunc(Name('__append__'), [CallFunc(Name('__quoteFunc__'), [Name('x')], None, None)], None, None)))]
-            for n in nodes: _denumber(n,self._fnc_lineno)
-            preppyNodes = nodes + preppyNodes + [Return(CallFunc(Getattr(Const(''), 'join'), [Getattr(Name('__append__'), '__self__')], None, None))]
-            argnames = list(fixargs)+list(kwargs)+list(spargs)
-            FA = ('get',argnames, defaults,flags|consts.CO_VARKEYWORDS,None,Stmt(preppyNodes))
+            leadNodes=self.__rparse('\n'.join([
+                "__lquoteFunc__=%s.setdefault('__lquoteFunc__',str)" % kwargName,
+                "%s.pop('__lquoteFunc__')" % kwargName,
+                "__quoteFunc__=%s.setdefault('__quoteFunc__',str)" % kwargName,
+                "%s.pop('__quoteFunc__')" % kwargName,
+                ] + CKWA + [
+                "__append__=[].append",
+                "__write__=lambda x:__append__(__lquoteFunc__(x))",
+                "__swrite__=lambda x:__append__(__quoteFunc__(x))",
+                ]))
+            trailNodes = self.__rparse("return ''.join(__append__.__self__)")
+
+            self.__renumber(F,t)
+            self.__renumber(leadNodes,(0,0))
+            self.__renumber(trailNodes,self._tokens[-1])
+            preppyNodes = leadNodes + preppyNodes + trailNodes
             global _newPreambleAst
             if not _newPreambleAst:
-                _newPreambleAst = self._cparse(_newPreamble).node.nodes
-                map(_denumber,_newPreambleAst)
-            extraAst = _newPreambleAst
+                _newPreambleAst = self.__rparse(_newPreamble)
+                self.__renumber(_newPreambleAst,self._tokens[-1])
+            F.body = preppyNodes
+            extraAst = [F]+_newPreambleAst
         else:
-            global _preambleAst, _localizer
+            global _preambleAst, _preamble
             if not _preambleAst:
-                _preambleAst = self._cparse(_preamble).node.nodes
-                map(_denumber,_preambleAst)
-                _localizer = [Assign([AssName('__d__', 'OP_ASSIGN')], Name('dictionary')), Discard(CallFunc(Getattr(CallFunc(Name('locals'), [], None, None), 'update'), [Name('__d__')], None, None))]
-                #_localizer = [Assign([AssName('__preppy__d__', 'OP_ASSIGN')], Name('dictionary')), For(AssName('__preppy__x__', 'OP_ASSIGN'), Name('__preppy__d__'), Stmt([If([(CallFunc(Name('__preppy__vlhs__'), [Name('__preppy__x__')], None, None), Stmt([Exec(Mod((Const('%s=__preppy__d__[%r]'), Tuple([Name('__preppy__x__'), Name('__preppy__x__')]))), None, None)]))], None)]), None), AssName('__preppy__x__', 'OP_DELETE')]
-            preppyNodes = _localizer+preppyNodes
-            FA = ('__code__', ['dictionary', 'outputfile', '__write__','__swrite__','__save_sys_stdout__'], (), 0, None, Stmt(preppyNodes))
-            extraAst = _preambleAst
-        if sys.hexversion >=0x2040000: FA = (None,)+FA
-        return Module(self.filename,
-                Stmt([Assign([AssName('__checksum__', 'OP_ASSIGN')], Const(getattr(self,'sourcechecksum'))),
-                        Function(*FA),
-                    ]+extraAst))
+                #_preamble = 'from unparse import Unparser\n'+_preamble.replace('NS = {}\n','NS = {};Unparser(M,__save_sys_stdout__)\n')
+                _preambleAst = self.__rparse(_preamble)
+                self.__renumber(_preambleAst,self._tokens[-1])
+            M = ast.parse("def __code__(dictionary, outputfile, __write__,__swrite__,__save_sys_stdout__): pass",self.filename,mode='exec')
+            self.__renumber(M,(-1,0))
+            M.body[0].body = preppyNodes
+            extraAst = self.__rparse('__preppy_nodes__=%r\n__preppy_filename__=%r\n' % (pickle.dumps(M),self.filename))+_preambleAst
+        M = ast.parse('__checksum__=%r' % self.sourcechecksum,self.filename,mode='exec')
+        M.body += extraAst
+        return M
 
 _preambleAst=None
-_preamble='''def run(dictionary, __write__=None, quoteFunc=str, outputfile=None,code=__code__):
+_preamble='''import ast, pickle
+from preppy import rl_exec
+def run(dictionary, __write__=None, quoteFunc=str, outputfile=None):
     ### begin standard prologue
     import sys
     __save_sys_stdout__ = sys.stdout
@@ -663,14 +727,27 @@ _preamble='''def run(dictionary, __write__=None, quoteFunc=str, outputfile=None,
             if __write__ is None:
                 raise NameError
             if outputfile and __write__:
-                raise ValueError, "do not define both outputfile (%s) and __write__ (%s)." %(outputfile, __write__)
+                raise ValueError("do not define both outputfile (%s) and __write__ (%s)." %(outputfile, __write__))
             class stdout: pass
             stdout = sys.stdout = stdout()
             stdout.write = lambda x:__write__(quoteFunc(x))
         except NameError:
             __write__ = lambda x: stdout.write(quoteFunc(x))
         __swrite__ = lambda x: __write__(quoteFunc(x))
-        code(dictionary,outputfile,__write__,__swrite__,__save_sys_stdout__)
+        M = pickle.loads(__preppy_nodes__)
+        b = M.body[0].body
+        for k in dictionary:
+            try:
+                if k not in ('dictionary','__write__',
+                        '__swrite__','outputfile','__save_sys_stdout__') and __preppy__vlhs__(k):
+                    #print('dictionary[%s] = %r' % (k,dictionary[k]),file=__save_sys_stdout__)
+                    b.insert(0,ast.parse('%s=dictionary[%r]' % (k,k),'???',mode='exec').body[0])
+            except:
+                pass
+        NS = {}
+        NS['include'] = include
+        rl_exec(compile(M,__preppy_filename__,'exec'),NS)
+        NS['__code__'](dictionary,outputfile,__write__,__swrite__,__save_sys_stdout__)
     finally: #### end of compiled logic, standard cleanup
         import sys # for safety
         #print "resetting stdout", sys.stdout, "to", __save_sys_stdout__
@@ -701,18 +778,18 @@ if __name__=='__main__':
 
 def testgetOutput(name="testoutput"):
     mod = getModule(name,'.',savePyc=1,sourcetext=teststring,importModule=1)
-    print mod.getOutput({})
+    pel(mod.getOutput({}))
 
 def testgetmodule(name="testoutput"):
     #name = "testpreppy"
-    print "trying to load", name
+    pel("trying to load", name)
     result = getPreppyModule(name, verbose=1)
-    print "load successful! running result"
-    print "=" * 100
+    pel( "load successful! running result")
+    pel("=" * 100)
     result.run({})
 def rl_get_module(name,dir):
     f, p, desc= imp.find_module(name,[dir])
-    if sys.modules.has_key(name):
+    if name in sys.modules:
         om = sys.modules[name]
         del sys.modules[name]
     else:
@@ -744,14 +821,14 @@ def getModule(name,
 
     force: ignore up-to-date checks and always recompile.
     """
-    if isinstance(name,unicode): name = name.encode('utf8')
-    if isinstance(directory,unicode): directory = directory.encode('utf8')
-    if isinstance(source_extension,unicode): source_extension = source_extension.encode('utf8')
-    if isinstance(sourcetext,unicode): sourcetext = sourcetext.encode('utf8')
+    if isinstance(name,bytesT): name = name.decode('utf8')
+    if isinstance(directory,bytesT): directory = directory.decode('utf8')
+    if isinstance(source_extension,bytesT): source_extension = source_extension.decode('utf8')
+    if isinstance(sourcetext,bytesT): sourcetext = sourcetext.decode('utf8')
     if hasattr(name,'read'):
         sourcetext = name.read()
         name = getattr(name,'name',None)
-        if not name: name = '_preppy_'+md5(sourcetext+repr(VERSION)).digest()
+        if not name: name = '_preppy_'+getMd5(sourcetext)
     else:
         # it's possible that someone could ask for
         #  name "subdir/spam.prep" in directory "/mydir", instead of
@@ -770,7 +847,7 @@ def getModule(name,
         # any extension
         name = os.path.splitext(name)[0]
         if verbose:
-            print 'checking %s...' % os.path.join(dir, name),
+            pnl('checking %s...' % os.path.join(dir, name))
         # savefile is deprecated but kept for safety.  savePy and savePyc are more
         # explicit and are the preferred.  By default it generates a pyc and no .py
         # file to reduce clutter.
@@ -779,10 +856,10 @@ def getModule(name,
 
     if sourcetext is not None:
         # they fed us the source explicitly
-        if not name: name = '_preppy_'+md5(sourcetext+repr(VERSION)).digest()
-        if verbose: print "sourcetext provided...",
+        sourcechecksum = getMd5(sourcetext)
+        if not name: name = '_preppy_'+sourcechecksum
+        if verbose: pnl("sourcetext provided...")
         sourcefilename = "<input text %s>" % name
-        sourcechecksum = md5(sourcetext + repr(VERSION)).digest()
         nosourcefile = 1
         module = SOURCE_MODULES.get(sourcetext,None)
         if module:
@@ -802,51 +879,51 @@ def getModule(name,
             if _globals:
                 module.__dict__.update(_globals)
             checksum = module.__checksum__
-            if verbose: print "found...",
+            if verbose: pnl("found...")
         except: # ImportError:  #catch ALL Errors importing the module (eg name="")
             module = checksum = None
-            if verbose: print " py/pyc not found...",
+            if verbose: pnl(" py/pyc not found...")
             # check against source file
         try:
             sourcefile = open(sourcefilename, "r")
         except:
-            if verbose: print "no source file, reuse...",
+            if verbose: pnl("no source file, reuse...")
             if module is None:
-                raise ValueError, "couldn't find source %s or module %s" % (sourcefilename, name)
+                raise ValueError("couldn't find source %s or module %s" % (sourcefilename, name))
             # use the existing module??? (NO SOURCE PRESENT)
             FILE_MODULES[sourcefilename] = module
             return module
         else:
             sourcetext = sourcefile.read()
             # NOTE: force recompile on each new version of this module.
-            sourcechecksum = md5(sourcetext + repr(VERSION)).digest()
+            sourcechecksum = getMd5(sourcetext)
             if sourcechecksum==checksum:
                 if force==0:
                     # use the existing module. it matches
                     if verbose:
-                        print "up to date."
+                        pnl("up to date.")
                     FILE_MODULES[sourcefilename] = module
                     return module
                 else:
                     # always recompile
-                    if verbose: print 'forced recompile,',
+                    if verbose: pnl('forced recompile,')
             elif verbose:
-                print "changed,",
+                pnl("changed,")
 
     # if we got here we need to rebuild the module from source
-    if verbose: print "recompiling"
+    if verbose: pel("recompiling")
     global DIAGNOSTIC_FUNCTION
     DIAGNOSTIC_FUNCTION = None
-    P = PreppyParser(sourcetext,sourcefilename)
+    P = PreppyParser(sourcetext,sourcefilename,sourcechecksum)
     P.nosourcefile = nosourcefile
-    P.sourcechecksum = sourcechecksum
     P.compile(0)
 
     # default is compile to bytecode and save that.
     if savePyc:
-        f = open(dir + os.sep + name + '.pyc','wb')
-        P.dump(f)
-        f.close()
+        with open(dir + os.sep + name + '.pyc','wb') as f:
+            f.write(py_compile.MAGIC)
+            py_compile.wr_long(f, int(time.time()))
+            marshal.dump(P.codeobject, f)
 
     # now make a module
     from imp import new_module
@@ -855,7 +932,7 @@ def getModule(name,
     module.__dict__['__preppy__vlhs__'] = __preppy__vlhs__
     if _globals:
         module.__dict__.update(_globals)
-    exec P.code in module.__dict__
+    rl_exec(P.codeobject,module.__dict__)
     if importModule:
         if nosourcefile:
             SOURCE_MODULES[sourcetext] = module
@@ -884,7 +961,6 @@ def installImporter():
             ModuleLoader = self.__class__.__bases__[0]
             stuff = ModuleLoader.find_module_in_dir(self, name, dir, allow_packages)
             if stuff:
-                #print 'standard module loader worked'
                 return stuff
             else:
                 if dir:
@@ -926,7 +1002,7 @@ def compileModules(pattern, savePy=0, force=0, verbose=1):
 from fnmatch import fnmatch
 def compileDir(dirName, pattern="*.prep", recursive=1, savePy=0, force=0, verbose=1):
     "Compile all prep files in directory, recursively if asked"
-    if verbose: print 'compiling directory %s' % dirName
+    if verbose: pel('compiling directory %s' % dirName)
     if recursive:
         def _visit(A,D,N,pattern=pattern,savePy=savePy, verbose=verbose,force=force):
             for filename in filter(lambda fn,pattern=pattern: fnmatch(fn,pattern),
@@ -939,25 +1015,25 @@ def compileDir(dirName, pattern="*.prep", recursive=1, savePy=0, force=0, verbos
 def _cleanFiles(filenames,verbose):
     for filename in filenames:
         if verbose:
-            print '  found ' + filename + '; ',
+            pnl('  found ' + filename + '; ')
         root, ext = os.path.splitext(os.path.abspath(filename))
         done = 0
         if os.path.isfile(root + '.py'):
             os.remove(root + '.py')
             done = done + 1
-            if verbose: print ' removed .py ',
+            if verbose: pnl(' removed .py ')
         if os.path.isfile(root + '.pyc'):
             os.remove(root + '.pyc')
             done = done + 1
-            if verbose: print ' removed .pyc ',
+            if verbose: pnl(' removed .pyc ')
         if done == 0:
             if verbose:
-                print 'nothing to remove',
-        print
+                pnl('nothing to remove')
+        pel('')
 
 def cleanDir(dirName, pattern="*.prep", recursive=1, verbose=1):
     "Removes all py and pyc files matching any prep files found"
-    if verbose: print 'cleaning directory %s' % dirName
+    if verbose: pel('cleaning directory %s' % dirName)
     if recursive:
         def _visit(A,D,N,pattern=pattern,verbose=verbose):
             _cleanFiles(filter(lambda fn,pattern=pattern: fnmatch(fn,pattern),
@@ -969,7 +1045,6 @@ def cleanDir(dirName, pattern="*.prep", recursive=1, verbose=1):
 
 def compileStuff(stuff, savePy=0, force=0, verbose=0):
     "Figures out what needs compiling"
-    #print 'compileStuff...savePy=%d, force=%d, verbose=%d' % (savePy, force, verbose)
     if os.path.isfile(stuff):
         compileModule(stuff, savePy=savePy, force=force, verbose=verbose)
     elif os.path.isdir(stuff):
@@ -995,7 +1070,7 @@ def _find_quoteValue(name,depth=2):
                 g=g.f_globals
             else:
                 g=g.f_locals
-            if g.has_key(name): return g[name]
+            if name in g: return g[name]
             depth += 1
     except:
         return None
@@ -1010,15 +1085,15 @@ def include(viewName,*args,**kwd):
     if hasattr(m,'get'):
         #newstyle
         lquoter = quoter = None
-        if kwd.has_key('__quoteFunc__'):
+        if '__quoteFunc__' in kwd:
             quoter = kwd.pop('__quoteFunc__')
-        elif kwd.has_key('quoteFunc'):
+        elif 'quoteFunc' in kwd:
             quoter = kwd.pop('quoteFunc')
         if not quoter:
             quoter = _find_quoteValue('__quoteFunc__')
             if not quoter:
                 quoter = _find_quoteValue('quoteFunc')
-        if kwd.has_key('__lquoteFunc__'):
+        if '__lquoteFunc__' in kwd:
             lquoter = kwd.pop('__lquoteFunc__')
         if not lquoter:
             lquoter = _find_quoteValue('__lquoteFunc__')
@@ -1030,17 +1105,17 @@ def include(viewName,*args,**kwd):
         if args:
             if len(args)>1:
                 raise TypeError("include for old style prep file can have only one positional argument, dictionary")
-            if kwd.has_key('dictionary'):
+            if 'dictionary' in kwd:
                 raise TypeError('include: dictionary argument specified twice')
             dictionary = args(1).copy()
-        elif kwd.has_key('dictionary'):
+        elif 'dictionary' in kwd:
             dictionary = kwd.pop('dictionary').copy()
         else:
             dictionary = {}
         quoteFunc = None
-        if kwd.has_key('quoteFunc'):
+        if 'quoteFunc' in kwd:
             quoteFunc = kwd.pop('quoteFunc')
-        elif kwd.has_key('__quoteFunc__'):
+        elif '__quoteFunc__' in kwd:
             quoteFunc = kwd.pop('__quoteFunc__')
         if not quoteFunc:
             quoteFunc = _find_quoteValue('quoteFunc')
@@ -1104,14 +1179,14 @@ def main():
             moduleName = sys.argv[1]
             module = getPreppyModule(moduleName, verbose=0)
             if hasattr(module,'get'):
-                print module.get()
+                pel(module.get())
             else:
                 params = extractKeywords(sys.argv)
                 module.run(params)
     else:
-        print "no argument: running tests"
+        pel("no argument: running tests")
         testgetOutput()
-        print; print "PAUSING.  To continue hit return"
+        pel(''); pel("PAUSING.  To continue hit return")
         raw_input("now: ")
         testgetmodule()
 

@@ -31,7 +31,7 @@ It adds 2 and 2.  you should see "4" below between the two lines.
 <HR>
 <BR><CENTER>
 {{script}}
-print 2+2
+print(2+2)
 {{endscript}}
 </CENTER><BR>
 <HR>

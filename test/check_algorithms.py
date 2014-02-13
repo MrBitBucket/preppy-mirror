@@ -4,7 +4,7 @@
 # Tests of various functions and algorithms in preppy.
 # no side-effects on file system, run anywhere.
 __version__=''' $Id$ '''
-import os, glob, string, random
+import os, glob, random
 import preppy
 import unittest
 
@@ -21,7 +21,7 @@ class GeneratedCodeTestCase(unittest.TestCase):
 
         collector = []
         mod.run(params, __write__=collector.append, quoteFunc=quoteFunc)
-        output = string.join(collector,'')
+        output = ''.join(collector)
         return output
 
     def checkStatic(self):
@@ -120,7 +120,7 @@ class GeneratedCodeTestCase(unittest.TestCase):
         self.assertEquals(out, "<p>Smith & Jones</p>")
 
         #a quoting function should work on output
-        source = "A&B<p>{{clientName}}</p><p>{{script}}print clientName{{endscript}}</p>"
+        source = "A&B<p>{{clientName}}</p><p>{{script}}print(clientName){{endscript}}</p>"
         out = self.getRunTimeOutput(source, clientName='Smith & Jones')
         self.assertEquals(out, "A&B<p>Smith & Jones</p><p>Smith & Jones\n</p>")
         #self.assertEquals(self.getRunTimeOutput('{{script}}v="{{"{{endscript}}{{v}}'), "{{")
@@ -146,7 +146,6 @@ class GeneratedCodeTestCase(unittest.TestCase):
 
 
         out = self.getRunTimeOutput(source, clientName='Smith & Jones', quoteFunc=customQuoteFunc)
-        #print out
         self.assertEquals(out, "A&B<p>Smith &amp; Jones</p><p>Smith &amp; Jones\n</p>")
 
         def myQuote(x):
@@ -158,11 +157,70 @@ class GeneratedCodeTestCase(unittest.TestCase):
         source = '<a>{{A}}</a>'
         self.assertEquals(self.getRunTimeOutput(source, A=1.2, quoteFunc=preppy.stdQuote), "<a>1.2</a>")
         self.assertEquals(self.getRunTimeOutput(source, A='<&>', quoteFunc=preppy.stdQuote), "<a>&lt;&amp;&gt;</a>")
-        self.assertEquals(self.getRunTimeOutput(source, A=preppy.SafeString('<&>'), quoteFunc=preppy.stdQuote), "<a><&></a>")
         self.assertEquals(self.getRunTimeOutput(source, A=preppy.SafeUnicode('<&>'), quoteFunc=preppy.stdQuote), "<a><&></a>")
-        self.assertEquals(self.getRunTimeOutput(source, A=u'\xae', quoteFunc=preppy.stdQuote), "<a>\xc2\xae</a>")
+        self.assertEquals(self.getRunTimeOutput(source, A=preppy.SafeUnicode('<&>'), quoteFunc=preppy.stdQuote), "<a><&></a>")
+        self.assertEquals(self.getRunTimeOutput(source, A=b'\xc2\xae', quoteFunc=preppy.stdQuote), u"<a>\xae</a>")
         self.assertEquals(self.getRunTimeOutput(source, A=None, quoteFunc=preppy.stdQuote), "<a></a>")
-        
+
+    def checkForContinueElse(self):
+        source="{{for i in range(3)}}{{if i==C}}{{continue}}{{endif}}{{i}}{{endfor}}"
+        self.assertEquals(self.getRunTimeOutput(source, C=-1, quoteFunc=preppy.stdQuote), "012")
+        self.assertEquals(self.getRunTimeOutput(source, C=2, quoteFunc=preppy.stdQuote), "01")
+        self.assertEquals(self.getRunTimeOutput(source, C=0, quoteFunc=preppy.stdQuote), "12")
+        source="{{for i in range(3)}}{{if i==C}}{{continue}}{{endif}}{{i}}{{else}}FORELSE{{endfor}}"
+        self.assertEquals(self.getRunTimeOutput(source, C=-1, quoteFunc=preppy.stdQuote), "012FORELSE")
+        self.assertEquals(self.getRunTimeOutput(source, C=2, quoteFunc=preppy.stdQuote), "01FORELSE")
+        self.assertEquals(self.getRunTimeOutput(source, C=0, quoteFunc=preppy.stdQuote), "12FORELSE")
+
+    def checkForBreakElse(self):
+        source="{{for i in range(3)}}{{if i==C}}{{break}}{{endif}}{{i}}{{endfor}}"
+        self.assertEquals(self.getRunTimeOutput(source, C=-1, quoteFunc=preppy.stdQuote), "012")
+        self.assertEquals(self.getRunTimeOutput(source, C=2, quoteFunc=preppy.stdQuote), "01")
+        self.assertEquals(self.getRunTimeOutput(source, C=0, quoteFunc=preppy.stdQuote), "")
+        source="{{for i in range(3)}}{{if i==C}}{{break}}{{endif}}{{i}}{{else}}FORELSE{{endfor}}"
+        self.assertEquals(self.getRunTimeOutput(source, C=-1, quoteFunc=preppy.stdQuote), "012FORELSE")
+        self.assertEquals(self.getRunTimeOutput(source, C=2, quoteFunc=preppy.stdQuote), "01")
+        self.assertEquals(self.getRunTimeOutput(source, C=0, quoteFunc=preppy.stdQuote), "")
+
+    def checkRaises(self):
+        self.assertRaises(ValueError,self.getRunTimeOutput,"{{raise ValueError('aaa')}}")
+
+    def checkTryExcept(self):
+        source="""TRY{{try}}{{if i==1}}
+RAISE{{raise Exception('zzz')}}{{endif}}
+TRYBODY{{except}}
+EXCEPT{{endtry}}"""
+        self.assertEquals(self.getRunTimeOutput(source, i=0, quoteFunc=preppy.stdQuote), "TRY\nTRYBODY")
+        self.assertEquals(self.getRunTimeOutput(source, i=1, quoteFunc=preppy.stdQuote), "TRY\nRAISE\nEXCEPT")
+
+    def checkTryExceptElseFinally(self):
+        source="""TRY{{try}}{{if i==1}}
+raise ValueError{{raise ValueError('bbb')}}{{elif i==2}}
+raise TypeError{{raise TypeError('ccc')}}{{elif i==3}}
+raise Exception{{raise Exception('zzz')}}{{endif}}{{except ValueError}}
+catch ValueError{{except TypeError}}
+catch TypeError{{except}}
+catch all errors{{else}}
+TRYELSE{{finally}}
+TRYFINALLY{{endtry}}"""
+        self.assertEquals(self.getRunTimeOutput(source, i=0, quoteFunc=preppy.stdQuote), "TRY\nTRYELSE\nTRYFINALLY")
+        self.assertEquals(self.getRunTimeOutput(source, i=1, quoteFunc=preppy.stdQuote), "TRY\nraise ValueError\ncatch ValueError\nTRYFINALLY")
+        self.assertEquals(self.getRunTimeOutput(source, i=2, quoteFunc=preppy.stdQuote), "TRY\nraise TypeError\ncatch TypeError\nTRYFINALLY")
+        self.assertEquals(self.getRunTimeOutput(source, i=3, quoteFunc=preppy.stdQuote), "TRY\nraise Exception\ncatch all errors\nTRYFINALLY")
+
+    def checkTryFinally(self):
+        source="""TRY{{try}}
+FTRY{{try}}{{if i==1}}
+raise Exception{{raise Exception('zzz')}}{{endif}}
+FTRYBODY{{finally}}
+FTRYFINALLY{{endtry}}{{except}}
+catch all errors{{endtry}}"""
+        self.assertEquals(self.getRunTimeOutput(source, i=0, quoteFunc=preppy.stdQuote), "TRY\nFTRY\nFTRYBODY\nFTRYFINALLY")
+        self.assertEquals(self.getRunTimeOutput(source, i=1, quoteFunc=preppy.stdQuote), "TRY\nFTRY\nraise Exception\nFTRYFINALLY\ncatch all errors")
+
+    def checkWith(self):
+        fn = preppy.__file__
+        self.assertEquals(self.getRunTimeOutput('{{with open(fn,'r') as f}}{{f.name}}{{endwith}}',fn=fn, quoteFunc=preppy.stdQuote),fn)
 
 class NewGeneratedCodeTestCase(unittest.TestCase):
     """Maybe the simplest and most all-encompassing:
@@ -297,13 +355,8 @@ class OutputModeTestCase(unittest.TestCase):
         # use write function
         collector = []
         mod.run(params, __write__=collector.append)
-        output1 = string.join(collector,'')
-
-        #use file-like object
-        try:
-            from cStringIO import StringIO
-        except ImportError, e:
-            from StringIO import StringIO
+        output1 = ''.join(collector)
+        from preppy import StringIO
         buf = StringIO()
         mod.run(params, outputfile=buf)
         output2 = buf.getvalue()

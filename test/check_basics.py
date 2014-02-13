@@ -6,7 +6,7 @@
 
 # $Id$
 
-import os, glob, string
+import os, glob
 import preppy
 import unittest
 
@@ -123,8 +123,8 @@ class SimpleTestCase(unittest.TestCase):
 
         #this way it goes to the list and also gets printed
         mod.run(tempDict, __write__ = modDataList.append)
-        #print 'length of list is %d' % len(modDataList)
-        output=string.join (modDataList,'')
+        #print('length of list is %d' % len(modDataList))
+        output=''.join(modDataList)
         outFile=open('sample007.html', 'w')
         outFile.write(output)
         outFile.close()
@@ -178,7 +178,7 @@ class SimpleTestCase(unittest.TestCase):
         dictionary = {}
         for f in range(0, len(preppyVariables)):
             tempvar = preppyVariables[f]
-            #print "tempvar =", tempvar
+            #print("tempvar = %r" %tempvar)
             dictionary[tempvar] = tempvar
         processTest('sample010', dictionary)
 
@@ -194,7 +194,7 @@ class SimpleTestCase(unittest.TestCase):
         dictionary = {}
         for f in range(0, len(preppyFunctions)):
             tempvar = preppyFunctions[f]
-            #print "tempvar =", tempvar
+            #print("tempvar = %r" %tempvar)
             dictionary[tempvar] = tempvar
         processTest('sample011', dictionary)
 
@@ -208,14 +208,14 @@ def processTest(filename, dictionary={}):
     #where this tests lives, wherever we invoked them from.
     import check_basics
     dirName = os.path.dirname(check_basics.__file__)
-    #print 'processTest:',dictionary
+    #print('processTest: %r'%dictionary)
     root, ext = os.path.splitext(filename)
     outFileName = os.path.join(dirName, root + '.html')
     mod = preppy.getModule(os.path.join(dirName, root))
     outFile = open(outFileName, 'w')
     mod.run(dictionary, outputfile = outFile)
     outFile.close()
-    #print 'wrote',outFileName
+    #print('wrote %r' %outFileName)
 
 def clean(dirname='.'):
     for filename in glob.glob('sample*.prep'):
@@ -245,8 +245,8 @@ if __name__=='__main__':
             sys.exit()
 
         else:
-            print 'argument not recognised!'
+            print('argument not recognised!')
     else:
         runner = unittest.TextTestRunner()
         runner.run(suite)
-        print '\nplease read all sample*.html files'
+        print('\nplease read all sample*.html files')

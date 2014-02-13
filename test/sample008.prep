@@ -37,9 +37,9 @@ This should print a 1: {{1}}
 This should print a 2: {{2}}
 <BR>
 This should print the string in key 1, but is plain daft:
-    {{__d__['1']}}
+    {{dictionary['1']}}
 This should print the string in key 2 and is equally daft:
-    {{__d__['2']}}
+    {{dictionary['2']}}
 </PRE>
 </TD></TR>
 </TABLE>

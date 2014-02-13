@@ -35,13 +35,13 @@ You should see a number of sentences between the two lines below. Each line of t
 
 <P>
 {{script}}
-print 'This sentence should have two opening braces NOW:  {${ and two closing ones NOW:  }$}.  Does it? '
+print('This sentence should have two opening braces NOW:  {${ and two closing ones NOW:  }$}.  Does it? ')
 {{endscript}}
 </P>
 
 <P>
 {{script}}
-print 'This line should end in the word "endscript" with double braces around it.  Does it?  {${endscript}$} '
+print('This line should end in the word "endscript" with double braces around it.  Does it?  {${endscript}$} ')
 {{endscript}}
 </P>
 
