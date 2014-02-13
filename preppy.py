@@ -546,7 +546,6 @@ class PreppyParser:
                 self.__serr('invalid syntax in try statement')
 
     def __with(self):
-        self.__inWhile += 1
         try:
             n = self.__iparse(self.__tokenText(forceColonPass=1))
         except:
