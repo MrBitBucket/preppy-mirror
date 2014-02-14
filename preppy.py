@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.1'
+VERSION = '2.1.1'
 __version__ = VERSION
 
 USAGE = """
@@ -270,7 +270,7 @@ def dedent(text):
         if line0 and line0[0]!='#': break
         del lines[0]
         lempty += 1
-    if not lines: return "" # completely white
+    if not lines: return (0,"") # completely white
     line0 = lines[0]
     findfirstword = line0.find(line0.strip().split()[0])
     if findfirstword<0: raise ValueError('internal dedenting error')
@@ -412,7 +412,7 @@ class PreppyParser:
 
     def __preppy(self,
             funcs='const expr while if for script eval def continue break try raise with import from assert'.split(),
-            followers=['eof'],pop=True):
+            followers=['eof'],pop=True,fixEmpty=False):
         C = []
         a = C.append
         mangle = self.__mangle
@@ -424,9 +424,13 @@ class PreppyParser:
             r = p()
             if isinstance(r,list): C += r
             elif r is not None: a(r)
+        if not C and fixEmpty:
+            r = ast.Pass(lineno=1,col_offset=0)
+            self.__renumber(r,self._tokens[self._tokenX])
+            C = [r]
         if pop:
             self.__tokenPop()
-        return C
+        return  C
 
     def __def(self):
         try:
@@ -492,7 +496,7 @@ class PreppyParser:
             self.__error()
         t = self.__tokenPop()
         self.__renumber(n,t)
-        n.body = self.__preppy(followers=['endwhile','else'])
+        n.body = self.__preppy(followers=['endwhile','else'],fixEmpty=True)
         if self._tokens[self._tokenX-1].kind=='else':
             n.orelse = self.__preppy(followers=['endwhile'])
         self.__inWhile -= 1
@@ -506,7 +510,7 @@ class PreppyParser:
             self.__error()
         t = self.__tokenPop()
         self.__renumber(n,t)
-        n.body = self.__preppy(followers=['endfor','else'])
+        n.body = self.__preppy(followers=['endfor','else'],fixEmpty=True)
         if self._tokens[self._tokenX-1].kind=='else':
             n.orelse = self.__preppy(followers=['endfor'])
         self.__inFor -= 1
@@ -519,7 +523,7 @@ class PreppyParser:
         t = self.__tokenPop()
         n = (ast.Try if isPy3 else AstTry)(lineno=1,col_offset=0,body=[],handlers=[],orelse=[],finalbody=[])
         self.__renumber(n,t)
-        n.body = self.__preppy(followers=['except','finally'],pop=False)
+        n.body = self.__preppy(followers=['except','finally'],pop=False,fixEmpty=True)
         while 1:
             text = self.__tokenText(colonRemove=1)
             t = self.__tokenPop()
@@ -542,7 +546,7 @@ class PreppyParser:
                 exh.col_offset = 0
                 self.__renumber(exh,t)
                 F = ['finally','else','endtry'] if text=='except' else ['except','finally','endtry','else']
-                exh.body = self.__preppy(followers=F,pop=False)
+                exh.body = self.__preppy(followers=F,pop=False,fixEmpty=True)
                 n.handlers.append(exh)
             else:
                 self.__serr('invalid syntax in try statement')
@@ -554,7 +558,7 @@ class PreppyParser:
             self.__error()
         t = self.__tokenPop()
         self.__renumber(n,t)
-        n.body = self.__preppy(followers=['endwith'])
+        n.body = self.__preppy(followers=['endwith'],fixEmpty=True)
         return n
 
     def __import(self,stmt='import'):
@@ -574,7 +578,11 @@ class PreppyParser:
         return self.__import(stmt='assert')
 
     def __script(self,mode='script'):
+        end = 'end'+mode
         self.__tokenPop()
+        if self._tokens[self._tokenX].kind==end:
+            self.__tokenPop()
+            return []
         dcoffs, text = dedent(self.__tokenText(strip=0,colonRemove=False))
         scriptMode = 'script'==mode
         if text:
@@ -583,7 +591,6 @@ class PreppyParser:
             except:
                 self.__error()
         t = self.__tokenPop()
-        end = 'end'+mode
         try:
             assert self._tokens[self._tokenX].kind==end
             self.__tokenPop()
@@ -609,7 +616,7 @@ class PreppyParser:
             except:
                 self.__error()
             t = self.__tokenPop()
-            n.body = self.__preppy(followers=['endif','elif','else'])
+            n.body = self.__preppy(followers=['endif','elif','else'],fixEmpty=True)
             self.__renumber(n,t)
             if I:
                 p.orelse = [n]
