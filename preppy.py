@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.1.1'
+VERSION = '2.1.2'
 __version__ = VERSION
 
 USAGE = """
@@ -148,6 +148,9 @@ def asUtf8(s):
     return s if isinstance(s,bytesT) else s.encode('utf8')
 def getMd5(s):
     return md5(asUtf8(s)+asUtf8(VERSION)).hexdigest()
+
+class AbsLineNo(int):
+     pass
 
 #Andy's standard quote for django
 _safeBase = SafeString, SafeUnicode
@@ -483,7 +486,7 @@ class PreppyParser:
             else:
                 node.col_offset += dcoffs
         if 'lineno' in node._attributes:
-            node.lineno = getattr(node,'lineno',1)+lineno_offset
+            node.lineno = int(lineno_offset) if isinstance(lineno_offset,AbsLineNo) else getattr(node,'lineno',1)+lineno_offset
         t = lineno_offset,col_offset
         for f in ast.iter_child_nodes(node):
             self.__renumber(f,t,dcoffs=dcoffs)
@@ -680,6 +683,7 @@ class PreppyParser:
 
     def __get_ast(self):
         preppyNodes = self.__parse()
+        llno = (AbsLineNo(self._tokens[-1].lineno),0)   #last line number information
         if self._defSeen==1:
             t, F = self._fnc_defn
             argNames = [a.arg for a in F.args.args] if isPy3 else [a.id for a in F.args.args]
@@ -703,13 +707,13 @@ class PreppyParser:
             trailNodes = self.__rparse("return ''.join(__append__.__self__)")
 
             self.__renumber(F,t)
-            self.__renumber(leadNodes,(0,0))
-            self.__renumber(trailNodes,self._tokens[-1])
+            self.__renumber(leadNodes,(AbsLineNo(1),0))
+            self.__renumber(trailNodes,llno)
             preppyNodes = leadNodes + preppyNodes + trailNodes
             global _newPreambleAst
             if not _newPreambleAst:
                 _newPreambleAst = self.__rparse(_newPreamble)
-                self.__renumber(_newPreambleAst,self._tokens[-1])
+                self.__renumber(_newPreambleAst,llno)
             F.body = preppyNodes
             extraAst = [F]+_newPreambleAst
         else:
@@ -717,9 +721,9 @@ class PreppyParser:
             if not _preambleAst:
                 #_preamble = 'from unparse import Unparser\n'+_preamble.replace('NS = {}\n','NS = {};Unparser(M,__save_sys_stdout__)\n')
                 _preambleAst = self.__rparse(_preamble)
-                self.__renumber(_preambleAst,self._tokens[-1])
+                self.__renumber(_preambleAst,llno)
             M = ast.parse("def __code__(dictionary, outputfile, __write__,__swrite__,__save_sys_stdout__): pass",self.filename,mode='exec')
-            self.__renumber(M,(-1,0))
+            self.__renumber(M,(AbsLineNo(1),0))
             M.body[0].body = preppyNodes
             extraAst = self.__rparse('__preppy_nodes__=%r\n__preppy_filename__=%r\n' % (pickle.dumps(M),self.filename))+_preambleAst
         M = ast.parse('__checksum__=%r' % self.sourcechecksum,self.filename,mode='exec')
