@@ -37,7 +37,7 @@ class GeneratedCodeTestCase(unittest.TestCase):
 
         collector = []
         mod.run(params, __write__=collector.append, quoteFunc=quoteFunc)
-        output = ''.join(collector)
+        output = quoteFunc('')[0:0].join(collector)
         return output
 
     def checkStatic(self):
@@ -128,20 +128,15 @@ class GeneratedCodeTestCase(unittest.TestCase):
     def checkCatchesIllegalBackSlash(self):
         self.assertRaises((SyntaxError,ValueError),self.getRunTimeOutput,'{{script}}i=1+2+\\ \n\t3{{endscript}}{{i}}')
 
-    def checkQuoting(self):
-
-        #preppy by default does nothing
-        source = "<p>{{clientName}}</p>"
-        out = self.getRunTimeOutput(source, clientName='Smith & Jones')
+    def checkQuoting1(self):
+        out = self.getRunTimeOutput("<p>{{clientName}}</p>", clientName='Smith & Jones')
         self.assertEquals(out, "<p>Smith & Jones</p>")
 
-        #a quoting function should work on output
-        source = "A&B<p>{{clientName}}</p><p>{{script}}print(clientName){{endscript}}</p>"
-        out = self.getRunTimeOutput(source, clientName='Smith & Jones')
+    def checkQuoting2(self):
+        out = self.getRunTimeOutput("A&B<p>{{clientName}}</p><p>{{script}}print(clientName){{endscript}}</p>", clientName='Smith & Jones')
         self.assertEquals(out, "A&B<p>Smith & Jones</p><p>Smith & Jones\n</p>")
-        #self.assertEquals(self.getRunTimeOutput('{{script}}v="{{"{{endscript}}{{v}}'), "{{")
 
-
+    def checkQuoting3(self):
         def customQuoteFunc(v):
             """Here's a very old, but real, quote function we once used.
             
@@ -159,34 +154,65 @@ class GeneratedCodeTestCase(unittest.TestCase):
                         )
             return v.replace("<","&lt;").replace(">","&gt;").replace('"',"&quot;").replace("'","&#039;")
 
-
-
-        out = self.getRunTimeOutput(source, clientName='Smith & Jones', quoteFunc=customQuoteFunc)
+        out = self.getRunTimeOutput("A&B<p>{{clientName}}</p><p>{{script}}print(clientName){{endscript}}</p>", clientName='Smith & Jones', quoteFunc=customQuoteFunc)
         self.assertEquals(out, "A&B<p>Smith &amp; Jones</p><p>Smith &amp; Jones\n</p>")
 
+    def checkQuoting4(self):
         def myQuote(x):
             return x.replace("&", "and")
-        out = self.getRunTimeOutput(source, clientName='Smith & Jones', quoteFunc=myQuote)
+        out = self.getRunTimeOutput("A&B<p>{{clientName}}</p><p>{{script}}print(clientName){{endscript}}</p>", clientName='Smith & Jones', quoteFunc=myQuote)
         self.assertEquals(out, "A&B<p>Smith and Jones</p><p>Smith and Jones\n</p>")
 
-        #Andy's standard quote for django
-        source = '<a>{{A}}</a>'
-        self.assertEquals(self.getRunTimeOutput(source, A=1.2, quoteFunc=preppy.stdQuote), "<a>1.2</a>")
-        self.assertEquals(self.getRunTimeOutput(source, A='<&>', quoteFunc=preppy.stdQuote), "<a>&lt;&amp;&gt;</a>")
-        self.assertEquals(self.getRunTimeOutput(source, A=preppy.SafeUnicode('<&>'), quoteFunc=preppy.stdQuote), "<a><&></a>")
-        self.assertEquals(self.getRunTimeOutput(source, A=preppy.SafeUnicode('<&>'), quoteFunc=preppy.stdQuote), "<a><&></a>")
-        self.assertEquals(self.getRunTimeOutput(source, A=b'\xc2\xae', quoteFunc=preppy.stdQuote), u"<a>\xae</a>")
-        self.assertEquals(self.getRunTimeOutput(source, A=None, quoteFunc=preppy.stdQuote), "<a></a>")
+    #preppy's standard quote
+    def checkQuoting5(self):
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=1.2, quoteFunc=preppy.stdQuote), "<a>1.2</a>")
 
-    def checkForContinueElse(self):
-        source="{{for i in range(3)}}{{if i==C}}{{continue}}{{endif}}{{i}}{{endfor}}"
-        self.assertEquals(self.getRunTimeOutput(source, C=-1, quoteFunc=preppy.stdQuote), "012")
-        self.assertEquals(self.getRunTimeOutput(source, C=2, quoteFunc=preppy.stdQuote), "01")
-        self.assertEquals(self.getRunTimeOutput(source, C=0, quoteFunc=preppy.stdQuote), "12")
-        source="{{for i in range(3)}}{{if i==C}}{{continue}}{{endif}}{{i}}{{else}}FORELSE{{endfor}}"
-        self.assertEquals(self.getRunTimeOutput(source, C=-1, quoteFunc=preppy.stdQuote), "012FORELSE")
-        self.assertEquals(self.getRunTimeOutput(source, C=2, quoteFunc=preppy.stdQuote), "01FORELSE")
-        self.assertEquals(self.getRunTimeOutput(source, C=0, quoteFunc=preppy.stdQuote), "12FORELSE")
+    def checkQuoting6(self):
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A='<&>', quoteFunc=preppy.stdQuote), "<a>&lt;&amp;&gt;</a>")
+
+    def checkQuoting7(self):
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=preppy.SafeUnicode('<&>'), quoteFunc=preppy.stdQuote), "<a><&></a>")
+
+    def checkQuoting8(self):
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=preppy.SafeUnicode('<&>'), quoteFunc=preppy.stdQuote), "<a><&></a>")
+
+    def checkQuoting9(self):
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=b'\xc2\xae', quoteFunc=preppy.stdQuote), u"<a>\xae</a>")
+
+    def checkQuoting10(self):
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=None, quoteFunc=preppy.stdQuote), "<a></a>")
+
+    def checkQuoting11(self):
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=b'A', quoteFunc=preppy.stdQuote), "<a>A</a>")
+
+    def checkQuoting12(self):
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=u'A', quoteFunc=preppy.stdQuote), "<a>A</a>")
+
+    def checkQuoting13(self):
+        self.assertEquals(self.getRunTimeOutput(b'<a>{{A}}</a>', A=b'A', quoteFunc=preppy.oldStdQuote), b"<a>A</a>")
+
+    def checkQuoting14(self):
+        self.assertEquals(self.getRunTimeOutput(b'<a>{{A}}</a>', A=u'A', quoteFunc=preppy.oldStdQuote), b"<a>A</a>")
+
+    fce_src1 = "{{for i in range(3)}}{{if i==C}}{{continue}}{{endif}}{{i}}{{endfor}}"
+    fce_src2 = "{{for i in range(3)}}{{if i==C}}{{continue}}{{endif}}{{i}}{{else}}FORELSE{{endfor}}"
+    def checkForContinueElse1(self):
+        self.assertEquals(self.getRunTimeOutput(self.fce_src1, C=-1, quoteFunc=preppy.stdQuote), "012")
+
+    def checkForContinueElse2(self):
+        self.assertEquals(self.getRunTimeOutput(self.fce_src1, C=2, quoteFunc=preppy.stdQuote), "01")
+
+    def checkForContinueElse3(self):
+        self.assertEquals(self.getRunTimeOutput(self.fce_src1, C=0, quoteFunc=preppy.stdQuote), "12")
+        
+    def checkForContinueElse4(self):
+        self.assertEquals(self.getRunTimeOutput(self.fce_src2, C=-1, quoteFunc=preppy.stdQuote), "012FORELSE")
+
+    def checkForContinueElse5(self):
+        self.assertEquals(self.getRunTimeOutput(self.fce_src2, C=2, quoteFunc=preppy.stdQuote), "01FORELSE")
+
+    def checkForContinueElse6(self):
+        self.assertEquals(self.getRunTimeOutput(self.fce_src2, C=0, quoteFunc=preppy.stdQuote), "12FORELSE")
 
     fbe_src1="{{for i in range(3)}}{{if i==C}}{{break}}{{endif}}{{i}}{{endfor}}"
     fbe_src2="{{for i in range(3)}}{{if i==C}}{{break}}{{endif}}{{i}}{{else}}FORELSE{{endfor}}"
@@ -509,6 +535,7 @@ class IncludeTestCase(unittest.TestCase):
         self.assertEquals(output, "NORTHSOUTHEASTWEST")
 
     def testIncludeQuoting(self):
+        self.maxDiff = None
         m = preppy.getModule('outer',savePyc=0)
         self.assertEquals(m.getOutput(dict(j='J')),
                 'in outer.prep\n\n\tbefore include inner i=0 j=J\n\tin inner.prep v=J*10 w=0\n\n\tbefore include inner1 i=0 j=J\n\tin inner1.prep v=0 w=J*100\n\n\tafter include inner1 i=0 j=J\n\n')
