@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.1.2'
+VERSION = '2.1.3'
 __version__ = VERSION
 
 USAGE = """
@@ -152,11 +152,20 @@ def getMd5(s):
 class AbsLineNo(int):
      pass
 
+def __get_lconv__(t,enc='utf8'):
+    if isinstance(t,bytesT):
+        def __lconv__(s):
+            return s if isinstance(s,bytesT) else unicodeT(s).encode(enc)
+    elif isinstance(t,unicodeT):
+        def __lconv__(s):
+            return s.decode(enc) if isinstance(s,bytesT) else unicodeT(s)
+    return __lconv__
+
 #Andy's standard quote for django
 _safeBase = SafeString, SafeUnicode
 def stdQuote(s):
     if not isinstance(s,strTypes):
-        if s is None: return '' #we usually don't want output
+        if s is None: return u'' #we usually don't want output
         cnv = getattr(s,_ucvn,None)
         if not cnv:
             cnv = getattr(s,_bcvn,None)
@@ -168,6 +177,9 @@ def stdQuote(s):
     elif not isinstance(s,_ncvt):
         s = s.decode('utf8')
     return xmlEscape(s)
+
+def oldStdQuote(s):
+    return stdQuote(s).encode('utf8')
 
 def pnl(s):
     '''print without a lineend'''
@@ -732,36 +744,31 @@ class PreppyParser:
 
 _preambleAst=None
 _preamble='''import ast, pickle
-from preppy import rl_exec
 def run(dictionary, __write__=None, quoteFunc=str, outputfile=None):
     ### begin standard prologue
     import sys
     __save_sys_stdout__ = sys.stdout
     try: # compiled logic below
-        try:
-            # if outputfile is defined, blindly assume it supports file protocol, reset sys.stdout
-            if outputfile is None:
-                raise NameError
+        if outputfile is not None:
             stdout = sys.stdout = outputfile
-        except NameError:
+            if __write__:
+                raise ValueError("do not define both outputfile (%r) and __write__ (%r)." %(outputfile, __write__))
+        else:
             stdout = sys.stdout
-            outputfile = None
         # make sure quoteFunc is defined:
         if quoteFunc is None:
             raise ValueError("quoteFunc must be defined")
         globals()['__quoteFunc__'] = quoteFunc
         # make sure __write__ is defined
-        try:
-            if __write__ is None:
-                raise NameError
-            if outputfile and __write__:
-                raise ValueError("do not define both outputfile (%s) and __write__ (%s)." %(outputfile, __write__))
+        if __write__:
             class stdout: pass
             stdout = sys.stdout = stdout()
-            stdout.write = lambda x:__write__(quoteFunc(x))
-        except NameError:
-            __write__ = lambda x: stdout.write(quoteFunc(x))
+            stdout.write = lambda x: __write__(quoteFunc(x))
+        else:
+            __write__ = lambda x: stdout.write(x)
         __swrite__ = lambda x: __write__(quoteFunc(x))
+        lconv = __get_lconv__(quoteFunc(''))
+        __lwrite__ = lambda x: __write__(lconv(x))
         M = pickle.loads(__preppy_nodes__)
         b = M.body[0].body
         for k in dictionary:
@@ -774,21 +781,20 @@ def run(dictionary, __write__=None, quoteFunc=str, outputfile=None):
                 pass
         NS = {}
         NS['include'] = include
-        rl_exec(compile(M,__preppy_filename__,'exec'),NS)
-        NS['__code__'](dictionary,outputfile,__write__,__swrite__,__save_sys_stdout__)
+        __rl_exec__(compile(M,__preppy_filename__,'exec'),NS)
+        NS['__code__'](dictionary,outputfile,__lwrite__,__swrite__,__save_sys_stdout__)
     finally: #### end of compiled logic, standard cleanup
         import sys # for safety
         #print "resetting stdout", sys.stdout, "to", __save_sys_stdout__
         sys.stdout = __save_sys_stdout__
-def getOutput(dictionary, quoteFunc=str):
-    buf=[]
-    run(dictionary,__write__=buf.append, quoteFunc=quoteFunc)
-    return ''.join(buf)
 
 def getOutputFromKeywords(quoteFunc=str, **kwds):
     buf=[]
     run(kwds,__write__=buf.append, quoteFunc=quoteFunc)
-    return ''.join(buf)
+    return quoteFunc('')[0:0].join(buf)
+
+def getOutput(dictionary, quoteFunc=str):
+    return getOutputFromKeywords(quoteFunc=quoteFunc, **dictionary)
 
 if __name__=='__main__':
     run()
@@ -832,6 +838,14 @@ def rl_get_module(name,dir):
         del om
         if f: f.close()
 
+def getTimeStamp(m,default=float('Inf')):
+    try:
+        with open(m.__file__,'rb') as f:
+            f.seek(4,0)
+            return struct.unpack('i', modtime)[0]
+    except:
+        return default
+        
 # cache found modules by source file name
 FILE_MODULES = {}
 SOURCE_MODULES = {}
@@ -882,6 +896,15 @@ def getModule(name,
         if savefile and savePyc == 0:
             savePyc = 1
 
+    def decorateModule(module):
+        md = module.__dict__
+        md['include'] = include
+        md['__preppy__vlhs__'] = __preppy__vlhs__
+        md['__rl_exec__'] = rl_exec
+        md['__get_lconv__'] = __get_lconv__
+        if _globals: md.update(_globals)
+        return module
+
     if sourcetext is not None:
         # they fed us the source explicitly
         sourcechecksum = getMd5(sourcetext)
@@ -901,11 +924,7 @@ def getModule(name,
             return module
 
         try:
-            module = rl_get_module(name,dir)
-            module.__dict__['include'] = include
-            module.__dict__['__preppy__vlhs__'] = __preppy__vlhs__
-            if _globals:
-                module.__dict__.update(_globals)
+            module = decorateModule(rl_get_module(name,dir))
             checksum = module.__checksum__
             if verbose: pnl("found...")
         except: # ImportError:  #catch ALL Errors importing the module (eg name="")
@@ -949,17 +968,22 @@ def getModule(name,
     # default is compile to bytecode and save that.
     if savePyc:
         with open(dir + os.sep + name + '.pyc','wb') as f:
-            f.write(py_compile.MAGIC)
+            f.write(b'\0\0\0\0')
             py_compile.wr_long(f, int(time.time()))
+            if isPy3:
+                if not nosourcefile:
+                    size = os.stat(sourcefilename).st_size & 0xFFFFFFFF
+                else:
+                    size = len(sourcetext)
+                py_compile.wr_long(f, size)
             marshal.dump(P.codeobject, f)
+            f.flush()
+            f.seek(0, 0)
+            f.write(py_compile.MAGIC)
 
     # now make a module
     from imp import new_module
-    module = new_module(name)
-    module.__dict__['include'] = include
-    module.__dict__['__preppy__vlhs__'] = __preppy__vlhs__
-    if _globals:
-        module.__dict__.update(_globals)
+    module = decorateModule(new_module(name))
     rl_exec(P.codeobject,module.__dict__)
     if importModule:
         if nosourcefile:
