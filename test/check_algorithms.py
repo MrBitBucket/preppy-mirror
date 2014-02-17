@@ -165,74 +165,74 @@ class GeneratedCodeTestCase(unittest.TestCase):
 
     #preppy's standard quote
     def checkQuoting5(self):
-        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=1.2, quoteFunc=preppy.stdQuote), "<a>1.2</a>")
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=1.2, quoteFunc=preppy.uStdQuote), "<a>1.2</a>")
 
     def checkQuoting6(self):
-        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A='<&>', quoteFunc=preppy.stdQuote), "<a>&lt;&amp;&gt;</a>")
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A='<&>', quoteFunc=preppy.uStdQuote), "<a>&lt;&amp;&gt;</a>")
 
     def checkQuoting7(self):
-        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=preppy.SafeUnicode('<&>'), quoteFunc=preppy.stdQuote), "<a><&></a>")
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=preppy.SafeUnicode('<&>'), quoteFunc=preppy.uStdQuote), "<a><&></a>")
 
     def checkQuoting8(self):
-        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=preppy.SafeUnicode('<&>'), quoteFunc=preppy.stdQuote), "<a><&></a>")
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=preppy.SafeUnicode('<&>'), quoteFunc=preppy.uStdQuote), "<a><&></a>")
 
     def checkQuoting9(self):
-        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=b'\xc2\xae', quoteFunc=preppy.stdQuote), u"<a>\xae</a>")
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=b'\xc2\xae', quoteFunc=preppy.uStdQuote), u"<a>\xae</a>")
 
     def checkQuoting10(self):
-        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=None, quoteFunc=preppy.stdQuote), "<a></a>")
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=None, quoteFunc=preppy.uStdQuote), u"<a></a>")
 
     def checkQuoting11(self):
-        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=b'A', quoteFunc=preppy.stdQuote), "<a>A</a>")
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=b'A', quoteFunc=preppy.uStdQuote), u"<a>A</a>")
 
     def checkQuoting12(self):
-        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=u'A', quoteFunc=preppy.stdQuote), "<a>A</a>")
+        self.assertEquals(self.getRunTimeOutput('<a>{{A}}</a>', A=u'A', quoteFunc=preppy.uStdQuote), u"<a>A</a>")
 
     def checkQuoting13(self):
-        self.assertEquals(self.getRunTimeOutput(b'<a>{{A}}</a>', A=b'A', quoteFunc=preppy.oldStdQuote), b"<a>A</a>")
+        self.assertEquals(self.getRunTimeOutput(b'<a>{{A}}</a>', A=b'A', quoteFunc=preppy.bStdQuote), b"<a>A</a>")
 
     def checkQuoting14(self):
-        self.assertEquals(self.getRunTimeOutput(b'<a>{{A}}</a>', A=u'A', quoteFunc=preppy.oldStdQuote), b"<a>A</a>")
+        self.assertEquals(self.getRunTimeOutput(b'<a>{{A}}</a>', A=u'A', quoteFunc=preppy.bStdQuote), b"<a>A</a>")
 
     fce_src1 = "{{for i in range(3)}}{{if i==C}}{{continue}}{{endif}}{{i}}{{endfor}}"
     fce_src2 = "{{for i in range(3)}}{{if i==C}}{{continue}}{{endif}}{{i}}{{else}}FORELSE{{endfor}}"
     def checkForContinueElse1(self):
-        self.assertEquals(self.getRunTimeOutput(self.fce_src1, C=-1, quoteFunc=preppy.stdQuote), "012")
+        self.assertEquals(self.getRunTimeOutput(self.fce_src1, C=-1, quoteFunc=preppy.uStdQuote), "012")
 
     def checkForContinueElse2(self):
-        self.assertEquals(self.getRunTimeOutput(self.fce_src1, C=2, quoteFunc=preppy.stdQuote), "01")
+        self.assertEquals(self.getRunTimeOutput(self.fce_src1, C=2, quoteFunc=preppy.uStdQuote), "01")
 
     def checkForContinueElse3(self):
-        self.assertEquals(self.getRunTimeOutput(self.fce_src1, C=0, quoteFunc=preppy.stdQuote), "12")
+        self.assertEquals(self.getRunTimeOutput(self.fce_src1, C=0, quoteFunc=preppy.uStdQuote), "12")
         
     def checkForContinueElse4(self):
-        self.assertEquals(self.getRunTimeOutput(self.fce_src2, C=-1, quoteFunc=preppy.stdQuote), "012FORELSE")
+        self.assertEquals(self.getRunTimeOutput(self.fce_src2, C=-1, quoteFunc=preppy.uStdQuote), "012FORELSE")
 
     def checkForContinueElse5(self):
-        self.assertEquals(self.getRunTimeOutput(self.fce_src2, C=2, quoteFunc=preppy.stdQuote), "01FORELSE")
+        self.assertEquals(self.getRunTimeOutput(self.fce_src2, C=2, quoteFunc=preppy.uStdQuote), "01FORELSE")
 
     def checkForContinueElse6(self):
-        self.assertEquals(self.getRunTimeOutput(self.fce_src2, C=0, quoteFunc=preppy.stdQuote), "12FORELSE")
+        self.assertEquals(self.getRunTimeOutput(self.fce_src2, C=0, quoteFunc=preppy.uStdQuote), "12FORELSE")
 
     fbe_src1="{{for i in range(3)}}{{if i==C}}{{break}}{{endif}}{{i}}{{endfor}}"
     fbe_src2="{{for i in range(3)}}{{if i==C}}{{break}}{{endif}}{{i}}{{else}}FORELSE{{endfor}}"
     def checkForBreakElse1(self):
-        self.assertEquals(self.getRunTimeOutput(self.fbe_src1, C=-1, quoteFunc=preppy.stdQuote), "012")
+        self.assertEquals(self.getRunTimeOutput(self.fbe_src1, C=-1, quoteFunc=preppy.uStdQuote), "012")
 
     def checkForBreakElse2(self):
-        self.assertEquals(self.getRunTimeOutput(self.fbe_src1, C=2, quoteFunc=preppy.stdQuote), "01")
+        self.assertEquals(self.getRunTimeOutput(self.fbe_src1, C=2, quoteFunc=preppy.uStdQuote), "01")
 
     def checkForBreakElse3(self):
-        self.assertEquals(self.getRunTimeOutput(self.fbe_src1, C=0, quoteFunc=preppy.stdQuote), "")
+        self.assertEquals(self.getRunTimeOutput(self.fbe_src1, C=0, quoteFunc=preppy.uStdQuote), "")
 
     def checkForBreakElse4(self):
-        self.assertEquals(self.getRunTimeOutput(self.fbe_src2, C=-1, quoteFunc=preppy.stdQuote), "012FORELSE")
+        self.assertEquals(self.getRunTimeOutput(self.fbe_src2, C=-1, quoteFunc=preppy.uStdQuote), "012FORELSE")
 
     def checkForBreakElse5(self):
-        self.assertEquals(self.getRunTimeOutput(self.fbe_src2, C=2, quoteFunc=preppy.stdQuote), "01")
+        self.assertEquals(self.getRunTimeOutput(self.fbe_src2, C=2, quoteFunc=preppy.uStdQuote), "01")
 
     def checkForBreakElse6(self):
-        self.assertEquals(self.getRunTimeOutput(self.fbe_src2, C=0, quoteFunc=preppy.stdQuote), "")
+        self.assertEquals(self.getRunTimeOutput(self.fbe_src2, C=0, quoteFunc=preppy.uStdQuote), "")
 
     def checkRaises(self):
         self.assertRaises(ValueError,self.getRunTimeOutput,"{{raise ValueError('aaa')}}")
@@ -242,10 +242,10 @@ RAISE{{raise Exception('zzz')}}{{endif}}
 TRYBODY{{except}}
 EXCEPT{{endtry}}"""
     def checkTryExcept1(self):
-        self.assertEquals(self.getRunTimeOutput(self.trye_src, i=0, quoteFunc=preppy.stdQuote), "TRY\nTRYBODY")
+        self.assertEquals(self.getRunTimeOutput(self.trye_src, i=0, quoteFunc=preppy.uStdQuote), "TRY\nTRYBODY")
 
     def checkTryExcept2(self):
-        self.assertEquals(self.getRunTimeOutput(self.trye_src, i=1, quoteFunc=preppy.stdQuote), "TRY\nRAISE\nEXCEPT")
+        self.assertEquals(self.getRunTimeOutput(self.trye_src, i=1, quoteFunc=preppy.uStdQuote), "TRY\nRAISE\nEXCEPT")
 
     tryee_src="""TRY{{try}}{{if i==1}}
 raise ValueError{{raise ValueError('bbb')}}{{elif i==2}}
@@ -257,16 +257,16 @@ catch all errors{{else}}
 TRYELSE{{finally}}
 TRYFINALLY{{endtry}}"""
     def checkTryExceptElseFinally1(self):
-        self.assertEquals(self.getRunTimeOutput(self.tryee_src, i=0, quoteFunc=preppy.stdQuote), "TRY\nTRYELSE\nTRYFINALLY")
+        self.assertEquals(self.getRunTimeOutput(self.tryee_src, i=0, quoteFunc=preppy.uStdQuote), "TRY\nTRYELSE\nTRYFINALLY")
 
     def checkTryExceptElseFinally2(self):
-        self.assertEquals(self.getRunTimeOutput(self.tryee_src, i=1, quoteFunc=preppy.stdQuote), "TRY\nraise ValueError\ncatch ValueError\nTRYFINALLY")
+        self.assertEquals(self.getRunTimeOutput(self.tryee_src, i=1, quoteFunc=preppy.uStdQuote), "TRY\nraise ValueError\ncatch ValueError\nTRYFINALLY")
 
     def checkTryExceptElseFinally3(self):
-        self.assertEquals(self.getRunTimeOutput(self.tryee_src, i=2, quoteFunc=preppy.stdQuote), "TRY\nraise TypeError\ncatch TypeError\nTRYFINALLY")
+        self.assertEquals(self.getRunTimeOutput(self.tryee_src, i=2, quoteFunc=preppy.uStdQuote), "TRY\nraise TypeError\ncatch TypeError\nTRYFINALLY")
 
     def checkTryExceptElseFinally4(self):
-        self.assertEquals(self.getRunTimeOutput(self.tryee_src, i=3, quoteFunc=preppy.stdQuote), "TRY\nraise Exception\ncatch all errors\nTRYFINALLY")
+        self.assertEquals(self.getRunTimeOutput(self.tryee_src, i=3, quoteFunc=preppy.uStdQuote), "TRY\nraise Exception\ncatch all errors\nTRYFINALLY")
 
     tryf_src="""TRY{{try}}
 FTRY{{try}}{{if i==1}}
@@ -275,107 +275,107 @@ FTRYBODY{{finally}}
 FTRYFINALLY{{endtry}}{{except}}
 catch all errors{{endtry}}"""
     def checkTryFinally1(self):
-        self.assertEquals(self.getRunTimeOutput(self.tryf_src, i=0, quoteFunc=preppy.stdQuote), "TRY\nFTRY\nFTRYBODY\nFTRYFINALLY")
+        self.assertEquals(self.getRunTimeOutput(self.tryf_src, i=0, quoteFunc=preppy.uStdQuote), "TRY\nFTRY\nFTRYBODY\nFTRYFINALLY")
 
     def checkTryFinally1(self):
-        self.assertEquals(self.getRunTimeOutput(self.tryf_src, i=1, quoteFunc=preppy.stdQuote), "TRY\nFTRY\nraise Exception\nFTRYFINALLY\ncatch all errors")
+        self.assertEquals(self.getRunTimeOutput(self.tryf_src, i=1, quoteFunc=preppy.uStdQuote), "TRY\nFTRY\nraise Exception\nFTRYFINALLY\ncatch all errors")
 
     def checkWith(self):
         fn = preppy.__file__
-        self.assertEquals(self.getRunTimeOutput("{{with open(fn,'r') as f}}{{f.name}}{{endwith}}",fn=fn, quoteFunc=preppy.stdQuote),fn)
+        self.assertEquals(self.getRunTimeOutput("{{with open(fn,'r') as f}}{{f.name}}{{endwith}}",fn=fn, quoteFunc=preppy.uStdQuote),fn)
 
     def checkImport1(self):
-        self.assertEquals(self.getRunTimeOutput('{{import token}}{{token.__name__}}',quoteFunc=preppy.stdQuote),'token')
+        self.assertEquals(self.getRunTimeOutput('{{import token}}{{token.__name__}}',quoteFunc=preppy.uStdQuote),'token')
 
     def checkImport2(self):
-        self.assertEquals(self.getRunTimeOutput('{{import token as x}}{{x.__name__}}',quoteFunc=preppy.stdQuote),'token')
+        self.assertEquals(self.getRunTimeOutput('{{import token as x}}{{x.__name__}}',quoteFunc=preppy.uStdQuote),'token')
 
     def checkFrom1(self):
-        self.assertEquals(self.getRunTimeOutput('{{from distutils import cmd}}{{cmd.__name__}}',quoteFunc=preppy.stdQuote),'distutils.cmd')
+        self.assertEquals(self.getRunTimeOutput('{{from distutils import cmd}}{{cmd.__name__}}',quoteFunc=preppy.uStdQuote),'distutils.cmd')
 
     def checkFrom2(self):
-        self.assertEquals(self.getRunTimeOutput('{{from distutils import cmd as x}}{{x.__name__}}',quoteFunc=preppy.stdQuote),'distutils.cmd')
+        self.assertEquals(self.getRunTimeOutput('{{from distutils import cmd as x}}{{x.__name__}}',quoteFunc=preppy.uStdQuote),'distutils.cmd')
 
     def checkAssert1(self):
-        self.assertRaises(AssertionError,self.getRunTimeOutput,"{{assert i==1}}{{i}}", i=0, quoteFunc=preppy.stdQuote)
+        self.assertRaises(AssertionError,self.getRunTimeOutput,"{{assert i==1}}{{i}}", i=0, quoteFunc=preppy.uStdQuote)
 
     def checkAssert2(self):
-        self.assertEquals(self.getRunTimeOutput("{{assert i==1}}{{i}}", i=1, quoteFunc=preppy.stdQuote), "1")
+        self.assertEquals(self.getRunTimeOutput("{{assert i==1}}{{i}}", i=1, quoteFunc=preppy.uStdQuote), "1")
 
     def checkEmptyScript1(self):
-        self.assertEquals(self.getRunTimeOutput('a{{script}}{{endscript}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('a{{script}}{{endscript}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyScript2(self):
-        self.assertEquals(self.getRunTimeOutput('a{{script}} {{endscript}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('a{{script}} {{endscript}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyScript3(self):
-        self.assertEquals(self.getRunTimeOutput('a{{script}}\n{{endscript}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('a{{script}}\n{{endscript}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyScript4(self):
-        self.assertEquals(self.getRunTimeOutput('a{{script}}\n\n{{endscript}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('a{{script}}\n\n{{endscript}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyScript5(self):
-        self.assertEquals(self.getRunTimeOutput('a{{script}}\n#just a comment{{endscript}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('a{{script}}\n#just a comment{{endscript}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyScript6(self):
-        self.assertEquals(self.getRunTimeOutput('a{{script}}\n#just a comment\n{{endscript}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('a{{script}}\n#just a comment\n{{endscript}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyIf1(self):
-        self.assertEquals(self.getRunTimeOutput('a{{if False}}{{else}}b{{endif}}c',quoteFunc=preppy.stdQuote),'abc')
+        self.assertEquals(self.getRunTimeOutput('a{{if False}}{{else}}b{{endif}}c',quoteFunc=preppy.uStdQuote),'abc')
 
     def checkEmptyIf2(self):
-        self.assertEquals(self.getRunTimeOutput('a{{if True}}{{else}}b{{endif}}c',quoteFunc=preppy.stdQuote),'ac')
+        self.assertEquals(self.getRunTimeOutput('a{{if True}}{{else}}b{{endif}}c',quoteFunc=preppy.uStdQuote),'ac')
 
     def checkEmptyIfElse1(self):
-        self.assertEquals(self.getRunTimeOutput('a{{if False}}b{{else}}{{endif}}c',quoteFunc=preppy.stdQuote),'ac')
+        self.assertEquals(self.getRunTimeOutput('a{{if False}}b{{else}}{{endif}}c',quoteFunc=preppy.uStdQuote),'ac')
 
     def checkEmptyIfElse2(self):
-        self.assertEquals(self.getRunTimeOutput('a{{if True}}b{{else}}{{endif}}c',quoteFunc=preppy.stdQuote),'abc')
+        self.assertEquals(self.getRunTimeOutput('a{{if True}}b{{else}}{{endif}}c',quoteFunc=preppy.uStdQuote),'abc')
 
     def checkEmptyWhile1(self):
-        self.assertEquals(self.getRunTimeOutput('a{{while False}}{{endwhile}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('a{{while False}}{{endwhile}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyWhile2(self):
-        self.assertEquals(self.getRunTimeOutput('{{script}}def I(z=[0,1]):\n return z.pop()\n{{endscript}}a{{while I()}}{{endwhile}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('{{script}}def I(z=[0,1]):\n return z.pop()\n{{endscript}}a{{while I()}}{{endwhile}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyWhileElse1(self):
-        self.assertEquals(self.getRunTimeOutput('a{{while False}}{{else}}{{endwhile}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('a{{while False}}{{else}}{{endwhile}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyWhileElse2(self):
-        self.assertEquals(self.getRunTimeOutput('{{script}}def I(z=[0,1]):\n return z.pop()\n{{endscript}}a{{while I()}}{{else}}{{endwhile}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('{{script}}def I(z=[0,1]):\n return z.pop()\n{{endscript}}a{{while I()}}{{else}}{{endwhile}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyFor1(self):
-        self.assertEquals(self.getRunTimeOutput('a{{for x in ()}}{{endfor}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('a{{for x in ()}}{{endfor}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyFor2(self):
-        self.assertEquals(self.getRunTimeOutput('a{{for x in (0,)}}{{endfor}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('a{{for x in (0,)}}{{endfor}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyForElse1(self):
-        self.assertEquals(self.getRunTimeOutput('a{{for x in ()}}{{else}}{{endfor}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('a{{for x in ()}}{{else}}{{endfor}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyForElse2(self):
-        self.assertEquals(self.getRunTimeOutput('a{{for x in (0,)}}{{else}}{{endfor}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('a{{for x in (0,)}}{{else}}{{endfor}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyTry(self):
-        self.assertEquals(self.getRunTimeOutput('a{{try}}{{except}}{{else}}{{finally}}{{endtry}}b',quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('a{{try}}{{except}}{{else}}{{finally}}{{endtry}}b',quoteFunc=preppy.uStdQuote),'ab')
 
     def checkEmptyWith(self):
-        self.assertEquals(self.getRunTimeOutput('a{{with open(fn,'r') as f}}{{endwith}}b',fn=preppy.__file__,quoteFunc=preppy.stdQuote),'ab')
+        self.assertEquals(self.getRunTimeOutput('a{{with open(fn,'r') as f}}{{endwith}}b',fn=preppy.__file__,quoteFunc=preppy.uStdQuote),'ab')
 
     def checkErrorIndication1(self):
         src = ['line %d' % i for i in range(1000)]
         src = '\n'.join(src + ['{{raise ValueError("AAA")}}'] + src)
-        self.assertEquals(checkErrorTextContains('line 1001, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.stdQuote),'')
+        self.assertEquals(checkErrorTextContains('line 1001, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
 
     def checkErrorIndication2(self):
         src = ['line %d' % i for i in range(1000)]
         src = '\n'.join(src + ['{{raise ValueError("AAA")}}'])
-        self.assertEquals(checkErrorTextContains('line 1001, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.stdQuote),'')
+        self.assertEquals(checkErrorTextContains('line 1001, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
 
     def checkErrorIndication3(self):
         src = ['line %d' % i for i in range(1000)]
         src = '\n'.join(['{{raise ValueError("AAA")}}']+src)
-        self.assertEquals(checkErrorTextContains('line 1, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.stdQuote),'')
+        self.assertEquals(checkErrorTextContains('line 1, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
 
 class NewGeneratedCodeTestCase(unittest.TestCase):
     """Maybe the simplest and most all-encompassing:
