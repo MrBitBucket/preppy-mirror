@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.1.3'
+VERSION = '2.2'
 __version__ = VERSION
 
 USAGE = """
@@ -163,7 +163,7 @@ def __get_lconv__(t,enc='utf8'):
 
 #Andy's standard quote for django
 _safeBase = SafeString, SafeUnicode
-def stdQuote(s):
+def uStdQuote(s):
     if not isinstance(s,strTypes):
         if s is None: return u'' #we usually don't want output
         cnv = getattr(s,_ucvn,None)
@@ -178,8 +178,10 @@ def stdQuote(s):
         s = s.decode('utf8')
     return xmlEscape(s)
 
-def oldStdQuote(s):
-    return stdQuote(s).encode('utf8')
+def bStdQuote(s):
+    return uStdQuote(s).encode('utf8')
+
+stdQuote = bStdQuote
 
 def pnl(s):
     '''print without a lineend'''
