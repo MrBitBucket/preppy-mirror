@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.2'
+VERSION = '2.2.1'
 __version__ = VERSION
 
 USAGE = """
@@ -84,9 +84,15 @@ if isPy3:
         return len(L)<=3 and L[-2][0]==NAME and L[-1][0]==ENDMARKER
 
     class SafeString(bytes):
-        pass
+        '''either a SafeString or a SafeUnicode depending on argument type'''
+        def __new__(cls,v):
+            return str.__new__(SafeUnicode,v) if isinstance(v,str) else bytes.__new__(cls,v)
+
     class SafeUnicode(str):
-        pass
+        '''either a SafeString or a SafeUnicode depending on argument type'''
+        def __new__(cls,v):
+            return bytes.__new__(SafeString,v) if isinstance(v,bytes) else str.__new__(cls,v)
+
     _ucvn = '__str__'   #unicode conversion
     _bcvn = '__bytes__' #bytes conversion
     _ncvt = str         #native converter
@@ -108,9 +114,15 @@ else:
         return len(L)==2 and L[0][0]==NAME and L[1][0]==ENDMARKER
 
     class SafeString(str):
-        pass
+        '''either a SafeString or a SafeUnicode depending on argument type'''
+        def __new__(cls,v):
+            return unicode.__new__(SafeUnicode,v) if isinstance(v,unicode) else str.__new__(cls,v)
+
     class SafeUnicode(unicode):
-        pass
+        '''either a SafeString or a SafeUnicode depending on argument type'''
+        def __new__(cls,v):
+            return str.__new__(SafeString,v) if isinstance(v,str) else unicode.__new__(cls,v)
+
     _ucvn = '__unicode__'
     _bcvn = '__str__'
     _ncvt = unicode

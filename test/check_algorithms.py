@@ -194,6 +194,42 @@ class GeneratedCodeTestCase(unittest.TestCase):
     def checkQuoting14(self):
         self.assertEquals(self.getRunTimeOutput(b'<a>{{A}}</a>', A=u'A', quoteFunc=preppy.bStdQuote), b"<a>A</a>")
 
+    def checkSafing1(self):
+        self.assertEquals(preppy.SafeString(b'<A>'),b'<A>')
+
+    def checkSafing2(self):
+        self.assertEquals(preppy.SafeString(u'<A>'),u'<A>')
+
+    def checkSafing3(self):
+        self.assertEquals(preppy.SafeUnicode(b'<A>'),b'<A>')
+
+    def checkSafing4(self):
+        self.assertEquals(preppy.SafeUnicode(u'<A>'),u'<A>')
+
+    def checkSafing5(self):
+        self.assertEquals(preppy.SafeString(b'<A>').__class__.__name__,'SafeString')
+
+    def checkSafing6(self):
+        self.assertEquals(preppy.SafeString(u'<A>').__class__.__name__,'SafeUnicode')
+
+    def checkSafing7(self):
+        self.assertEquals(preppy.SafeUnicode(b'<A>').__class__.__name__,'SafeString')
+
+    def checkSafing8(self):
+        self.assertEquals(preppy.SafeUnicode(u'<A>').__class__.__name__,'SafeUnicode')
+
+    def checkSafing9(self):
+        self.assertEquals(preppy.bStdQuote(preppy.SafeString(b'<A>')),b'<A>')
+
+    def checkSafing10(self):
+        self.assertEquals(preppy.bStdQuote(preppy.SafeString(u'<A>')),b'<A>')
+
+    def checkSafing11(self):
+        self.assertEquals(preppy.uStdQuote(preppy.SafeUnicode(b'<A>')),u'<A>')
+
+    def checkSafing12(self):
+        self.assertEquals(preppy.uStdQuote(preppy.SafeString(u'<A>')),u'<A>')
+
     fce_src1 = "{{for i in range(3)}}{{if i==C}}{{continue}}{{endif}}{{i}}{{endfor}}"
     fce_src2 = "{{for i in range(3)}}{{if i==C}}{{continue}}{{endif}}{{i}}{{else}}FORELSE{{endfor}}"
     def checkForContinueElse1(self):
