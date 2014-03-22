@@ -40,6 +40,10 @@ class GeneratedCodeTestCase(unittest.TestCase):
         output = quoteFunc('')[0:0].join(collector)
         return output
 
+    def getGetOutput(self,prepCode,*args,**kwds):
+        mod=preppy.getModule('test_preppy',savePyc=0,sourcetext=prepCode)
+        return mod.get(*args,**kwds)
+
     def checkStatic(self):
         prepCode = "Hello World"
         out = self.getRunTimeOutput(prepCode)
@@ -399,19 +403,54 @@ catch all errors{{endtry}}"""
         self.assertEquals(self.getRunTimeOutput('a{{with open(fn,'r') as f}}{{endwith}}b',fn=preppy.__file__,quoteFunc=preppy.uStdQuote),'ab')
 
     def checkErrorIndication1(self):
-        src = ['line %d' % i for i in range(1000)]
+        src = ['line %d' % i for i in range(10000)]
         src = '\n'.join(src + ['{{raise ValueError("AAA")}}'] + src)
-        self.assertEquals(checkErrorTextContains('line 1001, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
+        self.assertEquals(checkErrorTextContains('line 10001, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
 
     def checkErrorIndication2(self):
-        src = ['line %d' % i for i in range(1000)]
+        src = ['line %d' % i for i in range(10000)]
         src = '\n'.join(src + ['{{raise ValueError("AAA")}}'])
-        self.assertEquals(checkErrorTextContains('line 1001, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
+        self.assertEquals(checkErrorTextContains('line 10001, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
 
     def checkErrorIndication3(self):
-        src = ['line %d' % i for i in range(1000)]
+        src = ['line %d' % i for i in range(10000)]
         src = '\n'.join(['{{raise ValueError("AAA")}}']+src)
         self.assertEquals(checkErrorTextContains('line 1, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
+
+    def checkErrorIndication4(self):
+        src = ['line %d' % i for i in range(10000)]
+        src = '\n'.join(['{{u"\u2019".encode("ascii")}}']+src)
+        self.assertEquals(checkErrorTextContains('line 1, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
+
+    def checkErrorIndication5(self):
+        src = ['line %d' % i for i in range(10000)]
+        src = '\n'.join(src + ['{{u"\u2019".encode("ascii")}}'])
+        self.assertEquals(checkErrorTextContains('line 10001, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
+
+    def checkErrorIndication6(self):
+        src = ['line %d' % i for i in range(10000)]
+        src = '\n'.join(src + ['{{raise ValueError("AAA")}}'] + src)
+        self.assertEquals(checkErrorTextContains('line 10001, in get',self.getGetOutput,'{{def()}}'+src),'')
+
+    def checkErrorIndication7(self):
+        src = ['line %d' % i for i in range(10000)]
+        src = '\n'.join(src + ['{{raise ValueError("AAA")}}'])
+        self.assertEquals(checkErrorTextContains('line 10001, in get',self.getGetOutput,'{{def()}}'+src),'')
+
+    def checkErrorIndication8(self):
+        src = ['line %d' % i for i in range(10000)]
+        src = '\n'.join(['{{raise ValueError("AAA")}}']+src)
+        self.assertEquals(checkErrorTextContains('line 1, in get',self.getGetOutput,'{{def()}}'+src),'')
+
+    def checkErrorIndication9(self):
+        src = ['line %d' % i for i in range(10000)]
+        src = '\n'.join(['{{u"\u2019".encode("ascii")}}']+src)
+        self.assertEquals(checkErrorTextContains('line 1, in get',self.getGetOutput,'{{def()}}'+src),'')
+
+    def checkErrorIndication10(self):
+        src = ['line %d' % i for i in range(10000)]
+        src = '\n'.join(src + ['{{u"\u2019".encode("ascii")}}'])
+        self.assertEquals(checkErrorTextContains('line 10001, in get',self.getGetOutput,'{{def()}}'+src),'')
 
 class NewGeneratedCodeTestCase(unittest.TestCase):
     """Maybe the simplest and most all-encompassing:
