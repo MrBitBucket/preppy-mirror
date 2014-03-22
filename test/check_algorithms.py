@@ -464,9 +464,18 @@ catch all errors{{endtry}}"""
                     '{{while 1}}{{raise ValueError}}{{endwhile}}',
                     '{{while 0}}{{else}}{{raise ValueError}}{{endwhile}}',
                     '{{for i in (0,1)}}{{raise ValueError}}{{endfor}}'
-                    '{{for i in (0,1)}}{[else}}{{raise ValueError}}{{endfor}}'
+                    '{{for i in (0,1)}}{{else}}{{raise ValueError}}{{endfor}}'
+                    '{{script}}raise ValueError{{endscript}}'
+                    '{{if 1}}{{script}}raise ValueError{{endscript}}{{endif}}',
+                    '{{if 0}}{{else}}{{raise ValueError}}{{endif}}',
+                    '{{if 0}}{{elif 1}}{{script}}raise ValueError{{endscript}}{{endif}}',
+                    '{{if 0}}{{elif 0}}{{else}}{{script}}raise ValueError{{endscript}}{{endif}}',
+                    '{{while 1}}{{script}}raise ValueError{{endscript}}{{endwhile}}',
+                    '{{while 0}}{{else}}{{script}}raise ValueError{{endscript}}{{endwhile}}',
+                    '{{for i in (0,1)}}{{script}}raise ValueError{{endscript}}{{endfor}}',
+                    '{{for i in (0,1)}}{{else}}{{script}}raise ValueError{{endscript}}{{endfor}}'
                     ]:
-            self.assertEquals(checkErrorTextContains('line 10001, in __code__',self.getRunTimeOutput,src+'\n'+line,quoteFunc=preppy.uStdQuote,label=line),'')
+            self.assertEquals(checkErrorTextContains('line 10001, in __code__',self.getRunTimeOutput,src+'\n'+line+'\n'+src,quoteFunc=preppy.uStdQuote,label=line),'')
 
 class NewGeneratedCodeTestCase(unittest.TestCase):
     """Maybe the simplest and most all-encompassing:

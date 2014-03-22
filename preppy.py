@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.2.2'
+VERSION = '2.2.3'
 __version__ = VERSION
 
 USAGE = """
@@ -317,6 +317,7 @@ def dedent(text):
     return len(indent),'\n'.join(lempty*['']+linesout)
 
 
+_line_d = re.compile('line\s+\d+',re.M)
 _pat = re.compile('{{\\s*|}}',re.M)
 _s = re.compile(r'^(?P<start>while|if|elif|for|continue|break|try|except|raise|with|import|from|assert)(?P<startend>\s+|$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry|endwith)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
 
@@ -351,7 +352,9 @@ class PreppyParser:
         pos0 = text.rfind('\n',0,pos)+1
         pos1 = text.find('\n',pos)
         if pos1<0: pos1 = len(text)
-        raise SyntaxError('%s\n%s\n%s (near line %d of %s)' %(text[pos0:pos1],(' '*(pos-pos0)),msg,text.count('\n',0,pos)+1,self.filename))
+        lnum = text.count('\n',0,pos)+1
+        msg = _line_d.sub('line %d' % lnum,msg)
+        raise SyntaxError('%s\n%s\n%s (near line %d of %s)' %(text[pos0:pos1],(' '*(pos-pos0)),msg, lnum, self.filename))
 
     def __tokenize(self):
         text = self.source
