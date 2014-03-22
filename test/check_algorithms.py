@@ -8,21 +8,23 @@ import os, glob, random, unittest, traceback
 import preppy
 
 def checkErrorTextContains(texts,func,*args,**kwds):
+    label = kwds.pop('label','')
+    if label: label = 'case %s\n' % label
+    if not isinstance(texts,(list,tuple)):
+        texts = (texts,)
     try:
         func(*args,**kwds)
     except:
-        if not isinstance(texts,(list,tuple)):
-            texts = (texts,)
         buf=preppy.StringIO()
         traceback.print_exc(file=buf)
         buf = buf.getvalue()
         for t in texts:
             if t not in buf:
-                return buf
+                return buf if not label else '%s%s'%(label,buf)
         else:
             return ''
     else:
-        return 'An error containing texts\n%s\nwas not raised' % '\n'.join(texts)
+        return '%serror containing texts\n%s\nwas not raised' % (label,'\n'.join(texts))
 
 class GeneratedCodeTestCase(unittest.TestCase):
     """Maybe the simplest and most all-encompassing:
@@ -451,6 +453,20 @@ catch all errors{{endtry}}"""
         src = ['line %d' % i for i in range(10000)]
         src = '\n'.join(src + ['{{u"\u2019".encode("ascii")}}'])
         self.assertEquals(checkErrorTextContains('line 10001, in get',self.getGetOutput,'{{def()}}'+src),'')
+
+    def checkErrorIndication11(self):
+        src = '\n'.join(['line %d' % i for i in range(10000)])
+        for line in [
+                    '{{if 1}}{{raise ValueError}}{{endif}}',
+                    '{{if 0}}{{else}}{{raise ValueError}}{{endif}}',
+                    '{{if 0}}{{elif 1}}{{raise ValueError}}{{endif}}',
+                    '{{if 0}}{{elif 0}}{{else}}{{raise ValueError}}{{endif}}',
+                    '{{while 1}}{{raise ValueError}}{{endwhile}}',
+                    '{{while 0}}{{else}}{{raise ValueError}}{{endwhile}}',
+                    '{{for i in (0,1)}}{{raise ValueError}}{{endfor}}'
+                    '{{for i in (0,1)}}{[else}}{{raise ValueError}}{{endfor}}'
+                    ]:
+            self.assertEquals(checkErrorTextContains('line 10001, in __code__',self.getRunTimeOutput,src+'\n'+line,quoteFunc=preppy.uStdQuote,label=line),'')
 
 class NewGeneratedCodeTestCase(unittest.TestCase):
     """Maybe the simplest and most all-encompassing:

@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.2.1'
+VERSION = '2.2.2'
 __version__ = VERSION
 
 USAGE = """
@@ -645,8 +645,8 @@ class PreppyParser:
             except:
                 self.__error()
             t = self.__tokenPop()
-            n.body = self.__preppy(followers=['endif','elif','else'],fixEmpty=True)
             self.__renumber(n,t)
+            n.body = self.__preppy(followers=['endif','elif','else'],fixEmpty=True)
             if I:
                 p.orelse = [n]
             else:
