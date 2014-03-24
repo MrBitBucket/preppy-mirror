@@ -1176,7 +1176,7 @@ def include(viewName,*args,**kwd):
                 raise TypeError("include for old style prep file can have only one positional argument, dictionary")
             if 'dictionary' in kwd:
                 raise TypeError('include: dictionary argument specified twice')
-            dictionary = args(1).copy()
+            dictionary = args[0].copy()
         elif 'dictionary' in kwd:
             dictionary = kwd.pop('dictionary').copy()
         else:
