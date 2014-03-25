@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.2.3'
+VERSION = '2.3.0'
 __version__ = VERSION
 
 USAGE = """
@@ -67,7 +67,7 @@ QUOTEQUOTE = "$$"
 # SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
 UNESCAPES = ((QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE))
 
-import re, sys, os, imp, struct, tokenize, token, ast, traceback, time, marshal, py_compile, pickle
+import re, sys, os, imp, struct, tokenize, token, ast, traceback, time, marshal, py_compile, pickle, inspect, textwrap
 from hashlib import md5
 isPy3 = sys.version_info.major == 3
 from xml.sax.saxutils import escape as xmlEscape
@@ -95,7 +95,6 @@ if isPy3:
 
     _ucvn = '__str__'   #unicode conversion
     _bcvn = '__bytes__' #bytes conversion
-    _ncvt = str         #native converter
     bytesT = bytes
     unicodeT = str
     strTypes = (str,bytes)
@@ -125,7 +124,6 @@ else:
 
     _ucvn = '__unicode__'
     _bcvn = '__str__'
-    _ncvt = unicode
     bytesT = str
     unicodeT = unicode
     strTypes = basestring
@@ -155,23 +153,49 @@ else:
                 return ast.TryFinally(lineno=self.lineno,col_offset=self.col_offset,
                         body=[ast.TryExcept(lineno=self.lineno,col_offset=self.col_offset,body=self.body,handlers=self.handlers,orelse=self.orelse)],
                         finalbody=self.finalbody)
+    defaultLConv = ['unicode','str']
 
 def asUtf8(s):
     return s if isinstance(s,bytesT) else s.encode('utf8')
+
+def asUnicode(s):
+    return s if isinstance(s,unicodeT) else s.decode('utf8')
+
 def getMd5(s):
     return md5(asUtf8(s)+asUtf8(VERSION)).hexdigest()
 
 class AbsLineNo(int):
      pass
 
-def __get_lconv__(t,enc='utf8'):
-    if isinstance(t,bytesT):
-        def __lconv__(s):
-            return s if isinstance(s,bytesT) else unicodeT(s).encode(enc)
-    elif isinstance(t,unicodeT):
-        def __lconv__(s):
-            return s.decode(enc) if isinstance(s,bytesT) else unicodeT(s)
-    return __lconv__
+def uStdConv(s):
+    if not isinstance(s,strTypes):
+        if s is None: return u'' #we usually don't want output
+        cnv = getattr(s,_ucvn,None)
+        if not cnv:
+            cnv = getattr(s,_bcvn,None)
+        s = cnv() if cnv else str(s)
+    if not isinstance(s,unicodeT):
+        s = s.decode('utf8')
+    return s
+
+def bStdConv(s):
+    return uStdConv(s).encode('utf8')
+
+def __get_conv__(qf,lqf,b):
+    '''return the quoteFunc, lquoteFunc given values for same and
+    whether the original was bytes'''
+    if qf and not lqf:
+        lqf = asUtf8 if isinstance(qf(''),bytesT) else asUnicode
+    elif lqf and not qf:
+        qf = bStdConv if isinstance(lqf(''),bytesT) else uStdConv
+    elif not qf and not lqf:
+        if b:
+            qf = bStdConv
+            lqf = bytesT
+        else:
+            qf = uStdConv
+            lqf = unicodeT
+    return qf, lqf
 
 #Andy's standard quote for django
 _safeBase = SafeString, SafeUnicode
@@ -181,12 +205,12 @@ def uStdQuote(s):
         cnv = getattr(s,_ucvn,None)
         if not cnv:
             cnv = getattr(s,_bcvn,None)
-        s = cnv() if cnv else str(s)
+        s = cnv() if cnv else unicodeT(s)
     if isinstance(s,_safeBase):
         if isinstance(s,SafeString):
             s = s.decode('utf8')
         return s
-    elif not isinstance(s,_ncvt):
+    elif not isinstance(s,unicodeT):
         s = s.decode('utf8')
     return xmlEscape(s)
 
@@ -197,7 +221,7 @@ stdQuote = bStdQuote
 
 def pnl(s):
     '''print without a lineend'''
-    if isinstance(s,unicodeT):
+    if not isPy3 and isinstance(s,unicodeT):
         s = s.encode(sys.stdout.encoding,'replace')
     sys.stdout.write(s)
 
@@ -333,19 +357,10 @@ class PreppyParser:
         self.filename = filename
         self.sourcechecksum = sourcechecksum
         self.__inFor = self.__inWhile = 0
+        self._isBytes = isinstance(source,bytesT)
 
     def compile(self, display=0):
         self.codeobject = compile(self.__get_ast(),self.filename,'exec')
-
-    def getPycHeader(self):
-        try:
-            if getattr(self,'nosourcefile',0): raise ValueError('no source file')
-            mtime = os.path.getmtime(self.filename)
-        except:
-            import time
-            mtime = time.time()
-        mtime = struct.pack('<i', mtime)
-        return self.MAGIC + mtime
 
     def __lexerror(self, msg, pos):
         text = self.source
@@ -710,6 +725,11 @@ class PreppyParser:
                 if isinstance(node,list)
                 else ast.dump(node,annotate_fields=annotate_fields, include_attributes=include_attributes))
 
+    def __get_pre_preamble(self):
+        return ('from preppy import include, __preppy__vlhs__, __get_conv__\n'
+                if self._defSeen==1
+                else 'from preppy import include, rl_exec as __rl_exec__, __preppy__vlhs__, __get_conv__\n')
+
     def __get_ast(self):
         preppyNodes = self.__parse()
         llno = (AbsLineNo(self._tokens[-1].lineno),0)   #last line number information
@@ -724,14 +744,15 @@ class PreppyParser:
                 CKWA = ["if %s: raise TypeError('get: unexpected keyword arguments %%r' %% %s)" % (kwargName,kwargName)]
 
             leadNodes=self.__rparse('\n'.join([
-                "__lquoteFunc__=%s.setdefault('__lquoteFunc__',str)" % kwargName,
+                "__lquoteFunc__=%s.setdefault('__lquoteFunc__',None)" % kwargName,
                 "%s.pop('__lquoteFunc__')" % kwargName,
-                "__quoteFunc__=%s.setdefault('__quoteFunc__',str)" % kwargName,
+                "__quoteFunc__=%s.setdefault('__quoteFunc__',None)" % kwargName,
                 "%s.pop('__quoteFunc__')" % kwargName,
+                '__qFunc__,__lqFunc__=__get_conv__(__quoteFunc__,__lquoteFunc__,%s)' % self._isBytes
                 ] + CKWA + [
                 "__append__=[].append",
-                "__write__=lambda x:__append__(__lquoteFunc__(x))",
-                "__swrite__=lambda x:__append__(__quoteFunc__(x))",
+                "__write__=lambda x:__append__(__lqFunc__(x))",
+                "__swrite__=lambda x:__append__(__qFunc__(x))",
                 ]))
             trailNodes = self.__rparse("return ''.join(__append__.__self__)")
 
@@ -741,7 +762,7 @@ class PreppyParser:
             preppyNodes = leadNodes + preppyNodes + trailNodes
             global _newPreambleAst
             if not _newPreambleAst:
-                _newPreambleAst = self.__rparse(_newPreamble)
+                _newPreambleAst = self.__rparse(self.__get_pre_preamble()+_newPreamble)
                 self.__renumber(_newPreambleAst,llno)
             F.body = preppyNodes
             extraAst = [F]+_newPreambleAst
@@ -749,7 +770,7 @@ class PreppyParser:
             global _preambleAst, _preamble
             if not _preambleAst:
                 #_preamble = 'from unparse import Unparser\n'+_preamble.replace('NS = {}\n','NS = {};Unparser(M,__save_sys_stdout__)\n')
-                _preambleAst = self.__rparse(_preamble)
+                _preambleAst = self.__rparse(self.__get_pre_preamble()+(_preamble.replace('__isbytes__',str(self._isBytes))))
                 self.__renumber(_preambleAst,llno)
             M = ast.parse("def __code__(dictionary, outputfile, __write__,__swrite__,__save_sys_stdout__): pass",self.filename,mode='exec')
             self.__renumber(M,(AbsLineNo(1),0))
@@ -761,7 +782,7 @@ class PreppyParser:
 
 _preambleAst=None
 _preamble='''import ast, pickle
-def run(dictionary, __write__=None, quoteFunc=str, outputfile=None):
+def run(dictionary, __write__=None, quoteFunc=None, outputfile=None):
     ### begin standard prologue
     import sys
     __save_sys_stdout__ = sys.stdout
@@ -773,18 +794,16 @@ def run(dictionary, __write__=None, quoteFunc=str, outputfile=None):
         else:
             stdout = sys.stdout
         # make sure quoteFunc is defined:
-        if quoteFunc is None:
-            raise ValueError("quoteFunc must be defined")
-        globals()['__quoteFunc__'] = quoteFunc
+        qFunc, lconv = __get_conv__(quoteFunc,None,__isbytes__)
+        globals()['__quoteFunc__'] = qFunc
         # make sure __write__ is defined
         if __write__:
             class stdout: pass
             stdout = sys.stdout = stdout()
-            stdout.write = lambda x: __write__(quoteFunc(x))
+            stdout.write = lambda x: __write__(qFunc(x))
         else:
             __write__ = lambda x: stdout.write(x)
-        __swrite__ = lambda x: __write__(quoteFunc(x))
-        lconv = __get_lconv__(quoteFunc(''))
+        __swrite__ = lambda x: __write__(qFunc(x))
         __lwrite__ = lambda x: __write__(lconv(x))
         M = pickle.loads(__preppy_nodes__)
         b = M.body[0].body
@@ -805,12 +824,14 @@ def run(dictionary, __write__=None, quoteFunc=str, outputfile=None):
         #print "resetting stdout", sys.stdout, "to", __save_sys_stdout__
         sys.stdout = __save_sys_stdout__
 
-def getOutputFromKeywords(quoteFunc=str, **kwds):
+def getOutputFromKeywords(quoteFunc=None, **kwds):
     buf=[]
     run(kwds,__write__=buf.append, quoteFunc=quoteFunc)
+    if quoteFunc is None:
+        quoteFunc = __get_conv__(None,None,__isbytes__)[0]
     return quoteFunc('')[0:0].join(buf)
 
-def getOutput(dictionary, quoteFunc=str):
+def getOutput(dictionary, quoteFunc=None):
     return getOutputFromKeywords(quoteFunc=quoteFunc, **dictionary)
 
 if __name__=='__main__':
@@ -847,8 +868,12 @@ def rl_get_module(name,dir):
         om = None
     try:
         try:
-            return imp.load_module(name,f,p,desc)
+            m = imp.load_module(name,f,p,desc)
+            t = getTimeStamp(m)
+            if t<preppyTime: return None
+            return m
         except:
+            traceback.print_exc()
             raise ImportError('%s[%s]' % (name,dir))
     finally:
         if om: sys.modules[name] = om
@@ -858,10 +883,21 @@ def rl_get_module(name,dir):
 def getTimeStamp(m,default=float('Inf')):
     try:
         with open(m.__file__,'rb') as f:
-            f.seek(4,0)
-            return struct.unpack('i', modtime)[0]
+            f.seek(4,os.SEEK_SET)
+            return struct.unpack('<i', f.read(4))[0]
     except:
         return default
+
+def preppyTime():
+    try:
+        import preppy
+        fn = preppy.__file__
+        if fn.endswith('.py'):
+            return os.stat(fn)[8]
+        return getTimeStamp(preppy)
+    except:
+        return float('Inf')
+preppyTime = preppyTime()
         
 # cache found modules by source file name
 FILE_MODULES = {}
@@ -913,15 +949,6 @@ def getModule(name,
         if savefile and savePyc == 0:
             savePyc = 1
 
-    def decorateModule(module):
-        md = module.__dict__
-        md['include'] = include
-        md['__preppy__vlhs__'] = __preppy__vlhs__
-        md['__rl_exec__'] = rl_exec
-        md['__get_lconv__'] = __get_lconv__
-        if _globals: md.update(_globals)
-        return module
-
     if sourcetext is not None:
         # they fed us the source explicitly
         sourcechecksum = getMd5(sourcetext)
@@ -941,7 +968,7 @@ def getModule(name,
             return module
 
         try:
-            module = decorateModule(rl_get_module(name,dir))
+            module = rl_get_module(name,dir)
             checksum = module.__checksum__
             if verbose: pnl("found...")
         except: # ImportError:  #catch ALL Errors importing the module (eg name="")
@@ -995,12 +1022,12 @@ def getModule(name,
                 py_compile.wr_long(f, size)
             marshal.dump(P.codeobject, f)
             f.flush()
-            f.seek(0, 0)
+            f.seek(0, os.SEEK_SET)
             f.write(py_compile.MAGIC)
 
     # now make a module
     from imp import new_module
-    module = decorateModule(new_module(name))
+    module = new_module(name)
     rl_exec(P.codeobject,module.__dict__)
     if importModule:
         if nosourcefile:
@@ -1131,7 +1158,8 @@ def extractKeywords(arglist):
             d[key] = value
     return d
 
-def _find_quoteValue(name,depth=2):
+__notFound__ = object()
+def _find_quoteValue(name,depth=2,default=__notFound__):
     try:
         while 1:
             g = sys._getframe(depth)
@@ -1142,7 +1170,7 @@ def _find_quoteValue(name,depth=2):
             if name in g: return g[name]
             depth += 1
     except:
-        return None
+        return default
 
 def include(viewName,*args,**kwd):
     dir, filename = os.path.split(viewName)
@@ -1153,22 +1181,15 @@ def include(viewName,*args,**kwd):
     m = getModule(root,**m)
     if hasattr(m,'get'):
         #newstyle
-        lquoter = quoter = None
-        if '__quoteFunc__' in kwd:
-            quoter = kwd.pop('__quoteFunc__')
-        elif 'quoteFunc' in kwd:
-            quoter = kwd.pop('quoteFunc')
-        if not quoter:
+        quoter = kwd.pop('__quoteFunc__',kwd.pop('quoteFunc',__notFound__))
+        if quoter is __notFound__:
             quoter = _find_quoteValue('__quoteFunc__')
-            if not quoter:
-                quoter = _find_quoteValue('quoteFunc')
-        if '__lquoteFunc__' in kwd:
-            lquoter = kwd.pop('__lquoteFunc__')
-        if not lquoter:
-            lquoter = _find_quoteValue('__lquoteFunc__')
-            if not lquoter:
-                lquoter = _find_quoteValue('quoteFunc')
-        return m.get(__quoteFunc__=quoter or str,__lquoteFunc__=lquoter or str, *args,**kwd)
+            if quoter is __notFound__:
+                quoter = _find_quoteValue('quoteFunc',default=None)
+        lquoter = kwd.pop('__lquoteFunc__',__notFound__)
+        if lquoter is __notFound__:
+            lquoter = _find_quoteValue('__lquoteFunc__',default=None)
+        return m.get(__quoteFunc__=quoter,__lquoteFunc__=lquoter, *args,**kwd)
     else:
         #oldstyle
         if args:
@@ -1181,15 +1202,11 @@ def include(viewName,*args,**kwd):
             dictionary = kwd.pop('dictionary').copy()
         else:
             dictionary = {}
-        quoteFunc = None
-        if 'quoteFunc' in kwd:
-            quoteFunc = kwd.pop('quoteFunc')
-        elif '__quoteFunc__' in kwd:
-            quoteFunc = kwd.pop('__quoteFunc__')
-        if not quoteFunc:
+        quoteFunc = kwd.pop('quoteFunc',kwd.pop('__quoteFunc__',__notFound__))
+        if quoteFunc is __notFound__:
             quoteFunc = _find_quoteValue('quoteFunc')
-            if not quoteFunc:
-                quoteFunc = _find_quoteValue('__quoteFunc__')
+            if quoteFunc is __notFound__:
+                quoteFunc = _find_quoteValue('__quoteFunc__',default=None)
         dictionary.update(kwd)
         return m.getOutput(dictionary,quoteFunc=quoteFunc)
 

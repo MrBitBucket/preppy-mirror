@@ -26,6 +26,7 @@ def checkErrorTextContains(texts,func,*args,**kwds):
     else:
         return '%serror containing texts\n%s\nwas not raised' % (label,'\n'.join(texts))
 
+_gcount = 0
 class GeneratedCodeTestCase(unittest.TestCase):
     """Maybe the simplest and most all-encompassing:
     take a little prep file, compile, exec, and verify that
@@ -35,7 +36,9 @@ class GeneratedCodeTestCase(unittest.TestCase):
     def getRunTimeOutput(self, prepCode, quoteFunc=str, **params):
         "compile code, run with parameters and collect output"
 
-        mod=preppy.getModule('test_preppy',savePyc=0,sourcetext=prepCode)
+        global _gcount
+        mod=preppy.getModule('test_preppy%d'%_gcount,savePyc=0,sourcetext=prepCode)
+        _gcount += 1
 
         collector = []
         mod.run(params, __write__=collector.append, quoteFunc=quoteFunc)
@@ -43,7 +46,9 @@ class GeneratedCodeTestCase(unittest.TestCase):
         return output
 
     def getGetOutput(self,prepCode,*args,**kwds):
-        mod=preppy.getModule('test_preppy',savePyc=0,sourcetext=prepCode)
+        global _gcount
+        mod=preppy.getModule('test_preppy%d'%_gcount,savePyc=0,sourcetext=prepCode)
+        _gcount += 1
         return mod.get(*args,**kwds)
 
     def checkStatic(self):
@@ -640,7 +645,8 @@ class IncludeTestCase(unittest.TestCase):
         self.assertEquals(m.getOutput(dict(j='J')),
                 'in outer.prep\n\n\tbefore include inner i=0 j=J\n\tin inner.prep v=J*10 w=0\n\n\tbefore include inner1 i=0 j=J\n\tin inner1.prep v=0 w=J*100\n\n\tafter include inner1 i=0 j=J\n\n')
         self.assertEquals(m.getOutput(dict(j='J'),quoteFunc=lambda x: '[%s]' % x),
-                'in outer.prep\n\n\tbefore include inner i=[0] j=[J]\n\t[[in inner.prep v=][J*10][ w=][0][\n]]\n\tbefore include inner1 i=[0] j=[J]\n\t[in inner1.prep v=[0] w=[J*100]\n]\n\tafter include inner1 i=[0] j=[J]\n\n')
+                'in outer.prep\n\n\tbefore include inner i=[0] j=[J]\n\t[in inner.prep v=[J*10] w=[0]\n]\n\tbefore include inner1 i=[0] j=[J]\n\t[in inner1.prep v=[0] w=[J*100]\n]\n\tafter include inner1 i=[0] j=[J]\n\n'
+                )
 
 def makeSuite():
     suite1 = unittest.makeSuite(NewGeneratedCodeTestCase,'check')
