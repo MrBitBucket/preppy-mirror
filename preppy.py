@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.3.0'
+VERSION = '2.3.1'
 __version__ = VERSION
 
 USAGE = """
@@ -873,7 +873,6 @@ def rl_get_module(name,dir):
             if t<preppyTime: return None
             return m
         except:
-            traceback.print_exc()
             raise ImportError('%s[%s]' % (name,dir))
     finally:
         if om: sys.modules[name] = om
