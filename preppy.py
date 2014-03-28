@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.3.1'
+VERSION = '2.3.2'
 __version__ = VERSION
 
 USAGE = """
@@ -67,9 +67,10 @@ QUOTEQUOTE = "$$"
 # SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
 UNESCAPES = ((QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE))
 
-import re, sys, os, imp, struct, tokenize, token, ast, traceback, time, marshal, py_compile, pickle, inspect, textwrap
+import re, sys, os, imp, struct, tokenize, token, ast, traceback, time, marshal, pickle, inspect, textwrap
 from hashlib import md5
 isPy3 = sys.version_info.major == 3
+isPy34 = isPy3 and sys.version_info.minor>=4
 from xml.sax.saxutils import escape as xmlEscape
 from collections import namedtuple
 Token = namedtuple('Token','kind lineno start end')
@@ -360,7 +361,8 @@ class PreppyParser:
         self._isBytes = isinstance(source,bytesT)
 
     def compile(self, display=0):
-        self.codeobject = compile(self.__get_ast(),self.filename,'exec')
+        ast = self.__get_ast()
+        self.codeobject = compile(ast,self.filename,'exec')
 
     def __lexerror(self, msg, pos):
         text = self.source
@@ -735,12 +737,27 @@ class PreppyParser:
         llno = (AbsLineNo(self._tokens[-1].lineno),0)   #last line number information
         if self._defSeen==1:
             t, F = self._fnc_defn
-            argNames = [a.arg for a in F.args.args] if isPy3 else [a.id for a in F.args.args]
-            if F.args.kwarg:
-                kwargName = F.args.kwarg
+            args = F.args
+            if args.kwarg:
+                kwargName = args.kwarg.arg if isPy34 else args.kwarg
                 CKWA = []
             else:
-                F.args.kwarg = kwargName = '__kwds__'
+                if isPy3:
+                    argNames = [a.arg for a in args.args] + [a.arg for a in args.kwonlyargs] 
+                    if args.vararg: argNames += [args.vararg.arg if isPy34 else args.vararg]
+                else:
+                    argNames = [a.id for a in args.args]
+                    if args.vararg: argNames += [args.vararg]
+                #choose a kwargName not in existing names
+                kwargName = '__kwds__'
+                while kwargName in argNames:
+                    kwargName = kwargname.replace('s_','ss_')
+                if isPy34:
+                    args.kwarg = ast.arg(kwargName,None)
+                    args.kwarg.lineno = F.lineno
+                    args.kwarg.col_offset = F.col_offset
+                else:
+                    args.kwarg = kwargName
                 CKWA = ["if %s: raise TypeError('get: unexpected keyword arguments %%r' %% %s)" % (kwargName,kwargName)]
 
             leadNodes=self.__rparse('\n'.join([
@@ -883,7 +900,7 @@ def getTimeStamp(m,default=float('Inf')):
     try:
         with open(m.__file__,'rb') as f:
             f.seek(4,os.SEEK_SET)
-            return struct.unpack('<i', f.read(4))[0]
+            return struct.unpack('<L', f.read(4))[0]
     except:
         return default
 
@@ -1012,17 +1029,17 @@ def getModule(name,
     if savePyc:
         with open(dir + os.sep + name + '.pyc','wb') as f:
             f.write(b'\0\0\0\0')
-            py_compile.wr_long(f, int(time.time()))
+            f.write(struct.pack('<L',int(time.time())&0xFFFFFFFF))
             if isPy3:
                 if not nosourcefile:
-                    size = os.stat(sourcefilename).st_size & 0xFFFFFFFF
+                    size = os.stat(sourcefilename).st_size
                 else:
                     size = len(sourcetext)
-                py_compile.wr_long(f, size)
+                f.write(struct.pack('<L',size & 0xFFFFFFFF))
             marshal.dump(P.codeobject, f)
             f.flush()
             f.seek(0, os.SEEK_SET)
-            f.write(py_compile.MAGIC)
+            f.write(imp.get_magic())
 
     # now make a module
     from imp import new_module
