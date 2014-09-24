@@ -1032,7 +1032,7 @@ def getModule(name,
 
     # default is compile to bytecode and save that.
     if savePyc:
-        if _usePycache:
+        if _usePyCache:
             #we're not ready to use
             dir = os.path.join(dir,'__pycache__')
             if not os.path.isdir(dir): os.makedirs(dir)
