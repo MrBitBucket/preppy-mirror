@@ -9,14 +9,12 @@ import unittest
 
 
 def makeSuite():
-    import check_basics
-    import check_algorithms
-    import check_load
-    
+    import check_basics, check_algorithms, check_load, check_lowlevel, test_import_hook
     suite = check_algorithms.makeSuite()
     suite.addTests(check_basics.suite)
     suite.addTests(unittest.makeSuite(check_load.LoadTestCase,'load'))
-        
+    suite.addTests(check_lowlevel.makeSuite())
+    suite.addTests(test_import_hook.makeSuite())
     return suite
 
 

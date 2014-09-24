@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.3.2'
+VERSION = '2.3.3'
 __version__ = VERSION
 
 USAGE = """
@@ -71,9 +71,11 @@ import re, sys, os, imp, struct, tokenize, token, ast, traceback, time, marshal,
 from hashlib import md5
 isPy3 = sys.version_info.major == 3
 isPy34 = isPy3 and sys.version_info.minor>=4
+_usePyCache = isPy3 and False                   #change if you don't have legacy ie python 2.7 usage
 from xml.sax.saxutils import escape as xmlEscape
 from collections import namedtuple
 Token = namedtuple('Token','kind lineno start end')
+_verbose = int(os.environ.get('RL_verbose','0'))
 
 if isPy3:
     from io import BytesIO, StringIO
@@ -921,17 +923,20 @@ SOURCE_MODULES = {}
 def getModule(name,
               directory=".",
               source_extension=".prep",
-              verbose=0,
+              verbose=None,
               savefile=None,
               sourcetext=None,
               savePy=0,
               force=0,
               savePyc=1,
-              importModule=1,_globals=None):
+              importModule=1,
+              _globals=None,
+              _existing_module=None):
     """Returns a python module implementing the template, compiling if needed.
 
     force: ignore up-to-date checks and always recompile.
     """
+    verbose = verbose or _verbose
     if isinstance(name,bytesT): name = name.decode('utf8')
     if isinstance(directory,bytesT): directory = directory.decode('utf8')
     if isinstance(source_extension,bytesT): source_extension = source_extension.decode('utf8')
@@ -980,8 +985,6 @@ def getModule(name,
         # see if the module exists as a python file
         sourcefilename = os.path.join(dir, name+source_extension)
         module = FILE_MODULES.get(sourcefilename,None)
-        if module:
-            return module
 
         try:
             module = rl_get_module(name,dir)
@@ -989,7 +992,9 @@ def getModule(name,
             if verbose: pnl("found...")
         except: # ImportError:  #catch ALL Errors importing the module (eg name="")
             module = checksum = None
-            if verbose: pnl(" py/pyc not found...")
+            if verbose:
+                if verbose>2: traceback.print_exc()
+                pnl(" pyc %s[%s] not found..." % (name,dir))
             # check against source file
         try:
             sourcefile = open(sourcefilename, "r")
@@ -1027,7 +1032,14 @@ def getModule(name,
 
     # default is compile to bytecode and save that.
     if savePyc:
-        with open(dir + os.sep + name + '.pyc','wb') as f:
+        if _usePycache:
+            #we're not ready to use
+            dir = os.path.join(dir,'__pycache__')
+            if not os.path.isdir(dir): os.makedirs(dir)
+            pycPath = os.path.join(dir,'%s-cpython-%s%s.pyc' % (name,sys.version_info.major,sys.version_info.minor))
+        else:
+            pycPath = os.path.join(dir,name+'.pyc')
+        with open(pycPath,'wb') as f:
             f.write(b'\0\0\0\0')
             f.write(struct.pack('<L',int(time.time())&0xFFFFFFFF))
             if isPy3:
@@ -1040,10 +1052,18 @@ def getModule(name,
             f.flush()
             f.seek(0, os.SEEK_SET)
             f.write(imp.get_magic())
+    else:
+        pycPath = None
 
-    # now make a module
-    from imp import new_module
-    module = new_module(name)
+    if _existing_module:
+        module = _existing_module
+        module.__dict__.clear()
+    else:
+        # now make a module
+        from imp import new_module
+        module = new_module(name)
+    if pycPath:
+        module.__file__=pycPath
     rl_exec(P.codeobject,module.__dict__)
     if importModule:
         if nosourcefile:
@@ -1060,49 +1080,67 @@ getPreppyModule = getModule
 #   utilities for compilation, setup scripts, housekeeping etc.
 #
 ####################################################################
+_preppy_importer=None
 def installImporter():
     "This lets us import prep files directly"
     # the python import mechanics are only invoked if you call this,
     # since preppy has very few dependencies and I don't want to
     #add to them.
-    from ihooks import ModuleLoader, ModuleImporter, install
-    class PreppyLoader(ModuleLoader):
-        "This allows prep files to be imported."
+    global _preppy_importer
+    if _preppy_importer is None:
+        class PreppyImporter(object):
+            "This allows prep files to be imported."
+            def __init__(self):
+                self.prepPath = None
 
-        def find_module_in_dir(self, name, dir, allow_packages=1):
-            ModuleLoader = self.__class__.__bases__[0]
-            stuff = ModuleLoader.find_module_in_dir(self, name, dir, allow_packages)
-            if stuff:
-                return stuff
-            else:
-                if dir:
-                    prepFileName = dir + os.sep + name + '.prep'
+            def find_module(self, name, path=None):
+                if self.prepPath: return
+                if path:
+                    for p in path:
+                        prepPath = os.path.join(p,name.split('.')[-1] + '.prep')
+                        if os.path.isfile(prepPath): break
+                    else:
+                        return
                 else:
-                    prepFileName = name + '.prep'
+                    prepPath = name + '.prep'
+                    if not os.path.isfile(prepPath): return
 
-                if os.path.isfile(prepFileName):
+                self.prepPath = prepPath
+                return self
+
+            def load_module(self,name):
+                if not self.prepPath: return
+                try:
                     #compile WITHOUT IMPORTING to avoid triggering recursion
-                    mod = compileModule(prepFileName, verbose=0, importModule=0)
-                    #now use the default...
-                    return ModuleLoader.find_module_in_dir(self, name, dir, allow_packages)
-                else:
-                    return None
-
-    loader = PreppyLoader()
-    importer = ModuleImporter(loader=loader)
-    install(importer)
+                    try:
+                        m = compileModule(self.prepPath, verbose=_verbose, importModule=0, existing_module=sys.modules.get(name,None))
+                    except:
+                        traceback.print_exc()
+                        raise
+                    m.__loader__ = self
+                    m.__name__ = name
+                    sys.modules[name] = m
+                    return m
+                finally:
+                    self.prepPath = None
+        _preppy_importer = PreppyImporter()
+        sys.meta_path.insert(0,_preppy_importer)
 
 def uninstallImporter():
-    import ihooks
-    ihooks.uninstall()
+    global _preppy_importer
+    try:
+        sys.meta_path.remove(_preppy_importer)
+        _preppy_importer = None
+    except:
+        pass
 
-def compileModule(fn, savePy=0, force=0, verbose=1, importModule=1):
+def compileModule(fn, savePy=0, force=0, verbose=1, importModule=1, existing_module=None):
     "Compile a prep file to a pyc file.  Optionally, keep the python source too."
     name, ext = os.path.splitext(fn)
     d = os.path.dirname(fn)
     return getModule(os.path.basename(name), directory=d, source_extension=ext,
                      savePyc=1, savePy=savePy, force=force,
-                     verbose=verbose, importModule=importModule)
+                     verbose=verbose, importModule=importModule,_existing_module=existing_module)
 
 def compileModules(pattern, savePy=0, force=0, verbose=1):
     "Compile all prep files matching the pattern."
