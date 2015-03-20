@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.3.3'
+VERSION = '2.3.4'
 __version__ = VERSION
 
 USAGE = """
@@ -856,6 +856,7 @@ def getOutput(dictionary, quoteFunc=None):
 if __name__=='__main__':
     run()
 '''
+
 _newPreambleAst=None
 _newPreamble='''def run(*args,**kwds):
     raise ValueError('Wrong kind of prep file')
@@ -864,8 +865,6 @@ def getOutput(*args,**kwds):
 if __name__=='__main__':
     run()
 '''
-
-
 
 def testgetOutput(name="testoutput"):
     mod = getModule(name,'.',savePyc=1,sourcetext=teststring,importModule=1)
