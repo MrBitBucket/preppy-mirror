@@ -873,7 +873,7 @@ def testgetOutput(name="testoutput"):
 
 def testgetmodule(name="testoutput"):
     #name = "testpreppy"
-    pel("trying to load", name)
+    pel("trying to load"+name)
     result = getPreppyModule(name, verbose=1)
     pel( "load successful! running result")
     pel("=" * 100)
