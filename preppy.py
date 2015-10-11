@@ -1,4 +1,4 @@
-#copyright ReportLab Inc. 2000-2012
+#copyright ReportLab Inc. 2000-2015
 #see license.txt for license details
 
 """preppy - a Python preprocessor.
@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.3.4'
+VERSION = '2.3.5'
 __version__ = VERSION
 
 USAGE = """

@@ -248,7 +248,7 @@ texinfo_documents = [
 epub_title = u'preppy'
 epub_author = u'ReportLab'
 epub_publisher = u'ReportLab'
-epub_copyright = u'2013, ReportLab'
+epub_copyright = u'2015, ReportLab'
 
 # The language of the text. It defaults to the language option
 # or en if the language is not set.
