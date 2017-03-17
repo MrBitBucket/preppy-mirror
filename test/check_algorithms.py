@@ -26,14 +26,23 @@ def checkErrorTextContains(texts,func,*args,**kwds):
     else:
         return '%serror containing texts\n%s\nwas not raised' % (label,'\n'.join(texts))
 
-_gcount = 0
-class GeneratedCodeTestCase(unittest.TestCase):
-    """Maybe the simplest and most all-encompassing:
-    take a little prep file, compile, exec, and verify that
-    output is as expected.  This should catch gross failures
-    of preppy """
 
-    def getRunTimeOutput(self, prepCode, quoteFunc=str, **params):
+class PreppyTestCase(unittest.TestCase):
+    @staticmethod
+    def bracket(x):
+        return "[%s]" % x
+
+    @staticmethod
+    def brace(x):
+        return "{%s}" % x
+
+    @staticmethod
+    def angle(x):
+        return "<%s>" % x
+
+_gcount = 0
+class PreppyOutputTestCase(PreppyTestCase):
+    def getRunTimeOutput(self, prepCode, quoteFunc=str, lquoteFunc=None, **params):
         "compile code, run with parameters and collect output"
 
         global _gcount
@@ -41,8 +50,8 @@ class GeneratedCodeTestCase(unittest.TestCase):
         _gcount += 1
 
         collector = []
-        mod.run(params, __write__=collector.append, quoteFunc=quoteFunc)
-        output = quoteFunc('')[0:0].join(collector)
+        mod.run(params, __write__=collector.append, quoteFunc=quoteFunc, lquoteFunc=lquoteFunc)
+        output = (quoteFunc or lquoteFunc)('')[0:0].join(collector)
         return output
 
     def getGetOutput(self,prepCode,*args,**kwds):
@@ -51,6 +60,11 @@ class GeneratedCodeTestCase(unittest.TestCase):
         _gcount += 1
         return mod.get(*args,**kwds)
 
+class GeneratedCodeTestCase(PreppyOutputTestCase):
+    """Maybe the simplest and most all-encompassing:
+    take a little prep file, compile, exec, and verify that
+    output is as expected.  This should catch gross failures
+    of preppy """
     def checkStatic(self):
         prepCode = "Hello World"
         out = self.getRunTimeOutput(prepCode)
@@ -409,58 +423,75 @@ catch all errors{{endtry}}"""
     def checkEmptyWith(self):
         self.assertEquals(self.getRunTimeOutput('a{{with open(fn,'r') as f}}{{endwith}}b',fn=preppy.__file__,quoteFunc=preppy.uStdQuote),'ab')
 
+
+    def checkLQuotingOld(self):
+        '''__lquoteFunc__ applies to the literals'''
+        self.assertEquals(
+            self.getRunTimeOutput("Hello World",
+                lquoteFunc=self.bracket),
+                "[Hello World]")
+
+    def checkQuotingOld(self):
+        '''__quoteFunc__ applies to the expressions'''
+        self.assertEquals(
+            self.getRunTimeOutput("{{script}}i=14{{endscript}}Hello World{{i}}",
+                quoteFunc=self.brace),
+                "Hello World{14}")
+
+    def checkQuotingBothOld(self):
+        self.assertEquals(
+            self.getRunTimeOutput("{{script}}i=14{{endscript}}Hello World{{i}}",
+                quoteFunc=self.brace, lquoteFunc=self.bracket),
+                "[Hello World]{14}")
+
+
+class ErrorIndicationTestCase(PreppyOutputTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.src0 = ['line %d' % i for i in range(10000)]
+
     def checkErrorIndication1(self):
-        src = ['line %d' % i for i in range(10000)]
-        src = '\n'.join(src + ['{{raise ValueError("AAA")}}'] + src)
+        src = '\n'.join(self.src0 + ['{{raise ValueError("AAA")}}'] + self.src0)
         self.assertEquals(checkErrorTextContains('line 10001, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
 
     def checkErrorIndication2(self):
-        src = ['line %d' % i for i in range(10000)]
-        src = '\n'.join(src + ['{{raise ValueError("AAA")}}'])
+        src = '\n'.join(self.src0 + ['{{raise ValueError("AAA")}}'])
         self.assertEquals(checkErrorTextContains('line 10001, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
 
     def checkErrorIndication3(self):
-        src = ['line %d' % i for i in range(10000)]
-        src = '\n'.join(['{{raise ValueError("AAA")}}']+src)
+        src = '\n'.join(['{{raise ValueError("AAA")}}']+self.src0)
         self.assertEquals(checkErrorTextContains('line 1, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
 
     def checkErrorIndication4(self):
-        src = ['line %d' % i for i in range(10000)]
-        src = '\n'.join(['{{u"\u2019".encode("ascii")}}']+src)
+        src = '\n'.join(['{{u"\u2019".encode("ascii")}}']+self.src0)
         self.assertEquals(checkErrorTextContains('line 1, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
 
     def checkErrorIndication5(self):
-        src = ['line %d' % i for i in range(10000)]
-        src = '\n'.join(src + ['{{u"\u2019".encode("ascii")}}'])
+        src = '\n'.join(self.src0 + ['{{u"\u2019".encode("ascii")}}'])
         self.assertEquals(checkErrorTextContains('line 10001, in __code__',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
 
     def checkErrorIndication6(self):
-        src = ['line %d' % i for i in range(10000)]
-        src = '\n'.join(src + ['{{raise ValueError("AAA")}}'] + src)
+        src = '\n'.join(self.src0 + ['{{raise ValueError("AAA")}}'] + self.src0)
         self.assertEquals(checkErrorTextContains('line 10001, in get',self.getGetOutput,'{{def()}}'+src),'')
 
     def checkErrorIndication7(self):
-        src = ['line %d' % i for i in range(10000)]
-        src = '\n'.join(src + ['{{raise ValueError("AAA")}}'])
+        src = '\n'.join(self.src0 + ['{{raise ValueError("AAA")}}'])
         self.assertEquals(checkErrorTextContains('line 10001, in get',self.getGetOutput,'{{def()}}'+src),'')
 
     def checkErrorIndication8(self):
-        src = ['line %d' % i for i in range(10000)]
-        src = '\n'.join(['{{raise ValueError("AAA")}}']+src)
+        src = '\n'.join(['{{raise ValueError("AAA")}}']+self.src0)
         self.assertEquals(checkErrorTextContains('line 1, in get',self.getGetOutput,'{{def()}}'+src),'')
 
     def checkErrorIndication9(self):
-        src = ['line %d' % i for i in range(10000)]
-        src = '\n'.join(['{{u"\u2019".encode("ascii")}}']+src)
+        src = '\n'.join(['{{u"\u2019".encode("ascii")}}']+self.src0)
         self.assertEquals(checkErrorTextContains('line 1, in get',self.getGetOutput,'{{def()}}'+src),'')
 
     def checkErrorIndication10(self):
-        src = ['line %d' % i for i in range(10000)]
-        src = '\n'.join(src + ['{{u"\u2019".encode("ascii")}}'])
+        src = '\n'.join(self.src0 + ['{{u"\u2019".encode("ascii")}}'])
         self.assertEquals(checkErrorTextContains('line 10001, in get',self.getGetOutput,'{{def()}}'+src),'')
 
     def checkErrorIndication11(self):
-        src = '\n'.join(['line %d' % i for i in range(10000)])
+        src = '\n'.join(self.src0)
         for line in [
                     '{{if 1}}{{raise ValueError}}{{endif}}',
                     '{{if 0}}{{else}}{{raise ValueError}}{{endif}}',
@@ -482,7 +513,7 @@ catch all errors{{endtry}}"""
                     ]:
             self.assertEquals(checkErrorTextContains('line 10001, in __code__',self.getRunTimeOutput,src+'\n'+line+'\n'+src,quoteFunc=preppy.uStdQuote,label=line),'')
 
-class NewGeneratedCodeTestCase(unittest.TestCase):
+class NewGeneratedCodeTestCase(PreppyTestCase):
     """Maybe the simplest and most all-encompassing:
     take a little prep file, compile, exec, and verify that
     output is as expected.  This should catch gross failures
@@ -515,21 +546,25 @@ class NewGeneratedCodeTestCase(unittest.TestCase):
     def checkNoArgs(self):
         self.assertEquals(self.getRunTimeOutput("{{def()}}Hello World"), "Hello World")
 
-    def checkNoArgsNeeded(self):
+    def checkNoArgsNeededA(self):
         self.assertRaises(TypeError,self.getRunTimeOutput,"{{def()}}Hello World",1)
+    def checkNoArgsNeededK(self):
         self.assertRaises(TypeError,self.getRunTimeOutput,"{{def()}}Hello World",a=1)
 
     def checkNoArgsExpr(self):
         self.assertEquals(self.getRunTimeOutput("{{def()}}{{script}}i=5*4{{endscript}}Hello World{{i}}"),
                 "Hello World20")
 
-    def checkOneArg(self):
+    def checkOneArgA(self):
         self.assertEquals(self.getRunTimeOutput("{{def(a)}}Hello World{{a}}",1), "Hello World1")
+    def checkOneArgK(self):
         self.assertEquals(self.getRunTimeOutput("{{def(a)}}Hello World{{a}}",a=1), "Hello World1")
 
-    def checkOneArgNeeded(self):
+    def checkOneArgNeeded0(self):
         self.assertRaises(TypeError,self.getRunTimeOutput,"{{def(a)}}Hello World{{a}}")
+    def checkOneArgNeeded2(self):
         self.assertRaises(TypeError,self.getRunTimeOutput,"{{def(a)}}Hello World{{a}}",1,2)
+    def checkOneArgNeededW(self):
         self.assertRaises(TypeError,self.getRunTimeOutput,"{{def(a)}}Hello World{{a}}",b=3)
 
     def checkBadVar(self):
@@ -547,33 +582,27 @@ class NewGeneratedCodeTestCase(unittest.TestCase):
                 "{{def()}}Hello World{{for i in (1,2)}}{{i}}{{endfor}}{{i-2}}"),
             "Hello World120")
 
-    def checkArgs(self):
+    def checkArgs1(self):
         self.assertEquals(
             self.getRunTimeOutput(
                 "{{def(a,*args)}}Hello World{{a}}{{if args}}{{args}}{{endif}}",1),
             "Hello World1")
+    def checkArgs3(self):
         self.assertEquals(
             self.getRunTimeOutput(
                 "{{def(a,*args)}}Hello World{{a}}{{if args}}{{args}}{{endif}}",1,2,3),
             "Hello World1(2, 3)")
 
-    def checkKwds(self):
+    def checkKwds0(self):
         self.assertEquals(
             self.getRunTimeOutput(
                 "{{def(a,**kwds)}}Hello World{{a}}{{if kwds}}{{[k for k in sorted(kwds.items())]}}{{endif}}",1),
             "Hello World1")
+    def checkKwds2(self):
         self.assertEquals(
             self.getRunTimeOutput(
                 "{{def(a,**kwds)}}Hello World{{a}}{{if kwds}}{{[k for k in sorted(kwds.items())]}}{{endif}}",1,b=2,c=3),
             "Hello World1[('b', 2), ('c', 3)]")
-
-    @staticmethod
-    def bracket(x):
-        return "[%s]" % x
-
-    @staticmethod
-    def brace(x):
-        return "{%s}" % x
 
     def checkLQuoting(self):
         '''__lquoteFunc__ applies to the literals'''
@@ -594,7 +623,6 @@ class NewGeneratedCodeTestCase(unittest.TestCase):
             self.getRunTimeOutput("{{def()}}{{script}}i=14{{endscript}}Hello World{{i}}",
                 __quoteFunc__=self.brace, __lquoteFunc__=self.bracket),
                 "[Hello World]{14}")
-
 
 class OutputModeTestCase(unittest.TestCase):
     """Checks all ways of generating output return identical
@@ -625,7 +653,10 @@ class OutputModeTestCase(unittest.TestCase):
         output3 = mod.getOutput(params)
         assert output3 == output2, 'getOutput(...) and outputfile results differ'
 
-class IncludeTestCase(unittest.TestCase):
+class IncludeTestCase(PreppyTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.outer = preppy.getModule('outer',savePyc=0)
     def testRequiredArgs(self):
         def args(*args, **stuff):
             return True
@@ -640,12 +671,19 @@ class IncludeTestCase(unittest.TestCase):
         self.assertEquals(output, "NORTHSOUTHEASTWEST")
 
     def testIncludeQuoting(self):
-        self.maxDiff = None
-        m = preppy.getModule('outer',savePyc=0)
-        self.assertEquals(m.getOutput(dict(j='J')),
+        self.assertEquals(self.outer.getOutput(dict(j='J')),
                 'in outer.prep\n\n\tbefore include inner i=0 j=J\n\tin inner.prep v=J*10 w=0\n\n\tbefore include inner1 i=0 j=J\n\tin inner1.prep v=0 w=J*100\n\n\tafter include inner1 i=0 j=J\n\n')
-        self.assertEquals(m.getOutput(dict(j='J'),quoteFunc=lambda x: '[%s]' % x),
+    def testIncludeQuotingQ(self):
+        self.assertEquals(self.outer.getOutput(dict(j='J'),quoteFunc=self.bracket),
                 'in outer.prep\n\n\tbefore include inner i=[0] j=[J]\n\t[in inner.prep v=[J*10] w=[0]\n]\n\tbefore include inner1 i=[0] j=[J]\n\t[in inner1.prep v=[0] w=[J*100]\n]\n\tafter include inner1 i=[0] j=[J]\n\n'
+                )
+    def testIncludeQuotingL(self):
+        self.assertEquals(self.outer.getOutput(dict(j='J'),lquoteFunc=self.angle),
+                '<in outer.prep\n><\n\tbefore include inner i=>0< j=>J<\n\t><in inner.prep v=>J*10< w=>0<\n><\n\tbefore include inner1 i=>0< j=>J<\n\t><in inner1.prep v=>0< w=>J*100<\n><\n\tafter include inner1 i=>0< j=>J<\n><\n>'
+                )
+    def testIncludeQuotingQL(self):
+        self.assertEquals(self.outer.getOutput(dict(j='J'),lquoteFunc=self.angle,quoteFunc=self.bracket),
+                '<in outer.prep\n><\n\tbefore include inner i=>[0]< j=>[J]<\n\t>[<in inner.prep v=>[J*10]< w=>[0]<\n>]<\n\tbefore include inner1 i=>[0]< j=>[J]<\n\t>[<in inner1.prep v=>[0]< w=>[J*100]<\n>]<\n\tafter include inner1 i=>[0]< j=>[J]<\n><\n>'
                 )
 
 def makeSuite():
@@ -653,7 +691,8 @@ def makeSuite():
     suite2 = unittest.makeSuite(GeneratedCodeTestCase,'check')
     suite3 = unittest.makeSuite(OutputModeTestCase,'check')
     suite4 = unittest.makeSuite(IncludeTestCase)
-    return unittest.TestSuite((suite1,suite2, suite3, suite4))
+    suite5 = unittest.makeSuite(ErrorIndicationTestCase,'check')
+    return unittest.TestSuite((suite1,suite2, suite3, suite4, suite5))
 
 if __name__=='__main__':
     runner = unittest.TextTestRunner()

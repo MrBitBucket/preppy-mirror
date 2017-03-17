@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.3.5'
+VERSION = '2.4.0'
 __version__ = VERSION
 
 USAGE = """
@@ -801,7 +801,7 @@ class PreppyParser:
 
 _preambleAst=None
 _preamble='''import ast, pickle
-def run(dictionary, __write__=None, quoteFunc=None, outputfile=None):
+def run(dictionary, __write__=None, quoteFunc=None, outputfile=None, lquoteFunc=None):
     ### begin standard prologue
     import sys
     __save_sys_stdout__ = sys.stdout
@@ -813,8 +813,9 @@ def run(dictionary, __write__=None, quoteFunc=None, outputfile=None):
         else:
             stdout = sys.stdout
         # make sure quoteFunc is defined:
-        qFunc, lconv = __get_conv__(quoteFunc,None,__isbytes__)
+        qFunc, lconv = __get_conv__(quoteFunc,lquoteFunc,__isbytes__)
         globals()['__quoteFunc__'] = qFunc
+        globals()['__lquoteFunc__'] = lconv
         # make sure __write__ is defined
         if __write__:
             class stdout: pass
@@ -843,15 +844,15 @@ def run(dictionary, __write__=None, quoteFunc=None, outputfile=None):
         #print "resetting stdout", sys.stdout, "to", __save_sys_stdout__
         sys.stdout = __save_sys_stdout__
 
-def getOutputFromKeywords(quoteFunc=None, **kwds):
+def getOutputFromKeywords(quoteFunc=None, lquoteFunc=None, **kwds):
     buf=[]
-    run(kwds,__write__=buf.append, quoteFunc=quoteFunc)
+    run(kwds,__write__=buf.append, quoteFunc=quoteFunc, lquoteFunc=lquoteFunc)
     if quoteFunc is None:
         quoteFunc = __get_conv__(None,None,__isbytes__)[0]
     return quoteFunc('')[0:0].join(buf)
 
-def getOutput(dictionary, quoteFunc=None):
-    return getOutputFromKeywords(quoteFunc=quoteFunc, **dictionary)
+def getOutput(dictionary, quoteFunc=None, lquoteFunc=None):
+    return getOutputFromKeywords(quoteFunc=quoteFunc, lquoteFunc=lquoteFunc, **dictionary)
 
 if __name__=='__main__':
     run()
@@ -915,7 +916,7 @@ def preppyTime():
     except:
         return float('Inf')
 preppyTime = preppyTime()
-        
+
 # cache found modules by source file name
 FILE_MODULES = {}
 SOURCE_MODULES = {}
@@ -1018,8 +1019,10 @@ def getModule(name,
                 else:
                     # always recompile
                     if verbose: pnl('forced recompile,')
+                    debug('%s/%s%s forced recompile force=%s' % (directory,name,source_extension,force))
             elif verbose:
                 pnl("changed,")
+                debug('%s/%s%s changed recompile source checksum=%r existing checksum=%r' % (directory,name,source_extension,sourcechecksum,checksum))
 
     # if we got here we need to rebuild the module from source
     if verbose: pel("recompiling")
@@ -1239,9 +1242,11 @@ def include(viewName,*args,**kwd):
             quoter = _find_quoteValue('__quoteFunc__')
             if quoter is __notFound__:
                 quoter = _find_quoteValue('quoteFunc',default=None)
-        lquoter = kwd.pop('__lquoteFunc__',__notFound__)
+        lquoter = kwd.pop('__lquoteFunc__',kwd.pop('lquoteFunc',__notFound__))
         if lquoter is __notFound__:
-            lquoter = _find_quoteValue('__lquoteFunc__',default=None)
+            lquoter = _find_quoteValue('__lquoteFunc__')
+            if lquoter is __notFound__:
+                lquoter = _find_quoteValue('lquoteFunc',default=None)
         return m.get(__quoteFunc__=quoter,__lquoteFunc__=lquoter, *args,**kwd)
     else:
         #oldstyle
@@ -1260,8 +1265,13 @@ def include(viewName,*args,**kwd):
             quoteFunc = _find_quoteValue('quoteFunc')
             if quoteFunc is __notFound__:
                 quoteFunc = _find_quoteValue('__quoteFunc__',default=None)
+        lquoteFunc = kwd.pop('lquoteFunc',kwd.pop('__lquoteFunc__',__notFound__))
+        if lquoteFunc is __notFound__:
+            lquoteFunc = _find_quoteValue('lquoteFunc')
+            if lquoteFunc is __notFound__:
+                lquoteFunc = _find_quoteValue('__lquoteFunc__',default=None)
         dictionary.update(kwd)
-        return m.getOutput(dictionary,quoteFunc=quoteFunc)
+        return m.getOutput(dictionary,quoteFunc=quoteFunc,lquoteFunc=lquoteFunc)
 
 def main():
     if len(sys.argv)>1:

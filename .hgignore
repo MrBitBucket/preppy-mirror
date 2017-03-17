@@ -38,3 +38,7 @@ __pycache__
 test/loadsample*.*
 test/*TestFile.txt
 test/sample*.html
+
+syntax: regexp
+^tmp/.*$
+^patches/.*$
