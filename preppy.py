@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.4.0'
+VERSION = '2.4.1'
 __version__ = VERSION
 
 USAGE = """
@@ -70,7 +70,8 @@ UNESCAPES = ((QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (
 import re, sys, os, imp, struct, tokenize, token, ast, traceback, time, marshal, pickle, inspect, textwrap
 from hashlib import md5
 isPy3 = sys.version_info.major == 3
-isPy34 = isPy3 and sys.version_info.minor>=4
+isPy33 = isPy3 and sys.version_info.minor>=3
+isPy34 = isPy33 and sys.version_info.minor>=4
 _usePyCache = isPy3 and False                   #change if you don't have legacy ie python 2.7 usage
 from xml.sax.saxutils import escape as xmlEscape
 from collections import namedtuple
@@ -878,8 +879,27 @@ def testgetmodule(name="testoutput"):
     pel( "load successful! running result")
     pel("=" * 100)
     result.run({})
+
+if isPy34:
+    from importlib import util as importlib_util
+    def __rl_get_module__(name,dir):
+        for ext in ('.py','.pyw','.pyo','.pyc','.pyd'):
+            path = os.path.join(dir,name+ext)
+            if os.path.isfile(path):
+                spec = importlib_util.spec_from_file_location(name,path)
+                return spec.loader.load_module()
+        raise ImportError('no suitable file found')
+else:
+    import imp
+    def __rl_get_module__(name,dir):
+        f, p, desc= imp.find_module(name,[dir])
+        try:
+            return imp.load_module(name,f,p,desc)
+        finally:
+            if f:
+                f.close()
+
 def rl_get_module(name,dir):
-    f, p, desc= imp.find_module(name,[dir])
     if name in sys.modules:
         om = sys.modules[name]
         del sys.modules[name]
@@ -887,7 +907,7 @@ def rl_get_module(name,dir):
         om = None
     try:
         try:
-            m = imp.load_module(name,f,p,desc)
+            m = __rl_get_module__(name,dir)
             t = getTimeStamp(m)
             if t<preppyTime: return None
             return m
@@ -895,8 +915,6 @@ def rl_get_module(name,dir):
             raise ImportError('%s[%s]' % (name,dir))
     finally:
         if om: sys.modules[name] = om
-        del om
-        if f: f.close()
 
 def getTimeStamp(m,default=float('Inf')):
     try:
@@ -1336,7 +1354,7 @@ def main():
         pel("no argument: running tests")
         testgetOutput()
         pel(''); pel("PAUSING.  To continue hit return")
-        raw_input("now: ")
+        (input if isPy33 else raw_input)("now: ")
         testgetmodule()
 
 if __name__=="__main__":
