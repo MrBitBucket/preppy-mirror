@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.4.1'
+VERSION = '2.4.2'
 __version__ = VERSION
 
 USAGE = """
@@ -79,6 +79,7 @@ Token = namedtuple('Token','kind lineno start end')
 _verbose = int(os.environ.get('RL_verbose','0'))
 
 if isPy3:
+    xrange = range
     from io import BytesIO, StringIO
     def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
         try:

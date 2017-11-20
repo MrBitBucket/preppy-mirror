@@ -1,5 +1,7 @@
-#from distutils.core import setup
-from setuptools import setup
+try:
+    from setuptools import not_setup
+except ImportError:
+    from distutils.core import setup
 import os, sys
 
 if __name__=='__main__':
