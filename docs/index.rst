@@ -175,7 +175,7 @@ those functions in one line.
 
 .. describe:: {{if EXPR}}...{{elif EXPR}}...{{else}}...{{endif}}
 
-The *{{if}}*` statement does exactly what Python's *if* statement does.  You may optionally use multiple *elif* clauses and one *else* clause.  The final colon after each clause ("*else:*") is optional.
+The ``*{{if}}*`` statement does exactly what Python's *if* statement does.  You may optionally use multiple *elif* clauses and one *else* clause.  The final colon after each clause ("*else:*") is optional.
 
     
 
@@ -383,7 +383,7 @@ In normal use, assuming the current user has write access to the file system, pr
 
 .. function:: compileModules(pattern, savePy=0, force=0, verbose=1)
 
-.. function:: compileDir(dirName, pattern="*.prep", recursive=1, savePy=0, force=0, verbose=1)
+.. function:: compileDir(dirName, pattern="`*`.prep", recursive=1, savePy=0, force=0, verbose=1)
 
 The last one works recursively, so is convenient for compiling all .prep files within a project.
 
@@ -509,19 +509,8 @@ Support
 We suggest using the ``reportlab-users`` mailing list for any support issues, or raising a bug report on bitbucket.  ReportLab's commercial customers can also email our support address; others will be blocked by a whitelist.
 
 
-Future Plans
-============
-
-It is likely that, in 2013, we will rewrite preppy from the ground up using the compiler support in Python 2.7 and 3.3.  We'll be ensuring there is 'only one way to do it'.  If you follow the guidelines above, minimal changes should be needed to templates.
-
-We hope there is still a place for a lightweight, minimal, fast templating system in the Python world, and welcome feedback and experiences if you embed this system in your project.
-
 Credits
 =======
 The initial implementation was done by Aaron Watters, to a broad design by Andy Robinson.  This worked by actual code generation, creating a python module with the :func:`getOutput` function, which was optionally save to disk.
 
-Robin Becker than optimised this by generating bytecodes directly, and later implemented the newer *function declaration* style.
-
-
-
-
+Robin Becker then optimised this by generating bytecodes directly, and later implemented the newer *function declaration* style.
