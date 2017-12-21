@@ -89,7 +89,6 @@ class LoadTestCase(unittest.TestCase):
         output.close()
         processTest('loadsample004')
 
-# This is being commented out, since 1 Meg files seem to cause problems...
     def loadcheck05_1MbFile(self):
         fileName = "oneMegTestFile.txt"
         size = 1024

@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.4.2'
+VERSION = '2.5.0'
 __version__ = VERSION
 
 USAGE = """
@@ -805,35 +805,38 @@ _preambleAst=None
 _preamble='''import ast, pickle
 def run(dictionary, __write__=None, quoteFunc=None, outputfile=None, lquoteFunc=None):
     ### begin standard prologue
-    import sys
+    import sys, os
+    overrideStdout = dictionary.get('__preppyOverrideStdout__',None)
+    if overrideStdout is None:
+        overrideStdout = os.environ.get('PREPPY_OVERRIDE_STDOUT','1')=='1'
     __save_sys_stdout__ = sys.stdout
     try: # compiled logic below
-        if outputfile is not None:
-            stdout = sys.stdout = outputfile
-            if __write__:
-                raise ValueError("do not define both outputfile (%r) and __write__ (%r)." %(outputfile, __write__))
-        else:
-            stdout = sys.stdout
         # make sure quoteFunc is defined:
         qFunc, lconv = __get_conv__(quoteFunc,lquoteFunc,__isbytes__)
         globals()['__quoteFunc__'] = qFunc
         globals()['__lquoteFunc__'] = lconv
         # make sure __write__ is defined
+        class dummyfile: pass
         if __write__:
-            class stdout: pass
-            stdout = sys.stdout = stdout()
-            stdout.write = lambda x: __write__(qFunc(x))
+            if outputfile is not None:
+                raise ValueError("do not define both outputfile (%r) and __write__ (%r)." %(outputfile, __write__))
+            outputfile = dummyfile()
+            outputfile.write = __write__
         else:
-            __write__ = lambda x: stdout.write(x)
+            if not outputfile:
+                outputfile = sys.stdout
+            __write__ = outputfile.write
         __swrite__ = lambda x: __write__(qFunc(x))
         __lwrite__ = lambda x: __write__(lconv(x))
+        if overrideStdout:
+            sys.stdout = dummyfile()
+            sys.stdout.write = __swrite__
         M = pickle.loads(__preppy_nodes__)
         b = M.body[0].body
         for k in dictionary:
             try:
                 if k not in ('dictionary','__write__',
                         '__swrite__','outputfile','__save_sys_stdout__') and __preppy__vlhs__(k):
-                    #print('dictionary[%s] = %r' % (k,dictionary[k]),file=__save_sys_stdout__)
                     b.insert(0,ast.parse('%s=dictionary[%r]' % (k,k),'???',mode='exec').body[0])
             except:
                 pass
@@ -842,9 +845,8 @@ def run(dictionary, __write__=None, quoteFunc=None, outputfile=None, lquoteFunc=
         __rl_exec__(compile(M,__preppy_filename__,'exec'),NS)
         NS['__code__'](dictionary,outputfile,__lwrite__,__swrite__,__save_sys_stdout__)
     finally: #### end of compiled logic, standard cleanup
-        import sys # for safety
-        #print "resetting stdout", sys.stdout, "to", __save_sys_stdout__
-        sys.stdout = __save_sys_stdout__
+        if overrideStdout:
+            sys.stdout = __save_sys_stdout__
 
 def getOutputFromKeywords(quoteFunc=None, lquoteFunc=None, **kwds):
     buf=[]

@@ -444,6 +444,26 @@ catch all errors{{endtry}}"""
                 quoteFunc=self.brace, lquoteFunc=self.bracket),
                 "[Hello World]{14}")
 
+    def checkOverridingStdout(self):
+        import sys
+        prepCode = "AAAAA{{script}}print(value){{endscript}}BBBBB"
+        oldStdout = sys.stdout
+        sys.stdout = preppy.StringIO()
+        try:
+            self.assertEquals(
+                self.getRunTimeOutput(prepCode,value='\nIIIII'),
+                    "AAAAA\nIIIII\nBBBBB")
+            self.assertEquals(sys.stdout.getvalue(),'')
+            self.assertEquals(
+                self.getRunTimeOutput(prepCode,value='\nIIIII',__preppyOverrideStdout__=True),
+                    "AAAAA\nIIIII\nBBBBB")
+            self.assertEquals(sys.stdout.getvalue(),'')
+            self.assertEquals(
+                self.getRunTimeOutput(prepCode,value='\nIIIII',__preppyOverrideStdout__=False),
+                    "AAAAABBBBB")
+            self.assertEquals(sys.stdout.getvalue(),'\nIIIII\n')
+        finally:
+            sys.stdout = oldStdout
 
 class ErrorIndicationTestCase(PreppyOutputTestCase):
     @classmethod
