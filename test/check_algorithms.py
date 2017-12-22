@@ -468,7 +468,7 @@ catch all errors{{endtry}}"""
     def checkIncludeOverridingStdout(self):
         import sys
         with open('innercheckIncludeOverridingStdout.prep','wb') as f:
-            f.write('EEEEE{{script}}print(value){{endscript}}FFFFF')
+            f.write(b'EEEEE{{script}}print(value){{endscript}}FFFFF')
         outer = "AAAAA{{script}}print(value){{endscript}}{{include('innercheckIncludeOverridingStdout',savePyc=0,value=ivalue)}}BBBBB"
         oldStdout = sys.stdout
         sys.stdout = preppy.StringIO()
