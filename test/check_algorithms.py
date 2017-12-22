@@ -465,6 +465,29 @@ catch all errors{{endtry}}"""
         finally:
             sys.stdout = oldStdout
 
+    def checkIncludeOverridingStdout(self):
+        import sys
+        with open('innercheckIncludeOverridingStdout.prep','wb') as f:
+            f.write('EEEEE{{script}}print(value){{endscript}}FFFFF')
+        outer = "AAAAA{{script}}print(value){{endscript}}{{include('innercheckIncludeOverridingStdout',savePyc=0,value=ivalue)}}BBBBB"
+        oldStdout = sys.stdout
+        sys.stdout = preppy.StringIO()
+        try:
+            self.assertEquals(
+                self.getRunTimeOutput(outer,value='\nIIIII',ivalue='\nJJJJJ'),
+                    "AAAAA\nIIIII\nEEEEE\nJJJJJ\nFFFFFBBBBB")
+            self.assertEquals(sys.stdout.getvalue(),'')
+            self.assertEquals(
+                self.getRunTimeOutput(outer,value='\nIIIII',ivalue='\nJJJJJ',__preppyOverrideStdout__=True),
+                    "AAAAA\nIIIII\nEEEEE\nJJJJJ\nFFFFFBBBBB")
+            self.assertEquals(sys.stdout.getvalue(),'')
+            self.assertEquals(
+                self.getRunTimeOutput(outer,value='\nIIIII',ivalue='\nJJJJJ',__preppyOverrideStdout__=False),
+                    "AAAAAEEEEEFFFFFBBBBB")
+            self.assertEquals(sys.stdout.getvalue(),'\nIIIII\n\nJJJJJ\n')
+        finally:
+            sys.stdout = oldStdout
+
 class ErrorIndicationTestCase(PreppyOutputTestCase):
     @classmethod
     def setUpClass(cls):

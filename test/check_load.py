@@ -168,6 +168,7 @@ def clean(dirname='.'):
     # Get rid of dynamically generated stuff not caught by the above code...
     for filename in ('loadsample04.prep','loadsample05.prep',
                 'sixtyfiveKTestFile.txt', 'oneMegTestFile.txt', 'sample007.html',
+                'innercheckIncludeOverridingStdout.prep',
                 ):
         try:
             os.remove(filename)

@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.5.0'
+VERSION = '2.5.1'
 __version__ = VERSION
 
 USAGE = """
@@ -806,9 +806,9 @@ _preamble='''import ast, pickle
 def run(dictionary, __write__=None, quoteFunc=None, outputfile=None, lquoteFunc=None):
     ### begin standard prologue
     import sys, os
-    overrideStdout = dictionary.get('__preppyOverrideStdout__',None)
-    if overrideStdout is None:
-        overrideStdout = os.environ.get('PREPPY_OVERRIDE_STDOUT','1')=='1'
+    __preppyOverrideStdout__ = dictionary.get('__preppyOverrideStdout__',None)
+    if __preppyOverrideStdout__ is None:
+        __preppyOverrideStdout__ = os.environ.get('PREPPY_OVERRIDE_STDOUT','1')=='1'
     __save_sys_stdout__ = sys.stdout
     try: # compiled logic below
         # make sure quoteFunc is defined:
@@ -828,7 +828,7 @@ def run(dictionary, __write__=None, quoteFunc=None, outputfile=None, lquoteFunc=
             __write__ = outputfile.write
         __swrite__ = lambda x: __write__(qFunc(x))
         __lwrite__ = lambda x: __write__(lconv(x))
-        if overrideStdout:
+        if __preppyOverrideStdout__:
             sys.stdout = dummyfile()
             sys.stdout.write = __swrite__
         M = pickle.loads(__preppy_nodes__)
@@ -845,7 +845,7 @@ def run(dictionary, __write__=None, quoteFunc=None, outputfile=None, lquoteFunc=
         __rl_exec__(compile(M,__preppy_filename__,'exec'),NS)
         NS['__code__'](dictionary,outputfile,__lwrite__,__swrite__,__save_sys_stdout__)
     finally: #### end of compiled logic, standard cleanup
-        if overrideStdout:
+        if __preppyOverrideStdout__:
             sys.stdout = __save_sys_stdout__
 
 def getOutputFromKeywords(quoteFunc=None, lquoteFunc=None, **kwds):
@@ -1292,6 +1292,12 @@ def include(viewName,*args,**kwd):
             if lquoteFunc is __notFound__:
                 lquoteFunc = _find_quoteValue('__lquoteFunc__',default=None)
         dictionary.update(kwd)
+        __preppyOverrideStdout__ = dictionary.get('__preppyOverrideStdout__',__notFound__)
+        if __preppyOverrideStdout__ is __notFound__:
+            __preppyOverrideStdout__ = _find_quoteValue('__preppyOverrideStdout__')
+            if __preppyOverrideStdout__ is __notFound__:
+                __preppyOverrideStdout__ = None
+        dictionary['__preppyOverrideStdout__'] = __preppyOverrideStdout__
         return m.getOutput(dictionary,quoteFunc=quoteFunc,lquoteFunc=lquoteFunc)
 
 def main():

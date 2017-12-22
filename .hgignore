@@ -42,3 +42,4 @@ test/sample*.html
 syntax: regexp
 ^tmp/.*$
 ^patches/.*$
+^test/innercheckIncludeOverridingStdout.prep
