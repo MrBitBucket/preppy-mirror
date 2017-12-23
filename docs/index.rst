@@ -238,6 +238,21 @@ The normal python import statements.
 
 The python assert statement.
 
+'' describe:: {{def NAME (ARGDEFS)}} preppy stuff {{enddef}}
+
+Define a template function.
+This defines a function that encapsulates some preppy statements. The function may be called like any other known function,
+but unlike normal functions the preppy literals and *{{EXPR}}* expressions are renderd at the point of call followed by any returned values.
+Ass a concession to the template nature of the definition, {{enddef}} may be considered to be a {{return ''}}. The *{{return EXPR}}* 
+is only legal between *{{def...}}* and *{{enddef}}*.
+
+Example:
+
+    {{def weekday(d)}}
+        {{script}}days=['','Sun','Mon','Tue','Wed','Thu','Fri','Sat']{{endscript}}
+        <p>Today is {{days[d]}}day.</p>
+    {{enddef}}
+
 Module import options
 =====================
 There are two ways to load a preppy module into memory.  We refer to these as 'file system semantics' and 'import semantics'.

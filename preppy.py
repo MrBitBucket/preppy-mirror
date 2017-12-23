@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.5.1'
+VERSION = '2.6.0'
 __version__ = VERSION
 
 USAGE = """
@@ -54,10 +54,7 @@ The command line interface lets you test, compile and clean up:
 
     preppy.py clean dirname1 dirname2 ...19
        - removes any py or pyc files created from past compilations
-
-
 """
-
 STARTDELIMITER = "{{"
 ENDDELIMITER = "}}"
 QSTARTDELIMITER = "{${"
@@ -348,7 +345,7 @@ def dedent(text):
 
 _line_d = re.compile('line\s+\d+',re.M)
 _pat = re.compile('{{\\s*|}}',re.M)
-_s = re.compile(r'^(?P<start>while|if|elif|for|continue|break|try|except|raise|with|import|from|assert)(?P<startend>\s+|$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry|endwith)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
+_s = re.compile(r'^(?P<start>while|if|elif|for|continue|break|try|except|raise|with|import|from|assert|return)(?P<startend>\s+|$)|(?P<tdef>def\s*[_a-zA-Z])(?P<tdefend>\w*\s*\(.*\)\s*$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry|endwith|enddef)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
 
 def _denumber(node,lineno=-1):
     if node.lineno!=lineno: node.lineno = lineno
@@ -362,6 +359,7 @@ class PreppyParser:
         self.filename = filename
         self.sourcechecksum = sourcechecksum
         self.__inFor = self.__inWhile = 0
+        self.__inTdef = []
         self._isBytes = isinstance(source,bytesT)
 
     def compile(self, display=0):
@@ -402,7 +400,7 @@ class PreppyParser:
                         t = m.group('start')
                         if t:
                             if not m.group('startend'):
-                                if t not in ('continue','break','try','except'):
+                                if t not in ('continue','break','try','except','return'):
                                     self.__lexerror('Bad %s' % t, i0)
                         else:
                             t = m.group('end')
@@ -420,6 +418,10 @@ class PreppyParser:
                                             self.__lexerror('def must come first',i0)
                                     else:
                                         self._defSeen = 1
+                                else:
+                                    t = m.group('tdef')
+                                    if not m.group('tdefend'): self.__lexerror('Bad %s' % t, i0)
+                                    t = 'tdef'
                     else:
                         t = 'expr'  #expression
                     if not self._defSeen: self._defSeen = -1
@@ -464,7 +466,7 @@ class PreppyParser:
         return self.__rparse(text)[0]
 
     def __preppy(self,
-            funcs='const expr while if for script eval def continue break try raise with import from assert'.split(),
+            funcs='const expr while if for script eval def continue break try raise with import from assert tdef return'.split(),
             followers=['eof'],pop=True,fixEmpty=False):
         C = []
         a = C.append
@@ -493,6 +495,31 @@ class PreppyParser:
         t = self.__tokenPop()
         self._fnc_defn = t,n
         return None
+
+    def __tdef(self):
+        self.__inTdef.append((self.__inWhile,self.__inFor))
+        self.__inWhile = self.__inFor = 0
+        try:
+            n = self.__iparse(self.__tokenText(forceColonPass=1).strip())
+        except:
+            self.__error()
+        t = self.__tokenPop()
+        n.body = self.__preppy(followers=['enddef'],fixEmpty=True) + [ast.Return(value=ast.Str(s=''))]
+        self.__renumber(n,t)
+        self.__inWhile, self.__inFor = self.__inTdef.pop()
+        return n
+
+    def __return(self,stmt='return'):
+        if not self.__inTdef:
+            self.__serror(msg='%s statement outside while or for loop' % stmt)
+        text = self.__tokenText()
+        try:
+            n = self.__rparse(text)
+        except:
+            self.__error()
+        t = self.__tokenPop()
+        self.__renumber(n,t)
+        return n
 
     def __break(self,stmt='break'):
         text = self.__tokenText()

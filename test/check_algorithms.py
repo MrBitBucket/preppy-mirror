@@ -298,6 +298,12 @@ class GeneratedCodeTestCase(PreppyOutputTestCase):
     def checkRaises(self):
         self.assertRaises(ValueError,self.getRunTimeOutput,"{{raise ValueError('aaa')}}")
 
+    def checkCatchesBareReturn(self):
+        self.assertRaises(SyntaxError,self.getRunTimeOutput,'{{return}}')
+
+    def checkCatchesBareEnddef(self):
+        self.assertRaises(SyntaxError,self.getRunTimeOutput,'{{enddef}}')
+
     trye_src="""TRY{{try}}{{if i==1}}
 RAISE{{raise Exception('zzz')}}{{endif}}
 TRYBODY{{except}}
@@ -488,6 +494,19 @@ catch all errors{{endtry}}"""
         finally:
             sys.stdout = oldStdout
 
+    def checkDef(self):
+        for c,r in [
+                (
+                "{{def a(b)}}+++++{{b}}-----{{if b % 2 ==0}}{{return '=%d='%(b*b)}}{{endif}}{{return ''}}{{enddef}}AAAAA{{a(1)}}BBBBB{{a(2)}}CCCCC",
+                "AAAAA+++++1-----BBBBB+++++2-----=4=CCCCC"
+                ),
+                (
+                "{{def a(b)}}{{script}}z=7{{endscript}}{{def c(d)}}{{3*d+1}}{{z}}{{enddef}}+++++{{c(b)}}-----{{if b % 2 ==0}}{{return '=%d='%(b*b)}}{{endif}}{{enddef}}AAAAA{{a(1)}}BBBBB{{a(2)}}CCCCC",
+                "AAAAA+++++47-----BBBBB+++++77-----=4=CCCCC",
+                ),
+                ]:
+            self.assertEquals(self.getRunTimeOutput(c),r)
+
 class ErrorIndicationTestCase(PreppyOutputTestCase):
     @classmethod
     def setUpClass(cls):
@@ -552,7 +571,7 @@ class ErrorIndicationTestCase(PreppyOutputTestCase):
                     '{{while 1}}{{script}}raise ValueError{{endscript}}{{endwhile}}',
                     '{{while 0}}{{else}}{{script}}raise ValueError{{endscript}}{{endwhile}}',
                     '{{for i in (0,1)}}{{script}}raise ValueError{{endscript}}{{endfor}}',
-                    '{{for i in (0,1)}}{{else}}{{script}}raise ValueError{{endscript}}{{endfor}}'
+                    '{{for i in (0,1)}}{{else}}{{script}}raise ValueError{{endscript}}{{endfor}}',
                     ]:
             self.assertEquals(checkErrorTextContains('line 10001, in __code__',self.getRunTimeOutput,src+'\n'+line+'\n'+src,quoteFunc=preppy.uStdQuote,label=line),'')
 
