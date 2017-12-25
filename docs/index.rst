@@ -238,7 +238,7 @@ The normal python import statements.
 
 The python assert statement.
 
-'' describe:: {{def NAME (ARGDEFS)}} preppy stuff {{enddef}}
+.. describe:: {{def NAME (ARGDEFS)}} preppy stuff {{enddef}}
 
 Define a template function.
 This defines a function that encapsulates some preppy statements. The function may be called like any other known function,
