@@ -243,7 +243,7 @@ The python assert statement.
 Define a template function.
 This defines a function that encapsulates some preppy statements. The function may be called like any other known function,
 but unlike normal functions the preppy literals and *{{EXPR}}* expressions are renderd at the point of call followed by any returned values.
-Ass a concession to the template nature of the definition, {{enddef}} may be considered to be a {{return ''}}. The *{{return EXPR}}* 
+As a concession to the template nature of the definition, {{enddef}} may be considered to be a {{return ''}}. The *{{return EXPR}}* 
 is only legal between *{{def...}}* and *{{enddef}}*.
 
 Example:
