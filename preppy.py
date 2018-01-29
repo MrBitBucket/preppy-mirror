@@ -77,7 +77,10 @@ from compiler import pycodegen, pyassem, future, consts
 try:
     consts_SC_GLOBAL = (consts.SC_GLOBAL_IMPLICIT, consts.SC_GLOBAL_EXPLICT)
 except AttributeError:
-    consts_SC_GLOBAL = (consts.SC_GLOBAL,)
+    try:
+        consts_SC_GLOBAL = (consts.SC_GLOBAL_IMPLICIT, consts.SC_GLOBAL_EXPLICIT)
+    except AttributeError:
+        consts_SC_GLOBAL = (consts.SC_GLOBAL,)
 
 def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
     L = []
