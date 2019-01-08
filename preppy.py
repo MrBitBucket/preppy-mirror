@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.6.0'
+VERSION = '2.7.0'
 __version__ = VERSION
 
 USAGE = """
@@ -75,15 +75,16 @@ from collections import namedtuple
 Token = namedtuple('Token','kind lineno start end')
 _verbose = int(os.environ.get('RL_verbose','0'))
 
+from keyword import iskeyword
 if isPy3:
     xrange = range
     from io import BytesIO, StringIO
-    def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
+    def __preppy__vlhs__(s):
         try:
-            L = list(tokenize.tokenize(BytesIO(s.strip().encode('utf8')).readline))
+            s = s.strip()
+            return s.isidentifier() and not iskeyword(s)
         except:
             return False
-        return len(L)<=3 and L[-2][0]==NAME and L[-1][0]==ENDMARKER
 
     class SafeString(bytes):
         '''either a SafeString or a SafeUnicode depending on argument type'''
@@ -106,13 +107,18 @@ if isPy3:
 else:
     from StringIO import StringIO
     BytesIO = StringIO
-    def __preppy__vlhs__(s,NAME=token.NAME,ENDMARKER=token.ENDMARKER):
-        L = []
+    try:
+        isidentifier = tokenize.Name
+    except AttributeError:
+        isidentifier = '[a-zA-Z_][a-zA-Z0-9_]*'
+    isidentifier = re.compile('^%s$' % isidentifier).match
+
+    def __preppy__vlhs__(s):
         try:
-            tokenize.tokenize(BytesIO(s.strip()).readline,lambda *a: L.append(a))
+            s = s.strip()
+            return s!='None' and isidentifier(s) and not iskeyword(s)
         except:
             return False
-        return len(L)==2 and L[0][0]==NAME and L[1][0]==ENDMARKER
 
     class SafeString(str):
         '''either a SafeString or a SafeUnicode depending on argument type'''
