@@ -25,4 +25,6 @@ if __name__=='__main__':
     sys.path.insert(0, parentDir)
 
     runner = unittest.TextTestRunner()
-    runner.run(makeSuite())
+    result = runner.run(makeSuite())
+    import sys
+    sys.exit(not result.wasSuccessful)
