@@ -77,7 +77,7 @@ class PreppyParserTestCase(unittest.TestCase):
 
     def check_eval(self):
         #3.4 seems to improve on the col_offsets
-        if isPy34:
+        if isPy34 and sys.version_info[2]<3:
             CO0 = 12
             CO1 = 0
             CO2 = 17
