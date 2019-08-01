@@ -162,6 +162,7 @@ else:
                 return ast.TryFinally(lineno=self.lineno,col_offset=self.col_offset,
                         body=[ast.TryExcept(lineno=self.lineno,col_offset=self.col_offset,body=self.body,handlers=self.handlers,orelse=self.orelse)],
                         finalbody=self.finalbody)
+    ast.Try = AstTry
     defaultLConv = ['unicode','str']
 
 def asUtf8(s):
@@ -608,7 +609,7 @@ class PreppyParser:
         if text!='try':
             self.__serror(msg='invalid try statement')
         t = self.__tokenPop()
-        n = (ast.Try if isPy3 else AstTry)(lineno=1,col_offset=0,body=[],handlers=[],orelse=[],finalbody=[])
+        n = ast.Try(lineno=1,col_offset=0,body=[],handlers=[],orelse=[],finalbody=[])
         self.__renumber(n,t)
         n.body = self.__preppy(followers=['except','finally'],pop=False,fixEmpty=True)
         while 1:
