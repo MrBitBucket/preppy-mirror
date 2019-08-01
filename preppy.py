@@ -843,7 +843,7 @@ def run(dictionary, __write__=None, quoteFunc=None, outputfile=None, lquoteFunc=
     import sys, os
     __preppyOverrideStdout__ = dictionary.get('__preppyOverrideStdout__',None)
     if __preppyOverrideStdout__ is None:
-        __preppyOverrideStdout__ = os.environ.get('PREPPY_OVERRIDE_STDOUT','1')=='1'
+        __preppyOverrideStdout__ = os.environ.get('PREPPY_OVERRIDE_STDOUT','0')=='1'
     __save_sys_stdout__ = sys.stdout
     try: # compiled logic below
         # make sure quoteFunc is defined:
