@@ -69,6 +69,7 @@ from hashlib import md5
 isPy3 = sys.version_info.major == 3
 isPy33 = isPy3 and sys.version_info.minor>=3
 isPy34 = isPy33 and sys.version_info.minor>=4
+isPy38 = isPy33 and sys.version_info.minor>=8
 _usePyCache = isPy3 and False                   #change if you don't have legacy ie python 2.7 usage
 from xml.sax.saxutils import escape as xmlEscape
 from collections import namedtuple
@@ -349,7 +350,7 @@ def dedent(text):
     return len(indent),'\n'.join(lempty*['']+linesout)
 
 
-_line_d = re.compile('line\s+\d+',re.M)
+_line_d = re.compile('line\\s+\\d+',re.M)
 _pat = re.compile('{{\\s*|}}',re.M)
 _s = re.compile(r'^(?P<start>while|if|elif|for|continue|break|try|except|raise|with|import|from|assert|return)(?P<startend>\s+|$)|(?P<tdef>def\s*[_a-zA-Z])(?P<tdefend>\w*\s*\(.*\)\s*$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry|endwith|enddef)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
 
