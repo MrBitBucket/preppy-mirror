@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '2.7.0'
+VERSION = '3.0.0'
 __version__ = VERSION
 
 USAGE = """
@@ -73,7 +73,7 @@ isPy38 = isPy33 and sys.version_info.minor>=8
 _usePyCache = isPy3 and False                   #change if you don't have legacy ie python 2.7 usage
 from xml.sax.saxutils import escape as xmlEscape
 from collections import namedtuple
-Token = namedtuple('Token','kind lineno start end')
+Token = namedtuple('Token','kind start end')
 _verbose = int(os.environ.get('RL_verbose','0'))
 
 from keyword import iskeyword
@@ -245,7 +245,6 @@ def unescape(s, unescapes=UNESCAPES):
         s = s.replace(old, new)
     return s
 
-
 teststring = """
 this test script should produce a runnable program
 {{script}}
@@ -350,14 +349,9 @@ def dedent(text):
         linesout.append(l[findfirstword:])
     return len(indent),'\n'.join(lempty*['']+linesout)
 
-
 _line_d = re.compile('line\\s+\\d+',re.M)
 _pat = re.compile('{{\\s*|}}',re.M)
 _s = re.compile(r'^(?P<start>while|if|elif|for|continue|break|try|except|raise|with|import|from|assert|return)(?P<startend>\s+|$)|(?P<tdef>def\s*[_a-zA-Z])(?P<tdefend>\w*\s*\(.*\)\s*$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry|endwith|enddef)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
-
-def _denumber(node,lineno=-1):
-    if node.lineno!=lineno: node.lineno = lineno
-    for child in node.getChildNodes(): _denumber(child,lineno)
 
 class PreppyParser:
     def __init__(self,source,filename='[unknown]',sourcechecksum=None):
@@ -392,13 +386,12 @@ class PreppyParser:
         for i in _pat.finditer(text):
             i0 = i.start()
             i1 = i.end()
-            lineno = text.count('\n',0,ix)+1
             if i.group()!='}}':
                 if state:
                     self.__lexerror('Unexpected {{', i0)
                 else:
                     state = 1
-                    if i0!=ix: a(Token('const',lineno,ix,i0))
+                    if i0!=ix: a(Token('const',ix,i0))
                     ix = i1
             elif state:
                     state = 0
@@ -433,16 +426,15 @@ class PreppyParser:
                     else:
                         t = 'expr'  #expression
                     if not self._defSeen: self._defSeen = -1
-                    if i0!=ix: a(Token(t,lineno,ix,i0))
+                    if i0!=ix: a(Token(t,ix,i0))
                     ix = i1
         else:
             lineno = 0
         if state: self.__lexerror('Unterminated preppy token', ix)
         textLen = len(text)
         if ix!=textLen:
-            lineno = text.count('\n',0,ix)+1
-            a(Token('const',lineno,ix,textLen))
-        a(Token('eof',lineno+1,textLen,textLen))
+            a(Token('const',ix,textLen))
+        a(Token('eof',textLen,textLen))
         self._tokenX = 0
         return tokens
 
@@ -462,7 +454,12 @@ class PreppyParser:
 
     def __colOffset(self,t):
         '''obtain the column offset corresponding to a specific token'''
-        return t.start-max(self.source.rfind('\n',0,t.start),0)
+        start = t.start if isinstance(t,Token) else t
+        return start-max(self.source.rfind('\n',0,start)+1,0)
+
+    def __lineno(self,t):
+        start = t.start if isinstance(t,Token) else t
+        return self.source.count('\n',0,start) + 1
 
     def __rparse(self,text):
         '''parse a raw fragment of code'''
@@ -495,6 +492,16 @@ class PreppyParser:
             self.__tokenPop()
         return  C
 
+    if isPy38:
+        def _transfer_end_attributes(self,nodes,i=-1):
+            t = self._tokens[i if isinstance(i, AbsLineNo) else (self._tokenX+i)]
+            end_lineno = self.__lineno(t.end)
+            end_col_offset = self.__colOffset(t.end)
+            for n in nodes:
+                if hasattr(n,'end_lineno'):
+                    n.end_lineno = end_lineno
+                    n.end_col_offset = end_col_offset
+
     def __def(self):
         try:
             n = self.__iparse('def get'+(self.__tokenText(forceColonPass=1).strip()[3:]))
@@ -512,8 +519,12 @@ class PreppyParser:
         except:
             self.__error()
         t = self.__tokenPop()
-        n.body = self.__preppy(followers=['enddef'],fixEmpty=True) + [ast.Return(value=ast.Str(s=''))]
         self.__renumber(n,t)
+        n.body = self.__preppy(followers=['enddef'],fixEmpty=True)
+        r = ast.Return(value=ast.Str(s=''))
+        self.__renumber(r,self._tokens[self._tokenX-1])
+        n.body.append(r)
+        if isPy38: self._transfer_end_attributes([n])
         self.__inWhile, self.__inFor = self.__inTdef.pop()
         return n
 
@@ -527,6 +538,7 @@ class PreppyParser:
             self.__error()
         t = self.__tokenPop()
         self.__renumber(n,t)
+        if isPy38: self._transfer_end_attributes([n])
         return n
 
     def __break(self,stmt='break'):
@@ -559,8 +571,13 @@ class PreppyParser:
                 self.__renumber(f,t,dcoffs=dcoffs)
             return
         if isinstance(t,Token):
-            lineno_offset = t.lineno-1
+            lineno_offset = self.__lineno(t)-1
             col_offset = self.__colOffset(t)
+            if isPy38:
+                end_lineno_offset = self.__lineno(t.end)-1
+                end_col_offset = self.__colOffset(t.end)
+        elif isPy38:
+            lineno_offset, col_offset, end_lineno_offset, end_col_offset = t
         else:
             lineno_offset, col_offset = t
         if 'col_offset' in node._attributes:
@@ -572,21 +589,36 @@ class PreppyParser:
                 node.col_offset += dcoffs
         if 'lineno' in node._attributes:
             node.lineno = int(lineno_offset) if isinstance(lineno_offset,AbsLineNo) else getattr(node,'lineno',1)+lineno_offset
-        t = lineno_offset,col_offset
+        if isPy38:
+            if 'end_lineno' in node._attributes:
+                node.end_lineno = int(end_lineno_offset) if isinstance(end_lineno_offset,AbsLineNo) else getattr(node,'end_lineno',1)+end_lineno_offset
+            if 'end_col_offset' in node._attributes:
+                if getattr(node,'end_lineno',1)==1:
+                    node.end_col_offset = getattr(node,'end_col_offset',0)+end_col_offset+dcoffs
+                elif not hasattr(node,'end_col_offset'):
+                    node.end_col_offset = dcoffs
+                else:
+                    node.end_col_offset += dcoffs
+            t = lineno_offset, col_offset, end_lineno_offset, end_col_offset
+        else:
+            t = lineno_offset,col_offset
         for f in ast.iter_child_nodes(node):
             self.__renumber(f,t,dcoffs=dcoffs)
 
     def __while(self):
         self.__inWhile += 1
         try:
+            t = self._tokenX
             n = self.__iparse(self.__tokenText(forceColonPass=1))
         except:
             self.__error()
-        t = self.__tokenPop()
-        self.__renumber(n,t)
+        self.__tokenPop()
+        tokens = self._tokens
+        self.__renumber(n,tokens[t])
         n.body = self.__preppy(followers=['endwhile','else'],fixEmpty=True)
-        if self._tokens[self._tokenX-1].kind=='else':
+        if tokens[self._tokenX-1].kind=='else':
             n.orelse = self.__preppy(followers=['endwhile'])
+        if isPy38: self._transfer_end_attributes([n])
         self.__inWhile -= 1
         return n
 
@@ -601,6 +633,7 @@ class PreppyParser:
         n.body = self.__preppy(followers=['endfor','else'],fixEmpty=True)
         if self._tokens[self._tokenX-1].kind=='else':
             n.orelse = self.__preppy(followers=['endfor'])
+        if isPy38: self._transfer_end_attributes([n])
         self.__inFor -= 1
         return n
 
@@ -647,6 +680,7 @@ class PreppyParser:
         t = self.__tokenPop()
         self.__renumber(n,t)
         n.body = self.__preppy(followers=['endwith'],fixEmpty=True)
+        if isPy38: self._transfer_end_attributes([n])
         return n
 
     def __import(self,stmt='import'):
@@ -657,6 +691,7 @@ class PreppyParser:
             self.__error()
         t = self.__tokenPop()
         self.__renumber(n,t)
+        if isPy38: self._transfer_end_attributes([n])
         return n
 
     def __from(self):
@@ -694,27 +729,29 @@ class PreppyParser:
 
     def __if(self):
         tokens = self._tokens
-        t = 'elif'
+        k = 'elif'
         I = None
-        while t=='elif':
+        while k=='elif':
             try:
+                t = self._tokenX
                 text = self.__tokenText(forceColonPass=1)
                 if text.startswith('elif'): text = 'if  '+text[4:]
                 n = self.__iparse(text)
             except:
                 self.__error()
-            t = self.__tokenPop()
-            self.__renumber(n,t)
+            self.__tokenPop()
+            self.__renumber(n,tokens[t])
             n.body = self.__preppy(followers=['endif','elif','else'],fixEmpty=True)
             if I:
                 p.orelse = [n]
             else:
                 I = n
             p = n
-            t = tokens[self._tokenX-1].kind #we consumed the terminal in __preppy
-            if t=='elif': self._tokenX -= 1
-        if t=='else':
+            k = tokens[self._tokenX-1].kind #we consumed the terminal in __preppy
+            if k=='elif': self._tokenX -= 1
+        if k=='else':
             p.orelse = self.__preppy(followers=['endif'])
+        if isPy38: self._transfer_end_attributes([I])
         return I
 
     def __const(self):
@@ -734,6 +771,7 @@ class PreppyParser:
             self.__error('bad expression')
         t = self.__tokenPop()
         self.__renumber(n,t)
+        if isPy38: self._transfer_end_attributes([n])
         return n
 
     def __error(self,msg='invalid syntax'):
@@ -773,7 +811,10 @@ class PreppyParser:
 
     def __get_ast(self):
         preppyNodes = self.__parse()
-        llno = (AbsLineNo(self._tokens[-1].lineno),0)   #last line number information
+        flno = (AbsLineNo(1),0)
+        if isPy38: flno = flno+flno
+        llno = (AbsLineNo(self.__lineno(self._tokens[-1].end)),0)   #last line number information
+        if isPy38: llno = llno + llno
         if self._defSeen==1:
             t, F = self._fnc_defn
             args = F.args
@@ -813,7 +854,7 @@ class PreppyParser:
             trailNodes = self.__rparse("return ''.join(__append__.__self__)")
 
             self.__renumber(F,t)
-            self.__renumber(leadNodes,(AbsLineNo(1),0))
+            self.__renumber(leadNodes,flno)
             self.__renumber(trailNodes,llno)
             preppyNodes = leadNodes + preppyNodes + trailNodes
             global _newPreambleAst
@@ -829,7 +870,7 @@ class PreppyParser:
                 _preambleAst = self.__rparse(self.__get_pre_preamble()+(_preamble.replace('__isbytes__',str(self._isBytes))))
                 self.__renumber(_preambleAst,llno)
             M = ast.parse("def __code__(dictionary, outputfile, __write__,__swrite__,__save_sys_stdout__): pass",self.filename,mode='exec')
-            self.__renumber(M,(AbsLineNo(1),0))
+            self.__renumber(M,flno)
             M.body[0].body = preppyNodes
             extraAst = self.__rparse('__preppy_nodes__=%r\n__preppy_filename__=%r\n' % (pickle.dumps(M),self.filename))+_preambleAst
         M = ast.parse('__checksum__=%r' % self.sourcechecksum,self.filename,mode='exec')

@@ -6,10 +6,25 @@
 
 # $Id$
 
-import os, glob
+import os, glob, functools
 import preppy
 import unittest
 
+def fposto(f):
+    '''force preppy override stdout'''
+    @functools.wraps(f)
+    def wrapper(*args,**kwds):
+        osto = os.environ.get('PREPPY_OVERRIDE_STDOUT',None)
+        os.environ['PREPPY_OVERRIDE_STDOUT'] = '1'
+        try:
+            return f(*args,**kwds)
+        finally:
+            if osto is None:
+                del os.environ['PREPPY_OVERRIDE_STDOUT']
+            else:
+                os.environ['PREPPY_OVERRIDE_STDOUT'] = osto
+    return wrapper
+        
 class SimpleTestCase(unittest.TestCase):
     def setUp(self):
         import check_basics
@@ -32,6 +47,7 @@ class SimpleTestCase(unittest.TestCase):
     def check05Escapes(self):
         processTest('sample005')
 
+    @fposto
     def check06NoPythonFile(self):
         mod = preppy.getModule(os.path.join(self.dirName, 'sample006'), savefile=0)
         outFile = open(os.path.join(self.dirName, 'sample006.html'), 'w')
@@ -203,6 +219,7 @@ class SimpleTestCase(unittest.TestCase):
 
 suite = unittest.makeSuite(SimpleTestCase,'check')
 
+@fposto
 def processTest(filename, dictionary={}):
     #this ensures we search for prep files in the module
     #where this tests lives, wherever we invoked them from.
@@ -216,6 +233,7 @@ def processTest(filename, dictionary={}):
     mod.run(dictionary, outputfile = outFile)
     outFile.close()
     #print('wrote %r' %outFileName)
+
 
 def clean(dirname='.'):
     for filename in glob.glob('sample*.prep'):

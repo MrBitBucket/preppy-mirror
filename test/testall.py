@@ -2,11 +2,8 @@
 # see license.txt for license details
 # runs all key preppy tests.  Assumes preppy
 # is on the path.
-
 import os, sys
 import unittest
-
-
 
 def makeSuite():
     import check_basics, check_algorithms, check_load, check_lowlevel, test_import_hook
@@ -16,7 +13,6 @@ def makeSuite():
     suite.addTests(check_lowlevel.makeSuite())
     suite.addTests(test_import_hook.makeSuite())
     return suite
-
 
 if __name__=='__main__':
 

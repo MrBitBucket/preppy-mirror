@@ -11,6 +11,7 @@
 import os, glob
 import preppy
 import unittest
+from check_basics import fposto
 
 class LoadTestCase(unittest.TestCase):
     def lc01(self):
@@ -147,6 +148,7 @@ class LoadTestCase(unittest.TestCase):
         output.close()
         processTest('loadsample05')
            
+@fposto
 def processTest(filename, dictionary={}):
     root, ext = os.path.splitext(filename)
     outFileName = root + '.html'

@@ -1,5 +1,6 @@
 import os, sys, unittest
 import preppy
+from check_basics import fposto
 
 class ImportTestCase(unittest.TestCase):
     def setUp(self):
@@ -8,6 +9,7 @@ class ImportTestCase(unittest.TestCase):
         if dn: os.chdir(dn)
         preppy.installImporter()
 
+    @fposto
     def testImport1(self):
         if os.path.isfile('sample001.pyc'):
             os.remove('sample001.pyc')
@@ -15,12 +17,15 @@ class ImportTestCase(unittest.TestCase):
         sample001.getOutput({})
 
         #uninstallImporter seems not to work
+
+    @fposto
     def testImport2(self):
         if os.path.isfile('sample001n.pyc'):
             os.remove('sample001n.pyc')
         import sample001n
         sample001n.get(A=4)
 
+    @fposto
     def testImport3(self):
         parentDir = os.path.normpath(os.path.join(os.getcwd(),'..'))
         sys.path.insert(0,parentDir)
