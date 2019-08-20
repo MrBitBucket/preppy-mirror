@@ -299,8 +299,11 @@ class GeneratedCodeTestCase(PreppyOutputTestCase):
     def checkForBreakElse6(self):
         self.assertEqual(self.getRunTimeOutput(self.fbe_src2, C=0, quoteFunc=preppy.uStdQuote), "")
 
-    def checkRaises(self):
+    def checkRaisesValueError(self):
         self.assertRaises(ValueError,self.getRunTimeOutput,"{{raise ValueError('aaa')}}")
+
+    def checkBareRaise(self):
+        self.assertRaises(ValueError,self.getRunTimeOutput,"{{try}}{{float('aaa')}}{{except}}{{raise}}{{endtry}}")
 
     def checkCatchesBareReturn(self):
         self.assertRaises(SyntaxError,self.getRunTimeOutput,'{{return}}')

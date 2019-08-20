@@ -1,4 +1,4 @@
-#copyright ReportLab Inc. 2000-2015
+#copyright ReportLab Inc. 2000-2019
 #see license.txt for license details
 
 """preppy - a Python preprocessor.
@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '3.0.0'
+VERSION = '3.0.1'
 __version__ = VERSION
 
 USAGE = """
@@ -401,7 +401,7 @@ class PreppyParser:
                         t = m.group('start')
                         if t:
                             if not m.group('startend'):
-                                if t not in ('continue','break','try','except','return'):
+                                if t not in ('continue','break','try','except','return','raise'):
                                     self.__lexerror('Bad %s' % t, i0)
                         else:
                             t = m.group('end')
