@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '3.0.1'
+VERSION = '3.0.2'
 __version__ = VERSION
 
 USAGE = """
@@ -70,6 +70,7 @@ isPy3 = sys.version_info.major == 3
 isPy33 = isPy3 and sys.version_info.minor>=3
 isPy34 = isPy33 and sys.version_info.minor>=4
 isPy38 = isPy33 and sys.version_info.minor>=8
+isPy39 = isPy33 and sys.version_info.minor>=9
 _usePyCache = isPy3 and False                   #change if you don't have legacy ie python 2.7 usage
 from xml.sax.saxutils import escape as xmlEscape
 from collections import namedtuple
@@ -591,14 +592,15 @@ class PreppyParser:
             node.lineno = int(lineno_offset) if isinstance(lineno_offset,AbsLineNo) else getattr(node,'lineno',1)+lineno_offset
         if isPy38:
             if 'end_lineno' in node._attributes:
-                node.end_lineno = int(end_lineno_offset) if isinstance(end_lineno_offset,AbsLineNo) else getattr(node,'end_lineno',1)+end_lineno_offset
+                e = getattr(node,'end_lineno',None)
+                if e is None: e = 1
+                node.end_lineno = int(end_lineno_offset) if isinstance(end_lineno_offset,AbsLineNo) else e+end_lineno_offset
             if 'end_col_offset' in node._attributes:
+                e = getattr(node,'end_col_offset',None) or 0
                 if getattr(node,'end_lineno',1)==1:
-                    node.end_col_offset = getattr(node,'end_col_offset',0)+end_col_offset+dcoffs
-                elif not hasattr(node,'end_col_offset'):
-                    node.end_col_offset = dcoffs
+                    node.end_col_offset = e+end_col_offset+dcoffs
                 else:
-                    node.end_col_offset += dcoffs
+                    node.end_col_offset = e+dcoffs
             t = lineno_offset, col_offset, end_lineno_offset, end_col_offset
         else:
             t = lineno_offset,col_offset
