@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '3.0.2'
+VERSION = '3.0.3'
 __version__ = VERSION
 
 USAGE = """
@@ -1062,7 +1062,7 @@ def getModule(name,
         # any extension
         name = os.path.splitext(name)[0]
         if verbose:
-            pnl('checking %s...' % os.path.join(dir, name))
+            pnl(' checking %s... ' % os.path.join(dir, name))
         # savefile is deprecated but kept for safety.  savePy and savePyc are more
         # explicit and are the preferred.  By default it generates a pyc and no .py
         # file to reduce clutter.
@@ -1073,7 +1073,7 @@ def getModule(name,
         # they fed us the source explicitly
         sourcechecksum = getMd5(sourcetext)
         if not name: name = '_preppy_'+sourcechecksum
-        if verbose: pnl("sourcetext provided...")
+        if verbose: pnl(" sourcetext provided... ")
         sourcefilename = "<input text %s>" % name
         nosourcefile = 1
         module = SOURCE_MODULES.get(sourcetext,None)
@@ -1088,17 +1088,17 @@ def getModule(name,
         try:
             module = rl_get_module(name,dir)
             checksum = module.__checksum__
-            if verbose: pnl("found...")
+            if verbose: pnl(" found... ")
         except: # ImportError:  #catch ALL Errors importing the module (eg name="")
             module = checksum = None
             if verbose:
                 if verbose>2: traceback.print_exc()
-                pnl(" pyc %s[%s] not found..." % (name,dir))
+                pnl(" pyc %s[%s] not found... " % (name,dir))
             # check against source file
         try:
             sourcefile = open(sourcefilename, "r")
         except:
-            if verbose: pnl("no source file, reuse...")
+            if verbose: pnl(" no source file, reuse... ")
             if module is None:
                 raise ValueError("couldn't find source %s or module %s" % (sourcefilename, name))
             # use the existing module??? (NO SOURCE PRESENT)
@@ -1112,16 +1112,15 @@ def getModule(name,
                 if force==0:
                     # use the existing module. it matches
                     if verbose:
-                        pnl("up to date.")
+                        pnl(" up to date. ")
                     FILE_MODULES[sourcefilename] = module
                     return module
                 else:
                     # always recompile
-                    if verbose: pnl('forced recompile,')
-                    debug('%s/%s%s forced recompile force=%s' % (directory,name,source_extension,force))
+                    if verbose:
+                        pnl('%s/%s%s forced recompile force=%s' % (directory,name,source_extension,force))
             elif verbose:
-                pnl("changed,")
-                debug('%s/%s%s changed recompile source checksum=%r existing checksum=%r' % (directory,name,source_extension,sourcechecksum,checksum))
+                pnl('%s/%s%s changed recompile source checksum=%r existing checksum=%r' % (directory,name,source_extension,sourcechecksum,checksum))
 
     # if we got here we need to rebuild the module from source
     if verbose: pel("recompiling")
@@ -1279,7 +1278,7 @@ def _cleanFiles(filenames,verbose):
             if verbose: pnl(' removed .pyc ')
         if done == 0:
             if verbose:
-                pnl('nothing to remove')
+                pnl(' nothing to remove ')
         pel('')
 
 def cleanDir(dirName, pattern="*.prep", recursive=1, verbose=1):
