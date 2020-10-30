@@ -19,6 +19,9 @@ def P__tokenize(source,filename='<unknown>'):
     P=preppy.PreppyParser(source,filename)
     return P._PreppyParser__tokenize()
 
+def normValue(s, pat=re.compile(r'([\x28\x5b])\s+',re.M)):
+    return pat.sub(r'\1',s)
+
 def P__preppy(source,filename='<unknown>'):
     P=preppy.PreppyParser(source,filename)
     P._PreppyParser__tokenize()
@@ -44,7 +47,8 @@ class PreppyParserTestCase(unittest.TestCase):
         return s.replace('sTE',sTE).replace('sTFL',sTFL).replace('sNN',sNN)
 
     def assertEqualStr(self,a,b):
-        b = self.fixup(b)
+        a = normValue(a)
+        b = normValue(self.fixup(b))
         for i in xrange(max(len(a),len(b))):
             if a[i:i+1]!=b[i:i+1]:
                 raise ValueError('Not Equal\n%r !!!!! %r\n%r !!!!! %r' % (a[:i],a[i:],b[:i],b[i:]))
