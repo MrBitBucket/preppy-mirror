@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '3.0.3'
+VERSION = '3.0.4'
 __version__ = VERSION
 
 USAGE = """
@@ -64,7 +64,7 @@ QUOTEQUOTE = "$$"
 # SEQUENCE OF REPLACEMENTS FOR UNESCAPING A STRING.
 UNESCAPES = ((QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE))
 
-import re, sys, os, imp, struct, tokenize, token, ast, traceback, time, marshal, pickle, inspect, textwrap
+import re, sys, os, struct, tokenize, token, ast, traceback, time, marshal, pickle, inspect, textwrap
 from hashlib import md5
 isPy3 = sys.version_info.major == 3
 isPy33 = isPy3 and sys.version_info.minor>=3
@@ -963,6 +963,8 @@ def testgetmodule(name="testoutput"):
 
 if isPy34:
     from importlib import util as importlib_util
+    from types import ModuleType as preppy_new_module
+    MAGIC_NUMBER = importlib_util.MAGIC_NUMBER
     def __rl_get_module__(name,dir):
         for ext in ('.py','.pyw','.pyo','.pyc','.pyd'):
             path = os.path.join(dir,name+ext)
@@ -972,6 +974,8 @@ if isPy34:
         raise ImportError('no suitable file found')
 else:
     import imp
+    MAGIC_NUMBER = imp.get_magic()
+    preppy_new_module = imp.new_module
     def __rl_get_module__(name,dir):
         f, p, desc= imp.find_module(name,[dir])
         try:
@@ -1151,7 +1155,7 @@ def getModule(name,
             marshal.dump(P.codeobject, f)
             f.flush()
             f.seek(0, os.SEEK_SET)
-            f.write(imp.get_magic())
+            f.write(MAGIC_NUMBER)
     else:
         pycPath = None
 
@@ -1160,8 +1164,7 @@ def getModule(name,
         module.__dict__.clear()
     else:
         # now make a module
-        from imp import new_module
-        module = new_module(name)
+        module = preppy_new_module(name)
     if pycPath:
         module.__file__=pycPath
     rl_exec(P.codeobject,module.__dict__)
