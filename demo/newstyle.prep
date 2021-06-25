@@ -1,15 +1,13 @@
-{{def(name,sex)}}
+{{def(data)}}
 <!-- This is a 'new-style' .prep file with a function-like
 declaration at the top.  You must call the module's get()
 function, not getOutput()-->
+{{def who(name,sex)}}
+	<p>Hello. My name is {{name}} and I am {{if sex=="f"}}a gal{{elif sex=="m"}}a guy{{else}}non-binary{{endif}}</p>{{enddef}}
 <html>
     <head>
-        <title>{{name}}</title>
+        <title>newstyle</title>
     </head>
-    <body>
-    Hello. My name is {{name}} and I am
-    {{if sex=="f":}} a gal
-    {{elif sex=="m":}} a guy
-    {{else:}} neuter {{endif}}
+    <body>{{for name, sex in data}}{{who(name,sex)}}{{endfor}}
     </body>
 </html>
