@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '3.0.4'
+VERSION = '4.0.0'
 __version__ = VERSION
 
 USAGE = """
@@ -71,6 +71,7 @@ isPy33 = isPy3 and sys.version_info.minor>=3
 isPy34 = isPy33 and sys.version_info.minor>=4
 isPy38 = isPy33 and sys.version_info.minor>=8
 isPy39 = isPy33 and sys.version_info.minor>=9
+isPy310 = isPy33 and sys.version_info.minor>=10
 _usePyCache = isPy3 and False                   #change if you don't have legacy ie python 2.7 usage
 from xml.sax.saxutils import escape as xmlEscape
 from collections import namedtuple
@@ -207,6 +208,72 @@ def __get_conv__(qf,lqf,b):
             qf = uStdConv
             lqf = unicodeT
     return qf, lqf
+
+class __wsscontroller__:
+    class ignore(str):
+        pass
+    wsc = u''.join((
+        #u'\u000A', # LINE FEED
+        u'\u0009',  # HORIZONTAL TABULATION
+        u'\u000B',  # VERTICAL TABULATION
+        u'\u000C',  # FORM FEED
+        u'\u000D',  # CARRIAGE RETURN
+        u'\u001C',  # FILE SEPARATOR
+        u'\u001D',  # GROUP SEPARATOR
+        u'\u001E',  # RECORD SEPARATOR
+        u'\u001F',  # UNIT SEPARATOR
+        u'\u0020',  # SPACE
+        u'\u0085',  # NEXT LINE
+        u'\u00A0', # NO-BREAK SPACE
+        u'\u1680',  # OGHAM SPACE MARK
+        u'\u2000',  # EN QUAD
+        u'\u2001',  # EM QUAD
+        u'\u2002',  # EN SPACE
+        u'\u2003',  # EM SPACE
+        u'\u2004',  # THREE-PER-EM SPACE
+        u'\u2005',  # FOUR-PER-EM SPACE
+        u'\u2006',  # SIX-PER-EM SPACE
+        u'\u2007',  # FIGURE SPACE
+        u'\u2008',  # PUNCTUATION SPACE
+        u'\u2009',  # THIN SPACE
+        u'\u200A',  # HAIR SPACE
+        u'\u200B',  # ZERO WIDTH SPACE
+        u'\u2028',  # LINE SEPARATOR
+        u'\u2029',  # PARAGRAPH SEPARATOR
+        u'\u202F',  # NARROW NO-BREAK SPACE
+        u'\u205F',  # MEDIUM MATHEMATICAL SPACE
+        u'\u3000',  # IDEOGRAPHIC SPACE
+        ))
+    pats =  {
+            1: re.compile(u'^[%s]*' % wsc),
+            2: re.compile(u'^[%s]*' % (wsc+u'\u000A')),
+            }
+    def __init__(self):
+        self.ws = 0
+
+    def dnl(self):
+        self.ws = 1 #delete following white space to next line
+        return self.ignore('')
+
+    def dws(self):
+        self.ws = 2 #delete following white space
+        return self.ignore('')
+
+    def x(self,s):
+        if not isinstance(s,self.ignore):
+            self.ws = 0
+        return s
+
+    def c(self,s):
+        ws = self.ws
+        self.ws = 0
+        if ws:
+            b = isinstance(s,bytesT)
+            if b: s = asUnicode(s)
+            s = self.pats[ws].sub('',s)
+            if ws==1 and s[0]==u'\n': s = s[1:]
+            if b: s = asUtf8(s)
+        return s
 
 #Andy's standard quote for django
 _safeBase = SafeString, SafeUnicode
@@ -352,7 +419,16 @@ def dedent(text):
 
 _line_d = re.compile('line\\s+\\d+',re.M)
 _pat = re.compile('{{\\s*|}}',re.M)
-_s = re.compile(r'^(?P<start>while|if|elif|for|continue|break|try|except|raise|with|import|from|assert|return)(?P<startend>\s+|$)|(?P<tdef>def\s*[_a-zA-Z])(?P<tdefend>\w*\s*\(.*\)\s*$)|(?P<def>def\s*)(?P<defend>\(|$)|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry|endwith|enddef)(?:\s*$|(?P<endend>.+$))',re.DOTALL|re.M)
+_s = (
+    r'^(?P<start>while|if|elif|for|continue|break|try|except|raise|with|import|from|assert|return)(?P<startend>\s+|$)'
+    r'|(?P<tdef>def\s*[_a-zA-Z])(?P<tdefend>\w*\s*\(.*\)\s*$)'
+    r'|(?P<def>def\s*)(?P<defend>\(|$)'
+    r'|(?P<end>else|script|eval|endwhile|endif|endscript|endeval|endfor|finally|endtry|endwith|enddef)(?:\s*$|(?P<endend>.+$))'
+    )
+if isPy310:
+    _s = _s.replace(r'return)',r'return|match|case)')
+    _s = _s.replace(r'enddef)',r'enddef|endmatch)')
+_s = re.compile(_s,re.DOTALL|re.M)
 
 class PreppyParser:
     def __init__(self,source,filename='[unknown]',sourcechecksum=None):
@@ -361,7 +437,7 @@ class PreppyParser:
         self.source = source
         self.filename = filename
         self.sourcechecksum = sourcechecksum
-        self.__inFor = self.__inWhile = 0
+        self.__inFor = self.__inWhile = self.__inMatch = self.__inCase = 0
         self.__inTdef = []
         self._isBytes = isinstance(source,bytesT)
 
@@ -445,7 +521,12 @@ class PreppyParser:
         if strip: text = text.strip()
         if colonRemove or forceColonPass:
             if text.endswith(':'): text = text[:-1]
-            if forceColonPass: text += ':\tpass\n'
+            if forceColonPass==3:
+                text = 'match None:\n\t%s:\n\t\tpass' % text
+            elif forceColonPass==2:
+                text += ':\n\tcase _:\n\t\tpass\n'
+            elif forceColonPass:
+                text += ':\tpass\n'
         return unescape(text)
 
     def __tokenPop(self):
@@ -464,7 +545,16 @@ class PreppyParser:
 
     def __rparse(self,text):
         '''parse a raw fragment of code'''
-        tf = ast.parse(text,filename=self.filename,mode='exec').body
+        try:
+            tf = ast.parse(text,filename=self.filename,mode='exec').body
+        except SyntaxError:
+            s = text.strip()
+            b = isinstance(s,bytesT)
+            if s not in (u'.dnl', u'.dws'): raise
+            if b: s = asUnicode(s)
+            s = u'__wss__%s()' % s
+            if b: s = asUtf8(s)
+            tf = ast.parse(s,filename=self.filename,mode='exec').body
         return tf
 
     def __iparse(self,text):
@@ -472,7 +562,8 @@ class PreppyParser:
         return self.__rparse(text)[0]
 
     def __preppy(self,
-            funcs='const expr while if for script eval def continue break try raise with import from assert tdef return'.split(),
+            funcs=('const expr while if for script eval def continue break try raise with import from assert tdef return'
+                   +(' match case' if isPy310 else '')).split(),
             followers=['eof'],pop=True,fixEmpty=False):
         C = []
         a = C.append
@@ -623,6 +714,49 @@ class PreppyParser:
         if isPy38: self._transfer_end_attributes([n])
         self.__inWhile -= 1
         return n
+
+    if isPy310:
+        def __match(self):
+            self.__inMatch += 1
+            try:
+                t = self._tokenX
+                n = self.__iparse(self.__tokenText(forceColonPass=2))
+            except:
+                self.__error()
+            tokens = self._tokens
+            self.__tokenPop()
+            while True:
+                _s = tokens[self._tokenX]
+                if not _s.kind=='const': break
+                _ss = self.source[_s.start:_s.end].strip()
+                if _ss:
+                    self.__serror('unexpected text, %r, in start of match' % _ss)
+                self.__tokenPop()
+            self.__renumber(n,tokens[t])
+            n.cases = self.__preppy(followers=['endmatch'],fixEmpty=True)
+            self._transfer_end_attributes([n])
+            self.__inMatch -= 1
+            return n
+
+        def __case(self):
+            self.__inCase += 1
+            aR = [].append
+            tokens = self._tokens
+            while True:
+                x = self._tokenX
+                t = tokens[x]
+                if t.kind!='case': break
+                try:
+                    n = self.__iparse(self.__tokenText(forceColonPass=3))
+                except:
+                    self.__error()
+                self.__tokenPop()
+                self.__renumber(n,t)
+                n.cases[0].body = self.__preppy(followers=['case','endmatch'],fixEmpty=True, pop=False)
+                self._transfer_end_attributes([n])
+                aR(n.cases[0])
+            self.__inCase -= 1
+            return aR.__self__
 
     def __for(self):
         self.__inFor += 1
@@ -807,9 +941,9 @@ class PreppyParser:
                 else ast.dump(node,annotate_fields=annotate_fields, include_attributes=include_attributes))
 
     def __get_pre_preamble(self):
-        return ('from preppy import include, __preppy__vlhs__, __get_conv__\n'
+        return ('from preppy import include, __preppy__vlhs__, __get_conv__, __wsscontroller__\n'
                 if self._defSeen==1
-                else 'from preppy import include, rl_exec as __rl_exec__, __preppy__vlhs__, __get_conv__\n')
+                else 'from preppy import include, rl_exec as __rl_exec__, __preppy__vlhs__, __get_conv__, __wsscontroller__\n')
 
     def __get_ast(self):
         preppyNodes = self.__parse()
@@ -850,8 +984,9 @@ class PreppyParser:
                 '__qFunc__,__lqFunc__=__get_conv__(__quoteFunc__,__lquoteFunc__,%s)' % self._isBytes
                 ] + CKWA + [
                 "__append__=[].append",
-                "__write__=lambda x:__append__(__lqFunc__(x))",
-                "__swrite__=lambda x:__append__(__qFunc__(x))",
+                "__wss__=__wsscontroller__()",
+                "__write__=lambda x:__append__(__lqFunc__(__wss__.c(x)))",
+                "__swrite__=lambda x:__append__(__qFunc__(__wss__.x(x)))",
                 ]))
             trailNodes = self.__rparse("return ''.join(__append__.__self__)")
 
@@ -871,7 +1006,7 @@ class PreppyParser:
                 #_preamble = 'from unparse import Unparser\n'+_preamble.replace('NS = {}\n','NS = {};Unparser(M,__save_sys_stdout__)\n')
                 _preambleAst = self.__rparse(self.__get_pre_preamble()+(_preamble.replace('__isbytes__',str(self._isBytes))))
                 self.__renumber(_preambleAst,llno)
-            M = ast.parse("def __code__(dictionary, outputfile, __write__,__swrite__,__save_sys_stdout__): pass",self.filename,mode='exec')
+            M = ast.parse("def __code__(dictionary, outputfile, __write__,__swrite__,__save_sys_stdout__,__wss__): pass",self.filename,mode='exec')
             self.__renumber(M,flno)
             M.body[0].body = preppyNodes
             extraAst = self.__rparse('__preppy_nodes__=%r\n__preppy_filename__=%r\n' % (pickle.dumps(M),self.filename))+_preambleAst
@@ -904,8 +1039,9 @@ def run(dictionary, __write__=None, quoteFunc=None, outputfile=None, lquoteFunc=
             if not outputfile:
                 outputfile = sys.stdout
             __write__ = outputfile.write
-        __swrite__ = lambda x: __write__(qFunc(x))
-        __lwrite__ = lambda x: __write__(lconv(x))
+        __wss__=__wsscontroller__()
+        __swrite__ = lambda x: __write__(qFunc(__wss__.x(x)))
+        __lwrite__ = lambda x: __write__(lconv(__wss__.c(x)))
         if __preppyOverrideStdout__:
             sys.stdout = dummyfile()
             sys.stdout.write = __swrite__
@@ -914,14 +1050,14 @@ def run(dictionary, __write__=None, quoteFunc=None, outputfile=None, lquoteFunc=
         for k in dictionary:
             try:
                 if k not in ('dictionary','__write__',
-                        '__swrite__','outputfile','__save_sys_stdout__') and __preppy__vlhs__(k):
+                        '__swrite__','outputfile','__save_sys_stdout__','__wss__') and __preppy__vlhs__(k):
                     b.insert(0,ast.parse('%s=dictionary[%r]' % (k,k),'???',mode='exec').body[0])
             except:
                 pass
         NS = {}
         NS['include'] = include
         __rl_exec__(compile(M,__preppy_filename__,'exec'),NS)
-        NS['__code__'](dictionary,outputfile,__lwrite__,__swrite__,__save_sys_stdout__)
+        NS['__code__'](dictionary,outputfile,__lwrite__,__swrite__,__save_sys_stdout__,__wss__)
     finally: #### end of compiled logic, standard cleanup
         if __preppyOverrideStdout__:
             sys.stdout = __save_sys_stdout__

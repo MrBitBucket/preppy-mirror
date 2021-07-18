@@ -65,7 +65,7 @@ with short Python expressions.
 Quick Start
 ===========
 
-Preppy can be installed from ``easy_install``, ``pip``, by downloading and using ``setup.py install`, by cloning from bitbucket.  Or, because it's just a single Python module, you can grab it and put it on your path, or check it into your application.
+Preppy can be installed from ``easy_install``, ``pip``, by downloading and using ``setup.py install``, by cloning from bitbucket.  Or, because it's just a single Python module, you can grab it and put it on your path, or check it into your application.
 
 
 If you're too busy to read the whole page, the next few lines should get you going. First, get preppy on your path through one of the above methods.
@@ -240,18 +240,58 @@ The python assert statement.
 
 .. describe:: {{def NAME (ARGDEFS)}} preppy stuff {{enddef}}
 
-Define a template function.
+**Define a template function**:
 This defines a function that encapsulates some preppy statements. The function may be called like any other known function,
 but unlike normal functions the preppy literals and *{{EXPR}}* expressions are renderd at the point of call followed by any returned values.
 As a concession to the template nature of the definition, {{enddef}} may be considered to be a {{return ''}}. The *{{return EXPR}}* 
 is only legal between *{{def...}}* and *{{enddef}}*.
 
-Example:
+Example::
 
     {{def weekday(d)}}
         {{script}}days=['','Sun','Mon','Tue','Wed','Thu','Fri','Sat']{{endscript}}
         <p>Today is {{days[d]}}day.</p>
     {{enddef}}
+
+.. describe:: {{match status}}
+   {{case 400}}Bad Request
+   {{case 404}}Not Found
+   {{case _}}Weird status{{endmatch}}
+
+The python **match** statement, if you are running a python with the match statement then you can use a construct
+like the above.
+
+
+
+White space control
+-------------------
+
+preppy versions 4.0.0 on support a mechanism to control end of line whitespace; two special expressions may be used.
+To delete all following white space use the fake expression `{{.dws}}`, to delete white space up to and including a newline
+use the fake expression `{{.dnl}}`.
+
+Example::
+
+    ------ no  .dnl/.dws -----
+    {{for i in range(3)}}
+        {{script}}
+        j = 2**i
+        {{endscript}}
+        i={{i}} j={{j}}
+    {{endfor}}
+
+    --------------------------
+    ------ with .dnl/.dws -----
+    {{for i in range(3)}}{{.dws}}
+        {{script}}
+        j = 2**i
+        {{endscript}}{{.dnl}}
+        i={{i}} j={{j}}
+    {{endfor}}{{.dws}}
+
+    --------------------------
+
+
 
 Module import options
 =====================
@@ -342,7 +382,7 @@ You may either supply a function callback to *__write__*, which will be called r
 Quoting functions
 -----------------
 By default, preppy will use Python's *str* function to display any expression.
-This causes a problem in the markup world, where output us usually utf-8 encoded.
+This causes a problem in the markup world, where output is usually utf-8 encoded.
 The *quoteFunc* argument lets you pass in an alternative function which will be used
 to quote any output.
 
@@ -461,6 +501,15 @@ a script tag, and call them inline::
     {{appendix.get(data, options)}}
 
 Being able to see what is passed in when you are editing the outer template, as well as what is expected in the inner template, turns out to be a huge advantage in maintenance when you are dealing with large systems of nested templates. 
+
+There is also a standard include function which is invoked as an expression like this for new style prep files::
+
+    {{include(prepname,arg1,arg...,kwd1='val1')}}
+
+for old style prep files there is only one pisitional argument
+`dictionary` (can also be speified as `dictionary={...}`).
+The other standard arguments for the prepfile are allowed and
+if not specified will default to those present in the including prepfile.
 
 
 Automatic escaping

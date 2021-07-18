@@ -7,13 +7,14 @@ __version__=''' $Id$ '''
 import sys, os, glob, string, re
 import preppy
 import unittest
-isPy3 = sys.version_info[0]==3
+isPy3 = preppy.isPy3
 if isPy3:
     xrange = range
-isPy34 = isPy3 and sys.version_info[1]>=4
+isPy34 = preppy.isPy34
 isPy35 = isPy3 and sys.version_info[1]>=5
-isPy38 = isPy3 and sys.version_info[1]>=8
-isPy39 = isPy3 and sys.version_info[1]>=9
+isPy38 = preppy.isPy38
+isPy39 = preppy.isPy39
+isPy310 = preppy.isPy310
 
 def P__tokenize(source,filename='<unknown>'):
     P=preppy.PreppyParser(source,filename)

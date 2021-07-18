@@ -6,6 +6,7 @@
 __version__=''' $Id$ '''
 import sys, os, glob, random, unittest, traceback
 import preppy
+isPy310 = preppy.isPy310
 from check_basics import fposto
 
 def checkErrorTextContains(texts,func,*args,**kwds):
@@ -436,6 +437,14 @@ catch all errors{{endtry}}"""
     def checkEmptyWith(self):
         self.assertEqual(self.getRunTimeOutput('a{{with open(fn,'r') as f}}{{endwith}}b',fn=preppy.__file__,quoteFunc=preppy.uStdQuote),'ab')
 
+    if isPy310:
+        def checkSimpleMatch(self):
+            val = 'Z-404-Z'
+            self.assertEqual(self.getRunTimeOutput('''{{for i,status in enumerate((400,404,418,"A"))}}{{i}}({{match status}}{{case 400}}Bad request{{case 404}}Not{{val}}found{{case 418}}I'm a {{'pretty '}}teapot}}{{case _}}Something's wrong with the Internet{{endmatch}}){{endfor}}''', val=val, quoteFunc=preppy.uStdQuote),
+                """0(Bad request)1(NotZ-404-Zfound)2(I'm a pretty teapot}})3(Something's wrong with the Internet)""")
+            self.assertEqual(self.getRunTimeOutput('''{{for i,status in enumerate((400,404,418,"A"))}}{{i}}({{match status}}    {{case 400}}Bad request{{case 404}}Not{{val}}found{{case 418}}I'm a {{'pretty '}}teapot}}{{case _}}Something's wrong with the Internet{{endmatch}}){{endfor}}''', val=val, quoteFunc=preppy.uStdQuote),
+                """0(Bad request)1(NotZ-404-Zfound)2(I'm a pretty teapot}})3(Something's wrong with the Internet)""")
+            self.assertRaises(SyntaxError,self.getRunTimeOutput,'''{{for i,status in enumerate((400,404,418,"A"))}}{{i}}({{match status}}   A {{case 400}}Bad request{{case 404}}Not{{val}}found{{case 418}}I'm a {{'pretty '}}teapot}}{{case _}}Something's wrong with the Internet{{endmatch}}){{endfor}}''', val=val, quoteFunc=preppy.uStdQuote)
 
     def checkLQuotingOld(self):
         '''__lquoteFunc__ applies to the literals'''
@@ -520,6 +529,15 @@ catch all errors{{endtry}}"""
                 "AAAAA+++++47-----BBBBB+++++77-----=4=CCCCC",
                 ),
                 ]:
+            self.assertEqual(self.getRunTimeOutput(c),r)
+
+    def checkDnlDws(self):
+        for c, r in [
+                (
+                '------ no\x20\x20.dnl/.dws -----\n{{for i in range(3)}}\n\t{{script}}\n\tj = 2**i\n\t{{endscript}}\n\ti={{i}} j={{j}}\n{{endfor}}\n\n--------------------------\n------ with .dnl/.dws -----\n{{for i in range(3)}}{{.dws}}\n\t{{script}}\n\tj = 2**i\n\t{{endscript}}{{.dnl}}\n\ti={{i}} j={{j}}\n{{endfor}}{{.dws}}\n\n--------------------------\n',
+                '------ no\x20\x20.dnl/.dws -----\n\n\t\n\ti=0 j=1\n\n\t\n\ti=1 j=2\n\n\t\n\ti=2 j=4\n\n\n--------------------------\n------ with .dnl/.dws -----\n\ti=0 j=1\n\ti=1 j=2\n\ti=2 j=4\n--------------------------\n'
+                ),
+            ]:
             self.assertEqual(self.getRunTimeOutput(c),r)
 
 class ErrorIndicationTestCase(PreppyOutputTestCase):
