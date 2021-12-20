@@ -50,7 +50,7 @@ if __name__=='__main__':
         description='preppy - a Preprocessor for Python',
         author='Robin Becker, Andy Robinson, Aaron Watters',
         author_email='andy@reportlab.com',
-        url='http://bitbucket.org/rptlab/preppy',
+        url='https://hg.reportlab.com/hg-public/preppy',
         py_modules=['preppy'],
         scripts=scripts,
         )
