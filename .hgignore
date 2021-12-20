@@ -45,3 +45,5 @@ syntax: regexp
 ^test/innercheckIncludeOverridingStdout.prep
 ^preppy.egg-info/.*
 ^docs/html/.*$
+^build/.*$
+^dist/.*$

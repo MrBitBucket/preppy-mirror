@@ -1,1 +1,1 @@
-include README LICENSE.txt test/* docs/*
+include README LICENSE.txt test/*.prep test/*.py docs/*

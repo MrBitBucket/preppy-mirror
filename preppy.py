@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '4.0.0'
+VERSION = '4.0.1'
 __version__ = VERSION
 
 USAGE = """
@@ -69,6 +69,7 @@ from hashlib import md5
 isPy3 = sys.version_info.major == 3
 isPy33 = isPy3 and sys.version_info.minor>=3
 isPy34 = isPy33 and sys.version_info.minor>=4
+isPy37 = isPy33 and sys.version_info.minor>=7
 isPy38 = isPy33 and sys.version_info.minor>=8
 isPy39 = isPy33 and sys.version_info.minor>=9
 isPy310 = isPy33 and sys.version_info.minor>=10
@@ -1281,6 +1282,7 @@ def getModule(name,
             pycPath = os.path.join(dir,name+'.pyc')
         with open(pycPath,'wb') as f:
             f.write(b'\0\0\0\0')
+            if isPy37: f.write(b'\0\0\0\0') #zero flags
             f.write(struct.pack('<L',int(time.time())&0xFFFFFFFF))
             if isPy3:
                 if not nosourcefile:
