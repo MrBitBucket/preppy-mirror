@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '4.0.1'
+VERSION = '4.0.2'
 __version__ = VERSION
 
 USAGE = """

@@ -24,6 +24,11 @@ def fposto(f):
             else:
                 os.environ['PREPPY_OVERRIDE_STDOUT'] = osto
     return wrapper
+
+def mkSuite(cls,prefix=None):
+    loader = unittest.TestLoader()
+    if prefix: loader.testMethodPrefix = prefix
+    return loader.loadTestsFromTestCase(cls)
         
 class SimpleTestCase(unittest.TestCase):
     def setUp(self):
@@ -217,7 +222,7 @@ class SimpleTestCase(unittest.TestCase):
     def check12_quotingOverride(self):
         processTest('sample012')
 
-suite = unittest.makeSuite(SimpleTestCase,'check')
+suite = mkSuite(SimpleTestCase,'check')
 
 @fposto
 def processTest(filename, dictionary={}):

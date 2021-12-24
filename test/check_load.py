@@ -11,7 +11,7 @@
 import os, glob
 import preppy
 import unittest
-from check_basics import fposto
+from check_basics import fposto, mkSuite
 
 class LoadTestCase(unittest.TestCase):
     def lc01(self):
@@ -231,5 +231,5 @@ if __name__=='__main__':
             print('argument not recognised!')
     else:
         runner = unittest.TextTestRunner()
-        suite = unittest.makeSuite(LoadTestCase,'load')
+        suite = mkSuite(LoadTestCase,'load')
         runner.run(suite)

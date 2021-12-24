@@ -7,6 +7,7 @@ __version__=''' $Id$ '''
 import sys, os, glob, string, re
 import preppy
 import unittest
+from check_basics import mkSuite
 isPy3 = preppy.isPy3
 if isPy3:
     xrange = range
@@ -171,7 +172,7 @@ class PreppyParserTestCase(unittest.TestCase):
         self.assertRaises(SyntaxError,P__preppy,'{{try}}bbb{{else}}ddd{{endtry}}')
 
 def makeSuite():
-    return unittest.TestSuite((unittest.makeSuite(PreppyParserTestCase,'check'),))
+    return mkSuite(PreppyParserTestCase,'check')
 
 if __name__=='__main__':
     runner = unittest.TextTestRunner()

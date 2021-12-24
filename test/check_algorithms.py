@@ -7,7 +7,7 @@ __version__=''' $Id$ '''
 import sys, os, glob, random, unittest, traceback
 import preppy
 isPy310 = preppy.isPy310
-from check_basics import fposto
+from check_basics import fposto, mkSuite
 
 def checkErrorTextContains(texts,func,*args,**kwds):
     label = kwds.pop('label','')
@@ -782,12 +782,13 @@ class IncludeTestCase(PreppyTestCase):
                 )
 
 def makeSuite():
-    suite1 = unittest.makeSuite(NewGeneratedCodeTestCase,'check')
-    suite2 = unittest.makeSuite(GeneratedCodeTestCase,'check')
-    suite3 = unittest.makeSuite(OutputModeTestCase,'check')
-    suite4 = unittest.makeSuite(IncludeTestCase)
-    suite5 = unittest.makeSuite(ErrorIndicationTestCase,'check')
-    return unittest.TestSuite((suite1,suite2, suite3, suite4, suite5))
+    return unittest.TestSuite((
+                mkSuite(NewGeneratedCodeTestCase,'check'),
+                mkSuite(GeneratedCodeTestCase,'check'),
+                mkSuite(OutputModeTestCase,'check'),
+                mkSuite(IncludeTestCase),
+                mkSuite(ErrorIndicationTestCase,'check'),
+                ))
 
 if __name__=='__main__':
     runner = unittest.TextTestRunner()

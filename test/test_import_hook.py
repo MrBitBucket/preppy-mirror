@@ -1,6 +1,6 @@
 import os, sys, unittest
 import preppy
-from check_basics import fposto
+from check_basics import fposto, mkSuite
 
 class ImportTestCase(unittest.TestCase):
     def setUp(self):
@@ -70,8 +70,8 @@ class PythonImportTestCase(unittest.TestCase):
             os.chdir(self.cwd)
 
 def makeSuite():
-    suite = unittest.makeSuite(ImportTestCase)
-    suite.addTests(unittest.makeSuite(PythonImportTestCase))
+    suite = mkSuite(ImportTestCase)
+    suite.addTests(mkSuite(PythonImportTestCase))
     return suite
 
 if __name__=='__main__':
