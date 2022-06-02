@@ -1,4 +1,4 @@
-#copyright ReportLab Inc. 2000-2019
+#copyright ReportLab Inc. 2000-2022
 #see license.txt for license details
 
 """preppy - a Python preprocessor.
@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '4.0.2'
+VERSION = '4.1.0'
 __version__ = VERSION
 
 USAGE = """
@@ -68,11 +68,12 @@ import re, sys, os, struct, tokenize, token, ast, traceback, time, marshal, pick
 from hashlib import md5
 isPy3 = sys.version_info.major == 3
 isPy33 = isPy3 and sys.version_info.minor>=3
-isPy34 = isPy33 and sys.version_info.minor>=4
-isPy37 = isPy33 and sys.version_info.minor>=7
-isPy38 = isPy33 and sys.version_info.minor>=8
-isPy39 = isPy33 and sys.version_info.minor>=9
-isPy310 = isPy33 and sys.version_info.minor>=10
+isPy34 = isPy3 and sys.version_info.minor>=4
+isPy37 = isPy3 and sys.version_info.minor>=7
+isPy38 = isPy3 and sys.version_info.minor>=8
+isPy39 = isPy3 and sys.version_info.minor>=9
+isPy310 = isPy3 and sys.version_info.minor>=10
+isPy311 = isPy3 and sys.version_info.minor>=11
 _usePyCache = isPy3 and False                   #change if you don't have legacy ie python 2.7 usage
 from xml.sax.saxutils import escape as xmlEscape
 from collections import namedtuple
@@ -689,10 +690,9 @@ class PreppyParser:
                 node.end_lineno = int(end_lineno_offset) if isinstance(end_lineno_offset,AbsLineNo) else e+end_lineno_offset
             if 'end_col_offset' in node._attributes:
                 e = getattr(node,'end_col_offset',None) or 0
-                if getattr(node,'end_lineno',1)==1:
-                    node.end_col_offset = e+end_col_offset+dcoffs
-                else:
-                    node.end_col_offset = e+dcoffs
+                if not isinstance(getattr(node,'end_lineno',None),AbsLineNo):
+                    e += end_col_offset
+                node.end_col_offset = e + dcoffs
             t = lineno_offset, col_offset, end_lineno_offset, end_col_offset
         else:
             t = lineno_offset,col_offset
