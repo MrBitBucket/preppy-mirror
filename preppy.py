@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '4.1.0'
+VERSION = '4.2.1'
 __version__ = VERSION
 
 USAGE = """
@@ -1566,6 +1566,12 @@ def main():
             moduleName = sys.argv[2]
             params = extractKeywords(sys.argv)
             module = getPreppyModule(moduleName, verbose=0)
+            module.run(params)
+
+        elif name == 'stdin':
+            moduleFile = StringIO(sys.stdin.read())
+            params = extractKeywords(sys.argv)
+            module = getPreppyModule(moduleFile, savePyc=0, verbose=0)
             module.run(params)
 
         else:
