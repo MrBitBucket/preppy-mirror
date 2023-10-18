@@ -366,10 +366,22 @@ catch all errors{{endtry}}"""
         self.assertEqual(self.getRunTimeOutput('{{import token as x}}{{x.__name__}}',quoteFunc=preppy.uStdQuote),'token')
 
     def checkFrom1(self):
-        self.assertEqual(self.getRunTimeOutput('{{from distutils import cmd}}{{cmd.__name__}}',quoteFunc=preppy.uStdQuote),'distutils.cmd')
+        if isPy310:
+            txt = '{{from tkinter import ttk}}{{ttk.__name__}}'
+            ans = 'tkinter.ttk'
+        else:
+            txt = '{{from distutils import cmd}}{{cmd.__name__}}'
+            ans = 'distutils.cmd'
+        self.assertEqual(self.getRunTimeOutput(txt,quoteFunc=preppy.uStdQuote),ans)
 
     def checkFrom2(self):
-        self.assertEqual(self.getRunTimeOutput('{{from distutils import cmd as x}}{{x.__name__}}',quoteFunc=preppy.uStdQuote),'distutils.cmd')
+        if isPy310:
+            txt = '{{from tkinter import ttk as x}}{{x.__name__}}'
+            ans = 'tkinter.ttk'
+        else:
+            txt = '{{from distutils import cmd as x}}{{x.__name__}}'
+            ans = 'distutils.cmd'
+        self.assertEqual(self.getRunTimeOutput(txt,quoteFunc=preppy.uStdQuote),ans)
 
     def checkAssert1(self):
         self.assertRaises(AssertionError,self.getRunTimeOutput,"{{assert i==1}}{{i}}", i=0, quoteFunc=preppy.uStdQuote)
