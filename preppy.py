@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '4.2.2'
+VERSION = '4.2.3'
 __version__ = VERSION
 
 USAGE = """
@@ -75,6 +75,7 @@ isPy39 = isPy3 and sys.version_info.minor>=9
 isPy310 = isPy3 and sys.version_info.minor>=10
 isPy311 = isPy3 and sys.version_info.minor>=11
 isPy312 = isPy3 and sys.version_info.minor>=12
+isPy313 = isPy3 and sys.version_info.minor>=13
 _usePyCache = isPy3 and False                   #change if you don't have legacy ie python 2.7 usage
 from xml.sax.saxutils import escape as xmlEscape
 from collections import namedtuple
