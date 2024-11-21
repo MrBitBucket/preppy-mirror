@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '4.2.3'
+VERSION = '4.3.0'
 __version__ = VERSION
 
 USAGE = """
@@ -76,6 +76,7 @@ isPy310 = isPy3 and sys.version_info.minor>=10
 isPy311 = isPy3 and sys.version_info.minor>=11
 isPy312 = isPy3 and sys.version_info.minor>=12
 isPy313 = isPy3 and sys.version_info.minor>=13
+ast_Str = ast.Constant if isPy38 else ast.Str
 _usePyCache = isPy3 and False                   #change if you don't have legacy ie python 2.7 usage
 from xml.sax.saxutils import escape as xmlEscape
 from collections import namedtuple
@@ -617,7 +618,7 @@ class PreppyParser:
         t = self.__tokenPop()
         self.__renumber(n,t)
         n.body = self.__preppy(followers=['enddef'],fixEmpty=True)
-        r = ast.Return(value=ast.Str(s=''))
+        r = ast.Return(value=ast_Str(''))
         self.__renumber(r,self._tokens[self._tokenX-1])
         n.body.append(r)
         if isPy38: self._transfer_end_attributes([n])
@@ -895,7 +896,7 @@ class PreppyParser:
 
     def __const(self):
         try:
-            n = ast.Expr(value=ast.Call(func=ast.Name(id='__write__',ctx=ast.Load()),args=[ast.Str(s=self.__tokenText(strip=0))],keywords=[],starargs=None,kwargs=None))
+            n = ast.Expr(value=ast.Call(func=ast.Name(id='__write__',ctx=ast.Load()),args=[ast_Str(self.__tokenText(strip=0))],keywords=[],starargs=None,kwargs=None))
         except:
             self.__error('bad constant')
         t = self.__tokenPop()
