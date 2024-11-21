@@ -49,11 +49,11 @@ class PreppyParserTestCase(unittest.TestCase):
     @staticmethod
     def fixup(s):
         sNN = ' None, None,'
+        sEL = ', []'
         if isPy3:
             sTE = 'Try'
             sTFL = ' [],'
             if isPy35: sNN = ''
-            sEL = ', []'
             if isPy313: sEL=''
         else:
             sTE = 'TryExcept'
