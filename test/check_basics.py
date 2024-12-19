@@ -54,7 +54,7 @@ class SimpleTestCase(unittest.TestCase):
 
     @fposto
     def check06NoPythonFile(self):
-        mod = preppy.getModule(os.path.join(self.dirName, 'sample006'), savefile=0)
+        mod = preppy.getModule(os.path.join(self.dirName, 'sample006'))
         outFile = open(os.path.join(self.dirName, 'sample006.html'), 'w')
         mod.run(dictionary={}, outputfile = outFile)
         outFile.close()
@@ -193,7 +193,7 @@ class SimpleTestCase(unittest.TestCase):
         "firstword", "findfirstword", "indent", "linesout", "l",
         "lindent", "fn", "P", "out", "name", "result",
         "GLOBAL_LOADED_MODULE_DICTIONARY", "sourcetext", "verbose",
-        "sourcefilename", "savefile", "module", "checksum",
+        "sourcefilename", "module", "checksum",
         "sourcechecksum", "out", "outfilename", "outfile", "result",
         "textlines", "i", "l", "l1", "l2", "l3","getModule" ]
         dictionary = {}

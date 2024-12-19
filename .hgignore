@@ -40,7 +40,7 @@ test/*TestFile.txt
 test/sample*.html
 
 syntax: regexp
-^tmp/.*$
+^devel/.*$
 ^patches/.*$
 ^test/innercheckIncludeOverridingStdout.prep
 ^preppy.egg-info/.*
