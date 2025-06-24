@@ -1067,15 +1067,15 @@ def run(dictionary, __write__=None, quoteFunc=None, outputfile=None, lquoteFunc=
         if __preppyOverrideStdout__:
             sys.stdout = __save_sys_stdout__
 
-def getOutputFromKeywords(quoteFunc=None, lquoteFunc=None, **kwds):
+def getOutput(dictionary, quoteFunc=None, lquoteFunc=None):
     buf=[]
-    run(kwds,__write__=buf.append, quoteFunc=quoteFunc, lquoteFunc=lquoteFunc)
+    run(dictionary,__write__=buf.append, quoteFunc=quoteFunc, lquoteFunc=lquoteFunc)
     if quoteFunc is None:
         quoteFunc = __get_conv__(None,None,__isbytes__)[0]
     return quoteFunc('')[0:0].join(buf)
 
-def getOutput(dictionary, quoteFunc=None, lquoteFunc=None):
-    return getOutputFromKeywords(quoteFunc=quoteFunc, lquoteFunc=lquoteFunc, **dictionary)
+def getOutputFromKeywords(quoteFunc=None, lquoteFunc=None, **kwds):
+    return getOutput(kwds,quoteFunc=quoteFunc, lquoteFunc=lquoteFunc)
 
 if __name__=='__main__':
     run()
