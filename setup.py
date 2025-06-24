@@ -69,7 +69,6 @@ if __name__=='__main__':
             'License :: OSI Approved :: BSD License',
             'Topic :: Printing',
             'Topic :: Text Processing :: Markup',
-            'Programming Language :: Python :: 2.7',
             'Programming Language :: Python :: 3',
             'Programming Language :: Python :: 3.7',
             'Programming Language :: Python :: 3.8',
@@ -78,6 +77,7 @@ if __name__=='__main__':
             'Programming Language :: Python :: 3.11',
             'Programming Language :: Python :: 3.12',
             'Programming Language :: Python :: 3.13',
+            'Programming Language :: Python :: 3.14',
             ],
         description='preppy - a Preprocessor for Python',
         long_description='preppy - a Preprocessor for Python. See https://preppy.readthedocs.io/',
@@ -91,18 +91,3 @@ if __name__=='__main__':
                                 ],
                             ),
         )
-    if 'bdist_wheel' in sys.argv:
-        bfn = f'preppy-{version}-py3-none-any.whl'
-        renamed = False
-        if '--dist-dir' in sys.argv:
-            distDir = sys.argv[sys.argv.index('--dist-dir')+1]
-            fn = glob.glob(os.path.join(distDir,bfn))
-            if len(fn)==1:
-                fn = fn[0]
-                nfn = fn.replace('-py3-','-py2.py3-')
-                if os.path.isfile(nfn): os.remove(nfn)
-                os.rename(fn, nfn)
-                print(f'##### {bfn} was renamed to {os.path.basename(nfn)} #####')
-                renamed = True
-        if not renamed:
-            print(f'!!!!! {bfn} not renamed !!!!!')

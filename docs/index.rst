@@ -302,7 +302,7 @@ File system semantics
 
 The file system method is implemented by :func:`getModule`:
 
-.. function:: getModule(name, directory=".", source_extension=".prep", verbose=0, savefile=None, sourcetext=None, savePy=0, force=0, savePyc=1, importModule=1,_globals=None)
+.. function:: getModule(name, directory=".", source_extension=".prep", verbose=0, sourcetext=None, force=0, savePyc=0, cache='global, _globals=None, _module=None)
 
 This loads your template, which is a Python module object.  
 
@@ -318,7 +318,10 @@ Alternatively, you can pass the module name and directory separately if you pref
 
 Finally, you can supply literal source if desired.  This is primarily to help us in writing test cases; if you're doing it for real,  you are probably either doing something brilliant or stupid ;-)  
 
-The resulting module should be treated just like a Python module:  import it, keep it around, and call it many times.  
+The resulting module should be treated just like a Python module:  import it, keep it around, and call it many times.
+
+By default no pyc should be created unless *savePyc = True*. The *cache* parameter can be a *preppy.PreppyCache()* or one of *(None, 'global', 'local')*. If
+*'global'* a module level cache is used, if *'local'* a *PreppyCache* is created for ths module and includes alone.
 
 Import semantics
 ----------------
@@ -506,10 +509,13 @@ There is also a standard include function which is invoked as an expression like
 
     {{include(prepname,arg1,arg...,kwd1='val1')}}
 
-for old style prep files there is only one pisitional argument
+for old style prep files there is only one positional argument
 `dictionary` (can also be speified as `dictionary={...}`).
 The other standard arguments for the prepfile are allowed and
 if not specified will default to those present in the including prepfile.
+The internal getModule call will default to use the same values as were used
+for the including prep getModule; they can be overridden using a dictionary argument
+*__getModule_kwds__*.
 
 
 Automatic escaping

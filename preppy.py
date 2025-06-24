@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '4.3.0'
+VERSION = '5.0.0'
 __version__ = VERSION
 
 USAGE = """
@@ -65,6 +65,7 @@ QUOTEQUOTE = "$$"
 UNESCAPES = ((QSTARTDELIMITER, STARTDELIMITER), (QENDDELIMITER, ENDDELIMITER), (QUOTEQUOTE, QUOTE))
 
 import re, sys, os, struct, tokenize, token, ast, traceback, time, marshal, pickle, inspect, textwrap
+from collections import OrderedDict
 from hashlib import md5
 isPy3 = sys.version_info.major == 3
 isPy33 = isPy3 and sys.version_info.minor>=3
@@ -1066,15 +1067,15 @@ def run(dictionary, __write__=None, quoteFunc=None, outputfile=None, lquoteFunc=
         if __preppyOverrideStdout__:
             sys.stdout = __save_sys_stdout__
 
-def getOutputFromKeywords(quoteFunc=None, lquoteFunc=None, **kwds):
+def getOutput(dictionary, quoteFunc=None, lquoteFunc=None):
     buf=[]
-    run(kwds,__write__=buf.append, quoteFunc=quoteFunc, lquoteFunc=lquoteFunc)
+    run(dictionary,__write__=buf.append, quoteFunc=quoteFunc, lquoteFunc=lquoteFunc)
     if quoteFunc is None:
         quoteFunc = __get_conv__(None,None,__isbytes__)[0]
     return quoteFunc('')[0:0].join(buf)
 
-def getOutput(dictionary, quoteFunc=None, lquoteFunc=None):
-    return getOutputFromKeywords(quoteFunc=quoteFunc, lquoteFunc=lquoteFunc, **dictionary)
+def getOutputFromKeywords(quoteFunc=None, lquoteFunc=None, **kwds):
+    return getOutput(kwds,quoteFunc=quoteFunc, lquoteFunc=lquoteFunc)
 
 if __name__=='__main__':
     run()
@@ -1090,7 +1091,7 @@ if __name__=='__main__':
 '''
 
 def testgetOutput(name="testoutput"):
-    mod = getModule(name,'.',savePyc=1,sourcetext=teststring,importModule=1)
+    mod = getModule(name,'.',savePyc=1,sourcetext=teststring,cache=1)
     pel(mod.getOutput({}))
 
 def testgetmodule(name="testoutput"):
@@ -1161,29 +1162,78 @@ def preppyTime():
 preppyTime = preppyTime()
 
 # cache found modules by source file name
-FILE_MODULES = {}
-SOURCE_MODULES = {}
+class PreppyCache(OrderedDict):
+    def __init__(self,capacity=127):
+        super().__init__()
+        self.capacity = capacity
+
+    def __getitem__(self, key):
+        value = self.pop(key)
+        super().__setitem__(key,value)
+        return value
+
+    def __setitem__(self, key, value):
+        try:
+            self.pop(key)
+        except KeyError:
+            if len(self) >= self.capacity:
+                self.popitem(last=False)
+        super().__setitem__(key,value)
+
+__preppyCache__ = PreppyCache()
+
 def getModule(name,
               directory=".",
               source_extension=".prep",
               verbose=None,
-              savefile=None,
               sourcetext=None,
-              savePy=0,
               force=0,
-              savePyc=1,
-              importModule=1,
+              savePyc=None,
+              cache='global',
               _globals=None,
               _existing_module=None):
     """Returns a python module implementing the template, compiling if needed.
+    argument            purpose
+    name                the basename of the source or sometjhing with a read
+                        name, directory & source_extension are used to create
+                        the prep source unless sourcetext is provided_
+    directory           directory part of the prep path (default '.')
+    source_extension    '.prep'
+    sourcetext          the prep content; this overrides name, directory etc etc
+    force:              ignore up-to-date checks and always recreate.
+    savePyc             save the created module as a pyc file
+    cache               an instance of preppy.PreppyCache 
+                        or None or 'local' or the default 'global'. If None no caching
+                        is done. If 'global' a module level cache is used. If 'local'
+                        a private cache is created in this call.
 
-    force: ignore up-to-date checks and always recompile.
+    If this prep uses {{include(...)}} then source_extension, verbose, savePyc,
+    cache and _globals=_globals will be used to the implied getModule calls.
+    These defaults can be overridden using an include argument __getModule_kwds__.
     """
     verbose = verbose or _verbose
     if isinstance(name,bytesT): name = name.decode('utf8')
     if isinstance(directory,bytesT): directory = directory.decode('utf8')
     if isinstance(source_extension,bytesT): source_extension = source_extension.decode('utf8')
     if isinstance(sourcetext,bytesT): sourcetext = sourcetext.decode('utf8')
+
+    if not isinstance(cache,PreppyCache):
+        if cache=='local':
+            cache = PreppyCache()
+        elif cache=='global':
+            cache = __preppyCache__
+        elif cache is not None:
+            raise ValueError('the cache argument should be None, "global", "locale" or a PreppyCache not %r' % cache)
+
+    def returnValue(m):
+        m.__dict__['__getModule_kwds__'] = dict(
+                    source_extension=source_extension,
+                    verbose=verbose,
+                    savePyc=savePyc,
+                    cache=cache,
+                    _globals=_globals,
+                    )
+        return m
     if hasattr(name,'read'):
         sourcetext = name.read()
         name = getattr(name,'name',None)
@@ -1207,11 +1257,6 @@ def getModule(name,
         name = os.path.splitext(name)[0]
         if verbose:
             pnl(' checking %s... ' % os.path.join(dir, name))
-        # savefile is deprecated but kept for safety.  savePy and savePyc are more
-        # explicit and are the preferred.  By default it generates a pyc and no .py
-        # file to reduce clutter.
-        if savefile and savePyc == 0:
-            savePyc = 1
 
     if sourcetext is not None:
         # they fed us the source explicitly
@@ -1220,14 +1265,15 @@ def getModule(name,
         if verbose: pnl(" sourcetext provided... ")
         sourcefilename = "<input text %s>" % name
         nosourcefile = 1
-        module = SOURCE_MODULES.get(sourcetext,None)
-        if module:
-            return module
+        if cache:
+            module = cache.get(sourcetext,None)
+            if module:
+                return returnValue(module)
     else:
         nosourcefile = 0
         # see if the module exists as a python file
         sourcefilename = os.path.join(dir, name+source_extension)
-        module = FILE_MODULES.get(sourcefilename,None)
+        module = cache.get(sourcefilename,None) if cache else None
 
         try:
             module = rl_get_module(name,dir)
@@ -1246,8 +1292,8 @@ def getModule(name,
             if module is None:
                 raise ValueError("couldn't find source %s or module %s" % (sourcefilename, name))
             # use the existing module??? (NO SOURCE PRESENT)
-            FILE_MODULES[sourcefilename] = module
-            return module
+            if cache: cache[sourcefilename] = module
+            return returnValue(module)
         else:
             sourcetext = sourcefile.read()
             # NOTE: force recompile on each new version of this module.
@@ -1257,8 +1303,8 @@ def getModule(name,
                     # use the existing module. it matches
                     if verbose:
                         pnl(" up to date. ")
-                    FILE_MODULES[sourcefilename] = module
-                    return module
+                    if cache: cache[sourcefilename] = module
+                    return returnValue(module)
                 else:
                     # always recompile
                     if verbose:
@@ -1309,12 +1355,9 @@ def getModule(name,
     if pycPath:
         module.__file__=pycPath
     rl_exec(P.codeobject,module.__dict__)
-    if importModule:
-        if nosourcefile:
-            SOURCE_MODULES[sourcetext] = module
-        else:
-            FILE_MODULES[sourcefilename] = module
-    return module
+    if cache:
+        cache[sourcetext if nosourcefile else sourcefilename] = module
+    return returnValue(module)
 
 # support the old form here
 getPreppyModule = getModule
@@ -1340,7 +1383,7 @@ def installImporter():
                     #print(f'+++++ create_module({spec!r})')
                     name = spec.name
                     try:
-                        m = compileModule(spec.origin, verbose=_verbose, importModule=0, existing_module=sys.modules.get(name,None))
+                        m = compileModule(spec.origin, verbose=_verbose, cache='global', existing_module=sys.modules.get(name,None))
                     except:
                         traceback.print_exc()
                         raise
@@ -1392,7 +1435,7 @@ def installImporter():
                     try:
                         #compile WITHOUT IMPORTING to avoid triggering recursion
                         try:
-                            m = compileModule(self.prepPath, verbose=_verbose, importModule=0, existing_module=sys.modules.get(name,None))
+                            m = compileModule(self.prepPath, verbose=_verbose, cache='global', existing_module=sys.modules.get(name,None))
                         except:
                             traceback.print_exc()
                             raise
@@ -1413,33 +1456,30 @@ def uninstallImporter():
     except:
         pass
 
-def compileModule(fn, savePy=0, force=0, verbose=1, importModule=1, existing_module=None):
+def compileModule(fn, savePyc=True, force=0, verbose=1, cache='global', existing_module=None):
     "Compile a prep file to a pyc file.  Optionally, keep the python source too."
     name, ext = os.path.splitext(fn)
     d = os.path.dirname(fn)
     return getModule(os.path.basename(name), directory=d, source_extension=ext,
-                     savePyc=1, savePy=savePy, force=force,
-                     verbose=verbose, importModule=importModule,_existing_module=existing_module)
+                     savePyc=savePyc, force=force,
+                     verbose=verbose, cache=cache,_existing_module=existing_module)
 
-def compileModules(pattern, savePy=0, force=0, verbose=1):
+def compileModules(pattern, savePyc=1, force=0, verbose=1):
     "Compile all prep files matching the pattern."
     import glob
     filenames = glob.glob(pattern)
     for filename in filenames:
-        compileModule(filename, savePy, force, verbose)
+        compileModule(filename, savePyc, force, verbose)
 
 from fnmatch import fnmatch
-def compileDir(dirName, pattern="*.prep", recursive=1, savePy=0, force=0, verbose=1):
+def compileDir(dirName, pattern="*.prep", recursive=1, savePyc=1, force=0, verbose=1):
     "Compile all prep files in directory, recursively if asked"
     if verbose: pel('compiling directory %s' % dirName)
     if recursive:
-        def _visit(A,D,N,pattern=pattern,savePy=savePy, verbose=verbose,force=force):
-            for filename in filter(lambda fn,pattern=pattern: fnmatch(fn,pattern),
-                    filter(os.path.isfile,map(lambda n, D=D: os.path.join(D,n),N))):
-                compileModule(filename, savePy, force, verbose)
-        os.path.walk(dirName,_visit,None)
+        for filename in _prepFind(dirName, pattern):
+            compileModule(filename, savePyc, force, verbose)
     else:
-        compileModules(os.path.join(dirName, pattern), savePy, force, verbose)
+        compileModules(os.path.join(dirName, pattern), savePyc, force, verbose)
 
 def _cleanFiles(filenames,verbose):
     for filename in filenames:
@@ -1458,28 +1498,32 @@ def _cleanFiles(filenames,verbose):
         if done == 0:
             if verbose:
                 pnl(' nothing to remove ')
-        pel('')
+        if verbose: pel('')
+
+def _prepFind(dirName, pattern='*.prep'):
+    for root, dirs, filenames in os.walk(dirName):
+        for fn in filenames:
+            if fnmatch(fn,pattern):
+                yield os.path.join(root,fn)
 
 def cleanDir(dirName, pattern="*.prep", recursive=1, verbose=1):
     "Removes all py and pyc files matching any prep files found"
     if verbose: pel('cleaning directory %s' % dirName)
     if recursive:
-        def _visit(A,D,N,pattern=pattern,verbose=verbose):
-            _cleanFiles(filter(lambda fn,pattern=pattern: fnmatch(fn,pattern),
-                    filter(os.path.isfile,map(lambda n, D=D: os.path.join(D,n),N))),verbose)
-        os.path.walk(dirName,_visit,None)
+        F = _prepFind(dirName,pattern)
     else:
         import glob
-        _cleanFiles(filter(os.path.isfile,glob.glob(os.path.join(dirName, pattern))),verbose)
+        F = filter(os.path.isfile,glob.glob(os.path.join(dirName, pattern)))
+    _cleanFiles(list(F),verbose)
 
-def compileStuff(stuff, savePy=0, force=0, verbose=0):
+def compileStuff(stuff, savePyc=1, force=0, verbose=0):
     "Figures out what needs compiling"
     if os.path.isfile(stuff):
-        compileModule(stuff, savePy=savePy, force=force, verbose=verbose)
+        compileModule(stuff, savePyc=savePyc, force=force, verbose=verbose)
     elif os.path.isdir(stuff):
-        compileDir(stuff, savePy=savePy, force=force, verbose=verbose)
+        compileDir(stuff, savePyc=savePyc, force=force, verbose=verbose)
     else:
-        compileModules(stuff, savePy=savePy, force=force, verbose=verbose)
+        compileModules(stuff, savePyc=savePyc, force=force, verbose=verbose)
 
 def extractKeywords(arglist):
     "extracts a dictionary of keywords"
@@ -1492,23 +1536,33 @@ def extractKeywords(arglist):
     return d
 
 __notFound__ = object()
-def _find_quoteValue(name,depth=2,default=__notFound__):
+def _find_quoteValue(name,depth=2, default=__notFound__, maxdepth=None, lg=False):
     try:
         while 1:
             g = sys._getframe(depth)
-            if g.f_code.co_name=='__code__':
-                g=g.f_globals
+            if lg:
+                if name in g.f_locals:
+                    return g.f_locals[name]
+                if name in g.f_globals:
+                    return g.f_globals[name]
             else:
-                g=g.f_locals
-            if name in g: return g[name]
+                if g.f_code.co_name=='__code__':
+                    g=g.f_globals
+                else:
+                    g=g.f_locals
+                if name in g: return g[name]
             depth += 1
+            if maxdepth and depth>maxdepth:
+                return default
     except:
         return default
 
 def include(viewName,*args,**kwd):
     dir, filename = os.path.split(viewName)
     root, ext = os.path.splitext(filename)
-    m = {}
+    m = _find_quoteValue('__getModule_kwds__',depth=3, default=None,maxdepth=3,lg=True)
+    m = m.copy() if m else {} 
+    m.update(kwd.pop('__getModule_kwds__',{}))
     if dir: m['directory'] = dir
     if ext: m['source_extension'] = ext
     m = getModule(root,**m)
@@ -1556,70 +1610,64 @@ def include(viewName,*args,**kwd):
         dictionary['__preppyOverrideStdout__'] = __preppyOverrideStdout__
         return m.getOutput(dictionary,quoteFunc=quoteFunc,lquoteFunc=lquoteFunc)
 
+def private():
+    '''return a provate copy of the preppy module'''
+    return rl_get_module('preppy',os.path.dirname(__file__))
+
 def main():
     if len(sys.argv)>1:
-        name = sys.argv[1]
+        names = sys.argv[1:]
+        # extra output
+        if '--verbose' in names:
+            names.remove('--verbose')
+            verbose = 1
+        elif '-v' in names:
+            names.remove('-v')
+            verbose = 1
+        else:
+            verbose = 0
+
+        name = names.pop(0)
 
         if name == 'compile':
-            names = sys.argv[2:]
-
-            # save the intermediate python file
-            if '--savepy' in names:
-                names.remove('--savepy')
-                savePy = 1
-            elif '-p' in names:
-                names.remove('-p')
-                savePy = 1
-            else:
-                savePy = 0
-
-            # force recompile every time
-            if '--force' in names:
-                names.remove('--force')
-                force = 1
-            elif '-f' in names:
-                names.remove('-f')
-                force = 1
-            else:
-                force = 0
-
-            # extra output
-            if '--verbose' in names:
-                names.remove('--verbose')
-                verbose = 1
-            elif '-v' in names:
-                names.remove('-v')
-                verbose = 1
-            else:
-                verbose = 0
-
             for arg in names:
-                compileStuff(arg, savePy=savePy, force=force, verbose=verbose)
+                compileStuff(arg, savePyc=1, force=1, verbose=verbose)
 
         elif name == 'clean':
-            for arg in sys.argv[2:]:
-                cleanDir(arg, verbose=1)
+            for arg in names:
+                cleanDir(arg, verbose=verbose)
 
         elif name == 'run':
-            moduleName = sys.argv[2]
-            params = extractKeywords(sys.argv)
-            module = getPreppyModule(moduleName, verbose=0)
+            moduleName = names.pop(0)
+            params = extractKeywords(names)
+            module = getPreppyModule(moduleName, verbose=verbose)
             module.run(params)
 
         elif name == 'stdin':
             moduleFile = StringIO(sys.stdin.read())
-            params = extractKeywords(sys.argv)
-            module = getPreppyModule(moduleFile, savePyc=0, verbose=0)
+            params = extractKeywords(names)
+            module = getPreppyModule(moduleFile, savePyc=0, verbose=verbose)
             module.run(params)
+
+        elif name == 'help':
+            prog = os.path.basename(sys.argv[0])
+            space = 10*'\x20'
+            print(  f'''{prog} help\n{space}give this help\n'''
+                    f'''{prog} clean dir....\n{space}clean dirs\n'''
+                    f'''{prog} run file.prep param=value....\n{space}execute the prep file with parameters\n'''
+                    f'''{prog} compile file.prep.....\noptions'''
+                    f'''{prog} stdin\nrun what's in stdin\n'''
+                    f'''{prog} can take --verbose option'''
+                    )
 
         else:
             #default is run
-            moduleName = sys.argv[1]
-            module = getPreppyModule(moduleName, verbose=0)
+            moduleName = names.pop(0)
+            module = getPreppyModule(moduleName, verbose=verbose)
             if hasattr(module,'get'):
                 pel(module.get())
             else:
-                params = extractKeywords(sys.argv)
+                params = extractKeywords(names)
                 module.run(params)
     else:
         pel("no argument: running tests")
