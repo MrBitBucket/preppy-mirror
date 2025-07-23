@@ -33,7 +33,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '5.0.0'
+VERSION = '5.0.1'
 __version__ = VERSION
 
 USAGE = """
@@ -180,7 +180,7 @@ def asUnicode(s):
     return s if isinstance(s,unicodeT) else s.decode('utf8')
 
 def getMd5(s):
-    return md5(asUtf8(s)+asUtf8(VERSION)).hexdigest()
+    return md5(asUtf8(s)+asUtf8(VERSION),usedforsecurity=False).hexdigest()
 
 class AbsLineNo(int):
      pass
@@ -1091,7 +1091,7 @@ if __name__=='__main__':
 '''
 
 def testgetOutput(name="testoutput"):
-    mod = getModule(name,'.',savePyc=1,sourcetext=teststring,cache=1)
+    mod = getModule(name,'.',savePyc=1,sourcetext=teststring,cache='local')
     pel(mod.getOutput({}))
 
 def testgetmodule(name="testoutput"):
