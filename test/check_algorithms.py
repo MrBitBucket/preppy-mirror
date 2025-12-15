@@ -77,6 +77,21 @@ class GeneratedCodeTestCase(PreppyOutputTestCase):
         out = self.getRunTimeOutput(prepCode)
         self.assertEqual(out, "Hello 4 World")
 
+    def checkExpr2(self):
+        prepCode = "{{eval}}\ns='''a\nb\nc'''\nS=s.upper()\n' '.join((s,S))\n{{endeval}}\n"
+        out = self.getRunTimeOutput(prepCode)
+        self.assertEqual(out, "a\nb\nc A\nB\nC\n")
+
+    def checkExpr3(self):
+        prepCode = b"{{eval}}\ns='''a\nb\nc'''\nS=s.upper()\n' '.join((s,S))\n{{endeval}}\n"
+        out = self.getRunTimeOutput(prepCode)
+        self.assertEqual(out, "a\nb\nc A\nB\nC\n")
+
+    def checkExpr4(self):
+        prepCode = "{{eval}}\n\ts='''a\n\tb\n\tc'''\n\tS=s.upper()\n\t' '.join((s,S))\n{{endeval}}\n"
+        out = self.getRunTimeOutput(prepCode)
+        self.assertEqual(out, "a\nb\nc A\nB\nC\n")
+
     def checkWhitespaceRespected1(self):
         prepCode = "{{2+2}} " # 1 trailing space
         out = self.getRunTimeOutput(prepCode)
@@ -619,6 +634,28 @@ class ErrorIndicationTestCase(PreppyOutputTestCase):
                     '{{for i in (0,1)}}{{else}}{{script}}raise ValueError{{endscript}}{{endfor}}',
                     ]:
             self.assertEqual(checkErrorTextContains('line 10001, in __code__',self.getRunTimeOutput,src+'\n'+line+'\n'+src,quoteFunc=preppy.uStdQuote,label=line),'')
+
+    def checkErrorIndication12(self):
+        src="{{s='abc'\nS=s.upper()\n}}"
+        self.assertEqual(checkErrorTextContains('{{expr}} needs only one expression, got 2',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
+
+    def checkErrorIndication13(self):
+        src="{{eval}}\ns='abc'\nS=s.upper()\n{{endeval}}"
+        self.assertEqual(checkErrorTextContains('{{eval}} should end with an expression',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
+
+    def checkErrorIndication14(self):
+        src=b"{{s='abc'\nS=s.upper()\n}}"
+        self.assertEqual(checkErrorTextContains('{{expr}} needs only one expression, got 2',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
+
+    def checkErrorIndication15(self):
+        src=b"{{eval}}\ns='abc'\nS=s.upper()\n{{endeval}}"
+        self.assertEqual(checkErrorTextContains('{{eval}} should end with an expression',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
+
+    def checkErrorIndication12(self):
+        src="{{s='abc'}}"
+        self.maxDiff=None
+        self.assertEqual(checkErrorTextContains('{{expr}} should be an expression, got Assign',self.getRunTimeOutput,src,quoteFunc=preppy.uStdQuote),'')
+            
 
 class NewGeneratedCodeTestCase(PreppyTestCase):
     """Maybe the simplest and most all-encompassing:

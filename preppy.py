@@ -15,16 +15,9 @@ between double curly braces:
    Dear {{surname}},
    You owe us {{amount}} {{if amount>1000}}which is pretty serious{{endif}}
 
-On first use or any any change in the template, this is normally converted to a
-python source module 'in memory', then to a compiled pyc file which is saved to
-disk alongside the original.  Options control this; you can operate entirely
-in memory, or look at the generated python code if you wish.
-
-On subsequent use, the generated module is imported and loaded directly.
-The module contains a run(...) function; you can pass in a dictionary of
-parameters (such as the surname and amount parameters above), and optionally
-an output stream or output-collection function if you don't want it to go to
-standard output.
+The preppy.getModule function transforms a prep source into a python module which
+is stored in a cache. The module contains functions which allow passing values into
+the template and which return the interpolated result.
 
 The command line options let you run modules with hand-input parameters -
 useful for basic testing - and also to batch-compile or clean directories.
@@ -33,7 +26,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '5.0.1'
+VERSION = '5.1.0'
 __version__ = VERSION
 
 USAGE = """
@@ -861,7 +854,11 @@ class PreppyParser:
         except:
             self.__error(end+' expected')
         if not text: return []
-        if mode=='eval': n = ast.Expr(value=ast.Call(func=ast.Name(id='__swrite__',ctx=ast.Load()),args=n,keywords=[],starargs=None,kwargs=None))
+        if mode=='eval':
+            if not isinstance(n[-1],ast.Expr):
+                self.__error('{{eval}} should end with an expression')
+            n[-1] = ast.Expr(value=ast.Call(func=ast.Name(id='__swrite__',ctx=ast.Load()),args=[n[-1].value],keywords=[],starargs=None,kwargs=None))
+            if len(n)==1: n = n[0]
         self.__renumber(n,t,dcoffs=dcoffs)
         return n
 
@@ -906,8 +903,13 @@ class PreppyParser:
 
     def __expr(self):
         t = self.__tokenText()
+        n = self.__rparse(t)
+        if len(n)!=1:
+            self.__error('{{expr}} needs only one expression, got %d' % len(n))
+        elif not isinstance(n[0],ast.Expr):
+            self.__error('{{expr}} should be an expression, got %s' % n[0].__class__.__name__)
         try:
-            n = ast.Expr(value=ast.Call(func=ast.Name(id='__swrite__',ctx=ast.Load()),args=[self.__rparse(t)[0].value],keywords=[],starargs=None,kwargs=None))
+            n = ast.Expr(value=ast.Call(func=ast.Name(id='__swrite__',ctx=ast.Load()),args=[n[0].value],keywords=[],starargs=None,kwargs=None))
         except:
             self.__error('bad expression')
         t = self.__tokenPop()
@@ -1200,7 +1202,7 @@ def getModule(name,
     directory           directory part of the prep path (default '.')
     source_extension    '.prep'
     sourcetext          the prep content; this overrides name, directory etc etc
-    force:              ignore up-to-date checks and always recreate.
+    force               ignore up-to-date checks and always recreate.
     savePyc             save the created module as a pyc file
     cache               an instance of preppy.PreppyCache 
                         or None or 'local' or the default 'global'. If None no caching
@@ -1662,8 +1664,7 @@ def main():
 
         else:
             #default is run
-            moduleName = names.pop(0)
-            module = getPreppyModule(moduleName, verbose=verbose)
+            module = getPreppyModule(name, verbose=verbose)
             if hasattr(module,'get'):
                 pel(module.get())
             else:
