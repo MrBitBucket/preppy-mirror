@@ -4,9 +4,10 @@
 ## new style calling
 def run():
     from preppy import getModule
-    module = getModule("newstyle.prep", verbose=1)
-    print(module.get([('fred', 'm'),('bill','f'),('bacterium','other'),('jill','m')]))
+    import os
+    module = getModule(os.path.join(os.path.dirname(__file__),"newstyle.prep"), verbose=1)
+    print(module.get([('fred', 'm'),('bill','f'),('bacterium','other'),('jill','m')],
+                            __quoteFunc__=str, __lquoteFunc__=str))
 
 if __name__=='__main__':
     run()
-    
