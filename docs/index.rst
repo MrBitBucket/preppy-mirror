@@ -89,7 +89,7 @@ If this is in a file called, say, ``template.prep``, you can invoke it like this
     sex = 'm'
     html = mymodule.get(name, sex)
 
-``getModule`` returns a Python module object. On first call, or when templates are edited, this will generate a .pyc file, just as a Python module does (assuming you have write access to the disk). This module contains a function, ``get``, which implements your template.  The function accepts the parameters which you specified at the top of the prep file, and returns a (non-Unicode, 8-bit) string.  
+``getModule`` returns a Python module object. On first call, or when templates are edited, this will generate a a python module. A savepyc argument allows saving the module as a compiled python module, but normally the module is just stored in a cache keyed on the prep source or path. This module contains a function, ``get`` or ``getOutput``, which implements your template.  The function accepts the parameters which you specified at the top of the prep file, and returns a (non-Unicode, 8-bit) string. The ``getOutput`` function just allows a dictionary to be passed.
 
 This is preppy's key design idea:  we try to make a preppy template as much like a python function as possible.
 
