@@ -26,7 +26,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '5.1.0'
+VERSION = '5.2.0'
 __version__ = VERSION
 
 USAGE = """
@@ -70,6 +70,7 @@ isPy310 = isPy3 and sys.version_info.minor>=10
 isPy311 = isPy3 and sys.version_info.minor>=11
 isPy312 = isPy3 and sys.version_info.minor>=12
 isPy313 = isPy3 and sys.version_info.minor>=13
+isPy315 = isPy3 and sys.version_info.minor>=15
 ast_Str = ast.Constant if isPy38 else ast.Str
 _usePyCache = isPy3 and False                   #change if you don't have legacy ie python 2.7 usage
 from xml.sax.saxutils import escape as xmlEscape
@@ -1033,8 +1034,6 @@ def run(dictionary, __write__=None, quoteFunc=None, outputfile=None, lquoteFunc=
     try: # compiled logic below
         # make sure quoteFunc is defined:
         qFunc, lconv = __get_conv__(quoteFunc,lquoteFunc,__isbytes__)
-        globals()['__quoteFunc__'] = qFunc
-        globals()['__lquoteFunc__'] = lconv
         # make sure __write__ is defined
         class dummyfile: pass
         if __write__:
@@ -1061,8 +1060,7 @@ def run(dictionary, __write__=None, quoteFunc=None, outputfile=None, lquoteFunc=
                     b.insert(0,ast.parse('%s=dictionary[%r]' % (k,k),'???',mode='exec').body[0])
             except:
                 pass
-        NS = {}
-        NS['include'] = include
+        NS = dict(__quoteFunc__ = qFunc, __lquoteFunc__ = lconv, include = include)
         __rl_exec__(compile(M,__preppy_filename__,'exec'),NS)
         NS['__code__'](dictionary,outputfile,__lwrite__,__swrite__,__save_sys_stdout__,__wss__)
     finally: #### end of compiled logic, standard cleanup
@@ -1184,6 +1182,19 @@ class PreppyCache(OrderedDict):
 
 __preppyCache__ = PreppyCache()
 
+def _decodeSource(encodings,sourcetext):
+    if encodings and isinstance(sourcetext,bytes):
+        for enc in encodings:
+            try:
+                sourcetext = sourcetext.decode(enc)
+            except:
+                pass
+            else:
+                break
+        else:
+            raise ValueError(f'Cannot create str from bytes read from {sourcefilename!r}')
+    return sourcetext
+
 def getModule(name,
               directory=".",
               source_extension=".prep",
@@ -1193,7 +1204,8 @@ def getModule(name,
               savePyc=None,
               cache='global',
               _globals=None,
-              _existing_module=None):
+              _existing_module=None,
+              encodings = ()):
     """Returns a python module implementing the template, compiling if needed.
     argument            purpose
     name                the basename of the source or sometjhing with a read
@@ -1208,9 +1220,12 @@ def getModule(name,
                         or None or 'local' or the default 'global'. If None no caching
                         is done. If 'global' a module level cache is used. If 'local'
                         a private cache is created in this call.
+    encodings           if not empty and sourcetext is not specified then
+                        the implied file will be read in binary and converted to
+                        str using the first encoding that decodes the read bytes
 
     If this prep uses {{include(...)}} then source_extension, verbose, savePyc,
-    cache and _globals=_globals will be used to the implied getModule calls.
+    cache _globals & encodings will be used in the implied getModule calls.
     These defaults can be overridden using an include argument __getModule_kwds__.
     """
     verbose = verbose or _verbose
@@ -1234,10 +1249,11 @@ def getModule(name,
                     savePyc=savePyc,
                     cache=cache,
                     _globals=_globals,
+                    encodings=encodings,
                     )
         return m
     if hasattr(name,'read'):
-        sourcetext = name.read()
+        sourcetext = _decodeSource(encodings,name.read())
         name = getattr(name,'name',None)
         if not name: name = '_preppy_'+getMd5(sourcetext)
     else:
@@ -1288,7 +1304,8 @@ def getModule(name,
                 pnl(" pyc %s[%s] not found... " % (name,dir))
             # check against source file
         try:
-            sourcefile = open(sourcefilename, "r")
+            with open(sourcefilename, "rb" if encodings else "r") as _:
+                sourcetext = _decodeSource(encodings,_.read())
         except:
             if verbose: pnl(" no source file, reuse... ")
             if module is None:
@@ -1297,7 +1314,6 @@ def getModule(name,
             if cache: cache[sourcefilename] = module
             return returnValue(module)
         else:
-            sourcetext = sourcefile.read()
             # NOTE: force recompile on each new version of this module.
             sourcechecksum = getMd5(sourcetext)
             if sourcechecksum==checksum:
