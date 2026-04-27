@@ -18,6 +18,7 @@ isPy39 = preppy.isPy39
 isPy310 = preppy.isPy310
 isPy311 = preppy.isPy311
 isPy313 = preppy.isPy313
+isPy315 = preppy.isPy315
 
 def P__tokenize(source,filename='<unknown>'):
     P=preppy.PreppyParser(source,filename)
@@ -58,6 +59,7 @@ class PreppyParserTestCase(unittest.TestCase):
         else:
             sTE = 'TryExcept'
             sTFL = ''
+        if isPy315: s = s.replace(' Load(),','')
         return s.replace('sTE',sTE).replace('sTFL',sTFL).replace('sNN',sNN).replace('sEL',sEL)
 
     def assertEqualStr(self,a,b):
