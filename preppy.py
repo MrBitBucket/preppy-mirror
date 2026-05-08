@@ -26,7 +26,7 @@ since unix applications may run as a different user and not have the needed
 permission to store compiled modules.
 
 """
-VERSION = '5.2.0'
+VERSION = '5.2.1'
 __version__ = VERSION
 
 USAGE = """
@@ -77,6 +77,13 @@ from xml.sax.saxutils import escape as xmlEscape
 from collections import namedtuple
 Token = namedtuple('Token','kind start end')
 _verbose = int(os.environ.get('RL_verbose','0'))
+
+if isPy313:
+    def astSimpleCall(func=None,args=None):
+        return ast.Call(func=func,args=args)
+else:
+    def astSimpleCall(func=None,args=None):
+        return ast.Call(func=func,args=args,keywords=[],starargs=None,kwargs=None)
 
 from keyword import iskeyword
 if isPy3:
@@ -858,7 +865,7 @@ class PreppyParser:
         if mode=='eval':
             if not isinstance(n[-1],ast.Expr):
                 self.__error('{{eval}} should end with an expression')
-            n[-1] = ast.Expr(value=ast.Call(func=ast.Name(id='__swrite__',ctx=ast.Load()),args=[n[-1].value],keywords=[],starargs=None,kwargs=None))
+            n[-1] = ast.Expr(value=astSimpleCall(func=ast.Name(id='__swrite__',ctx=ast.Load()),args=[n[-1].value]))
             if len(n)==1: n = n[0]
         self.__renumber(n,t,dcoffs=dcoffs)
         return n
@@ -895,7 +902,7 @@ class PreppyParser:
 
     def __const(self):
         try:
-            n = ast.Expr(value=ast.Call(func=ast.Name(id='__write__',ctx=ast.Load()),args=[ast_Str(self.__tokenText(strip=0))],keywords=[],starargs=None,kwargs=None))
+            n = ast.Expr(value=astSimpleCall(func=ast.Name(id='__write__',ctx=ast.Load()),args=[ast_Str(self.__tokenText(strip=0))]))
         except:
             self.__error('bad constant')
         t = self.__tokenPop()
@@ -910,7 +917,7 @@ class PreppyParser:
         elif not isinstance(n[0],ast.Expr):
             self.__error('{{expr}} should be an expression, got %s' % n[0].__class__.__name__)
         try:
-            n = ast.Expr(value=ast.Call(func=ast.Name(id='__swrite__',ctx=ast.Load()),args=[n[0].value],keywords=[],starargs=None,kwargs=None))
+            n = ast.Expr(value=astSimpleCall(func=ast.Name(id='__swrite__',ctx=ast.Load()),args=[n[0].value]))
         except:
             self.__error('bad expression')
         t = self.__tokenPop()
